@@ -1,5 +1,7 @@
 DECLARE @lastMonthEndDay DATETIME = DATEADD(ms, -3, DATEADD(mm, DATEDIFF(m, 0, GETDATE()), 0)); -- 上月末
 
+
+
 -- 统计平台公司的现金流 
 SELECT  
         org.清洗时间,
