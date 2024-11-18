@@ -1,4 +1,6 @@
 --缓存产品楼栋
+
+
 SELECT  ms.SaleBldGUID ,
         '华南公司' buname ,
         p1.spreadname ,
