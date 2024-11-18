@@ -6,7 +6,7 @@ INTO    #data_tb_SaleBldHxInfoBySx
 FROM(SELECT ROW_NUMBER() OVER (PARTITION BY 产品楼栋GUID ORDER BY batch_update_time DESC) AS num ,
             *
      FROM   [172.16.4.161].[HighData_prod].dbo.data_tb_SaleBldHxInfoBySx) t
-WHERE   t.num = 1;
+WHERE   t.num = 1
 
 SELECT  项目GUID ,
         项目名称 ,
@@ -975,17 +975,8 @@ SELECT  a.* ,
         b.盈利规划营业成本单方 AS yycbdf ,
         b.税金及附加单方 AS sjdf,
 		b.股权溢价单方 as EquityPremiumdf
+into #testtemp
 FROM    #tmp a
         left join #ldjd ld on ld.salebldguid = a.productbuildguid 
         LEFT JOIN #df_base b ON a.projguid = b.项目Guid AND  a.ProductType = b.产品类型 AND  a.ProductName = b.产品名称 AND  a.BusinessType = b.商品类型 AND a.Standard = b.装修标准
 -- where  a.ProjGUID ='7abbac1a-b1f8-ea11-b398-f40270d39969'
-
-DROP TABLE #hx1 ,
-           #hx2 ,
-           #ldjd ,
-           #r ,
-           #tmp ,
-           #tmp_result ,
-           #SxRoomStr ,
-           #SxBaseRoomStr ,
-           #data_tb_SaleBldHxInfoBySx
