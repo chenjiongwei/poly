@@ -1,95 +1,99 @@
 DECLARE @lastMonthEndDay DATETIME = DATEADD(ms, -3, DATEADD(mm, DATEDIFF(m, 0, GETDATE()), 0)); -- 上月末
-
-
-
 -- 统计平台公司的现金流 
-SELECT  
-        org.清洗时间,
-        org.平台公司GUID ,
-        org.组织架构父级id ,
-        org.组织架构id ,
-        org.组织架构名称 ,
-        sale.本月签约任务 ,
-        sale.本月签约金额 ,
-        case when sale.本月签约任务 = 0 then 0 else sale.本月签约金额/sale.本月签约任务 end as 本月签约完成率,
-        sale.本年签约任务 ,
-        sale.本年已签约金额 AS 本年签约金额 ,
-        case when sale.本年签约任务 = 0 then 0 else sale.本年已签约金额/sale.本年签约任务 end as 本年签约完成率,
-        sale.本月认购任务 ,
-        sale.本月认购金额 ,
-        case when sale.本月认购任务 = 0 then 0 else sale.本月认购金额/sale.本月认购任务 end as 本月认购完成率,
-        sale.本年认购任务 ,
-        sale.本年认购金额 ,
-        case when sale.本年认购任务 = 0 then 0 else sale.本年认购金额/sale.本年认购任务 end as 本年认购完成率,
-        hl.本月回笼任务 ,
-        hl.本月回笼金额 ,
-        case when hl.本月回笼任务 = 0 then 0 else hl.本月回笼金额/hl.本月回笼任务 end as 本月回笼完成率,
-        hl.本月权益回笼任务 ,
-        hl.本月权益回笼金额 ,
-        case when hl.本月权益回笼任务 = 0 then 0 else hl.本月权益回笼金额/hl.本月权益回笼任务 end as 本月权益回笼完成率,
-        hl.本年回笼任务 ,
-        hl.本年回笼金额 ,
-        case when hl.本年回笼任务 = 0 then 0 else hl.本年回笼金额/hl.本年回笼任务 end as 本年回笼完成率,
-        hl.本年权益回笼任务 ,
-        hl.本年权益回笼金额 ,
-        case when hl.本年权益回笼任务 = 0 then 0 else hl.本年权益回笼金额/hl.本年权益回笼任务 end as 本年权益回笼完成率,
+SELECT  org.清洗时间,
+        org.平台公司GUID,
+        org.组织架构父级id,
+        org.组织架构id,
+        org.组织架构名称,
+        sale.本月签约任务,
+        sale.本月签约金额,
+        CASE WHEN sale.本月签约任务 = 0 THEN 0 ELSE sale.本月签约金额/sale.本月签约任务 END AS 本月签约完成率,
+        sale.本年签约任务,
+        sale.本年已签约金额 AS 本年签约金额,
+        CASE WHEN sale.本年签约任务 = 0 THEN 0 ELSE sale.本年已签约金额/sale.本年签约任务 END AS 本年签约完成率,
+        sale.本月认购任务,
+        sale.本月认购金额,
+        CASE WHEN sale.本月认购任务 = 0 THEN 0 ELSE sale.本月认购金额/sale.本月认购任务 END AS 本月认购完成率,
+        sale.本年认购任务,
+        sale.本年认购金额,
+        CASE WHEN sale.本年认购任务 = 0 THEN 0 ELSE sale.本年认购金额/sale.本年认购任务 END AS 本年认购完成率,
+        hl.本月回笼任务,
+        hl.本月回笼金额,
+        CASE WHEN hl.本月回笼任务 = 0 THEN 0 ELSE hl.本月回笼金额/hl.本月回笼任务 END AS 本月回笼完成率,
+        hl.本月权益回笼任务,
+        hl.本月权益回笼金额,
+        CASE WHEN hl.本月权益回笼任务 = 0 THEN 0 ELSE hl.本月权益回笼金额/hl.本月权益回笼任务 END AS 本月权益回笼完成率,
+        hl.本年回笼任务,
+        hl.本年回笼金额,
+        CASE WHEN hl.本年回笼任务 = 0 THEN 0 ELSE hl.本年回笼金额/hl.本年回笼任务 END AS 本年回笼完成率,
+        hl.本年权益回笼任务,
+        hl.本年权益回笼金额,
+        CASE WHEN hl.本年权益回笼任务 = 0 THEN 0 ELSE hl.本年权益回笼金额/hl.本年权益回笼任务 END AS 本年权益回笼完成率,
         
-        /*sch.本月计划开工面积 ,
-        sch.本月实际开工面积 ,
-        case when sch.本月计划开工面积 = 0 then 0 else sch.本月实际开工面积/sch.本月计划开工面积 end as 本月开工完成率,
-        sch.本月计划竣工面积 , 
-        sch.本月实际竣工面积 ,
-        case when sch.本月计划竣工面积 = 0 then 0 else sch.本月实际竣工面积/sch.本月计划竣工面积 end as 本月竣工完成率,
-        sch.本年计划开工面积 , 
-        sch.本年实际开工面积 ,
-        case when sch.本年计划开工面积 = 0 then 0 else sch.本年实际开工面积/sch.本年计划开工面积 end as 本年开工完成率,
-        sch.本年计划竣工面积 ,
-        sch.本年实际竣工面积 ,
-        case when sch.本年计划竣工面积 = 0 then 0 else sch.本年实际竣工面积/sch.本年计划竣工面积 end as 本年竣工完成率, */
+        /*sch.本月计划开工面积,
+        sch.本月实际开工面积,
+        CASE WHEN sch.本月计划开工面积 = 0 THEN 0 ELSE sch.本月实际开工面积/sch.本月计划开工面积 END AS 本月开工完成率,
+        sch.本月计划竣工面积, 
+        sch.本月实际竣工面积,
+        CASE WHEN sch.本月计划竣工面积 = 0 THEN 0 ELSE sch.本月实际竣工面积/sch.本月计划竣工面积 END AS 本月竣工完成率,
+        sch.本年计划开工面积, 
+        sch.本年实际开工面积,
+        CASE WHEN sch.本年计划开工面积 = 0 THEN 0 ELSE sch.本年实际开工面积/sch.本年计划开工面积 END AS 本年开工完成率,
+        sch.本年计划竣工面积,
+        sch.本年实际竣工面积,
+        CASE WHEN sch.本年计划竣工面积 = 0 THEN 0 ELSE sch.本年实际竣工面积/sch.本年计划竣工面积 END AS 本年竣工完成率,*/
 
-        cash.本月土地任务 AS 本月地价任务 ,
-        cash.本月地价支出 ,
-        cash.本月除地价外直投任务 ,
-        cash.本月除地价外直投发生 ,
-        case when cash.本月除地价外直投任务 = 0 then 0 else cash.本月除地价外直投发生/cash.本月除地价外直投任务 end as 本月除地价外直投完成率,
-        cash.本年除地价外直投任务 ,
-        cash.本年除地价外直投发生 ,
-        case when cash.本年除地价外直投任务 = 0 then 0 else cash.本年除地价外直投发生/cash.本年除地价外直投任务 end as 本年除地价外直投完成率,
-        cash.本年贷款任务 ,
-        cash.本年净增贷款 ,
-        case when cash.本年贷款任务 = 0 then 0 else cash.本年净增贷款/cash.本年贷款任务 end as 本年贷款完成率,
-        cash.本月贷款任务 ,
-        cash.本月贷款金额 ,
-        case when cash.本月贷款任务 = 0 then 0 else cash.本月贷款金额/cash.本月贷款任务 end as 本月贷款完成率,
-        cash.本月营销费支出 ,
-        cash.本月管理费支出 ,
-        cash.本月财务费支出 ,
-        cash.本月三费任务 AS 本月三费任务 ,
-        ISNULL(cash.本月营销费支出, 0) + ISNULL(cash.本月管理费支出, 0) + ISNULL(cash.本月财务费支出, 0) AS 本月三费金额 ,
-        cash.本月税金支出 ,
-        cash.本月经营性现金流目标 AS 本月经营性现金流任务 ,
-        cash.本月经营性现金流 ,
-        case when cash.本月经营性现金流目标 = 0 then null  else cash.本月经营性现金流/cash.本月经营性现金流目标 end as 本月经营性现金流完成率,
-        cash.本年经营性现金流目标 AS 本年经营性现金流任务 ,
-        cash.本年经营性现金流 ,
-        case when cash.本年经营性现金流目标 = 0 then null else cash.本年经营性现金流/cash.本年经营性现金流目标 end as 本年经营性现金流完成率,
-        cash.本年股东投资现金流目标 AS 本年股东现金流任务 ,
-        cash.本年股东现金流 ,
-        profit.本年预计销售净利润账面 ,
-        profit.本年预计销售净利率账面 ,
-        profit.本年销售净利率账面 ,
-        profit.本年销售净利润账面 , 
-        profit.本月销售净利率账面 ,
+        cash.本月土地任务 AS 本月地价任务,
+        cash.本月地价支出,
+        cash.本月除地价外直投任务,
+        cash.本月除地价外直投发生,
+        CASE WHEN cash.本月除地价外直投任务 = 0 THEN 0 ELSE cash.本月除地价外直投发生/cash.本月除地价外直投任务 END AS 本月除地价外直投完成率,
+        cash.本年除地价外直投任务,
+        cash.本年除地价外直投发生,
+        CASE WHEN cash.本年除地价外直投任务 = 0 THEN 0 ELSE cash.本年除地价外直投发生/cash.本年除地价外直投任务 END AS 本年除地价外直投完成率,
+        cash.本年贷款任务,
+        cash.本年净增贷款,
+        CASE WHEN cash.本年贷款任务 = 0 THEN 0 ELSE cash.本年净增贷款/cash.本年贷款任务 END AS 本年贷款完成率,
+        cash.本月贷款任务,
+        cash.本月贷款金额,
+        CASE WHEN cash.本月贷款任务 = 0 THEN 0 ELSE cash.本月贷款金额/cash.本月贷款任务 END AS 本月贷款完成率,
+        cash.本月营销费支出,
+        cash.本月管理费支出,
+        cash.本月财务费支出,
+        cash.本月三费任务 AS 本月三费任务,
+        ISNULL(cash.本月营销费支出, 0) + ISNULL(cash.本月管理费支出, 0) + ISNULL(cash.本月财务费支出, 0) AS 本月三费金额,
+        cash.本月税金支出,
+        cash.本月经营性现金流目标 AS 本月经营性现金流任务,
+        cash.本月经营性现金流,
+        CASE WHEN cash.本月经营性现金流目标 = 0 THEN NULL ELSE cash.本月经营性现金流/cash.本月经营性现金流目标 END AS 本月经营性现金流完成率,
+        cash.本年经营性现金流目标 AS 本年经营性现金流任务,
+        cash.本年经营性现金流,
+        CASE WHEN cash.本年经营性现金流目标 = 0 THEN NULL ELSE cash.本年经营性现金流/cash.本年经营性现金流目标 END AS 本年经营性现金流完成率,
+        cash.本年股东投资现金流目标 AS 本年股东现金流任务,
+        cash.本年股东现金流,
+        profit.本年预计销售净利润账面,
+        profit.本年预计销售净利率账面,
+        profit.本年销售净利率账面,
+        profit.本年销售净利润账面,
+        profit.本月销售净利率账面,
         profit.本月净利润签约
 INTO    #SubCompayMonthCshflow
 FROM    highdata_prod.dbo.dw_s_WqBaseStatic_Organization org
-        LEFT JOIN highdata_prod.dbo.dw_s_WqBaseStatic_baseinfo base ON org.组织架构id = base.组织架构id  and org.清洗时间id = base.清洗时间id 
-        LEFT JOIN highdata_prod.dbo.dw_s_WqBaseStatic_tradeInfo sale ON sale.组织架构id = org.组织架构id and  org.清洗时间id = sale.清洗时间id
-        LEFT JOIN highdata_prod.dbo.dw_s_WqBaseStatic_ProfitInfo profit ON profit.组织架构id = org.组织架构id and  org.清洗时间id = profit.清洗时间id
-        LEFT JOIN highdata_prod.dbo.dw_s_WqBaseStatic_returnInfo hl ON hl.组织架构id = org.组织架构id and  org.清洗时间id = hl.清洗时间id
-        --LEFT JOIN highdata_prod.dbo.data_wide_dws_s_WqBaseStatic_ScheduleInfo sch ON sch.组织架构id = org.组织架构id
-        LEFT JOIN highdata_prod.dbo.dw_s_WqBaseStatic_cashflowInfo cash ON cash.组织架构id = org.组织架构id and  org.清洗时间id = cash.清洗时间id
-WHERE   1 = 1 AND   org.组织架构类型 = 1 AND  org.平台公司名称 = '湾区公司';
+        LEFT JOIN highdata_prod.dbo.dw_s_WqBaseStatic_baseinfo base 
+            ON org.组织架构id = base.组织架构id AND org.清洗时间id = base.清洗时间id 
+        LEFT JOIN highdata_prod.dbo.dw_s_WqBaseStatic_tradeInfo sale 
+            ON sale.组织架构id = org.组织架构id AND org.清洗时间id = sale.清洗时间id
+        LEFT JOIN highdata_prod.dbo.dw_s_WqBaseStatic_ProfitInfo profit 
+            ON profit.组织架构id = org.组织架构id AND org.清洗时间id = profit.清洗时间id
+        LEFT JOIN highdata_prod.dbo.dw_s_WqBaseStatic_returnInfo hl 
+            ON hl.组织架构id = org.组织架构id AND org.清洗时间id = hl.清洗时间id
+        --LEFT JOIN highdata_prod.dbo.data_wide_dws_s_WqBaseStatic_ScheduleInfo sch 
+        --    ON sch.组织架构id = org.组织架构id
+        LEFT JOIN highdata_prod.dbo.dw_s_WqBaseStatic_cashflowInfo cash 
+            ON cash.组织架构id = org.组织架构id AND org.清洗时间id = cash.清洗时间id
+WHERE   1 = 1 
+        AND org.组织架构类型 = 1 
+        AND org.平台公司名称 = '湾区公司';
 
 --本月计划开工 竣备节点
 select  bd.BUGUID, shi.清洗时间,
