@@ -1,4 +1,14 @@
--- 判断是否首开
+/*
+主要功能块:
+1. 判断项目是否首开
+2. 获取项目业绩分类信息
+3. 统计本日成交数据
+4. 统计历史来访数据
+5. 计算最终业绩结果
+*/
+
+-- 1. 判断是否首开
+
 SELECT ISNULL(p1.projguid, p.projguid) projguid,
        MIN(o.qsdate) stdate
 INTO #sk
@@ -10,7 +20,9 @@ WHERE o.status = '激活'
       OR o.closereason = '转签约'
 GROUP BY ISNULL(p1.projguid, p.projguid);
 
--- 获取项目业绩区分信息
+-- 2. 获取项目业绩区分信息
+-- 建议添加索引优化:
+-- CREATE INDEX idx_projguid ON vmdm_projectflag(projguid)
 SELECT DISTINCT
        f.projguid,
        f.是否录入合作业绩,
