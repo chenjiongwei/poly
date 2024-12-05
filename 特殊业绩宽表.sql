@@ -106,7 +106,8 @@ FROM   (   SELECT a.PerformanceAppraisalGUID AS SalesGUID ,
                      union all 
                      select  o.RoomGUID,o.CreatedOn from  s_Order o 
                      where  o.Status ='激活' and  OrderType ='认购'
-                     and o.roomguid = c.RoomGUID   and  ( ( o.CreatedOn < a.SetGqAuditTime and a.SetGqAuditTime is not null ) or   a.SetGqAuditTime is  null )
+                     and o.roomguid = c.RoomGUID   
+                     and  ( ( o.CreatedOn < a.SetGqAuditTime and a.SetGqAuditTime is not null ) or   a.SetGqAuditTime is  null )
              )
     ) appraisa
 
