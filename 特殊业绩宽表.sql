@@ -65,10 +65,10 @@ FROM   (   SELECT a.PerformanceAppraisalGUID AS SalesGUID ,
                   AND a.AuditStatus = '已审核'
                   --AND c.PerformanceAppraisalGUID IS NULL
                   AND b.BldGUID NOT IN (  SELECT r.BldGUID
-                                           FROM   S_PerformanceAppraisalRoom c
-										   inner join S_PerformanceAppraisal s on c.PerformanceAppraisalGUID = s.PerformanceAppraisalGUID
-                                                  INNER JOIN dbo.p_room r ON c.RoomGUID = r.RoomGUID
-												  where s.AuditStatus='已审核' )
+                                          FROM   S_PerformanceAppraisalRoom c
+					       inner join S_PerformanceAppraisal s on c.PerformanceAppraisalGUID = s.PerformanceAppraisalGUID
+                                          INNER JOIN dbo.p_room r ON c.RoomGUID = r.RoomGUID
+						where s.AuditStatus  in ('已审核','已取消') )
            UNION ALL
            SELECT c.RGUID AS SalesGUID ,
                   a.PerformanceAppraisalGUID ,
