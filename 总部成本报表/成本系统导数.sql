@@ -1,6 +1,6 @@
 -- 成本系统导数 chenjw 2025-01-02
 -- 1、加一列“分期建设状态”
--- 2、数据过滤掉，名称=“待规划合约”的合约规划
+-- 2、数据过滤掉，名称=“待规划成本”的合约规划
 use MyCost_Erp352
 go 
 
@@ -27,6 +27,6 @@ LEFT JOIN (
     GROUP BY BudgetGUID
 ) budget2bld ON budget2bld.BudgetGUID = cbg.ExecutingBudgetGUID
 WHERE 1 = 1  --and  ISNULL(budget2bld.Budget2GCBldNum, 0) > 0
-and  cbg.BudgetName <> '待规划合约'
+and  cbg.BudgetName <> '待规划成本'
 ORDER BY p.ProjCode,
          cbg.BudgetCode

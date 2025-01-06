@@ -3,18 +3,50 @@ from data_wide_dws_cb_deviation_analysis
 where level=3 and CostLevel=1 and datediff(yy,回顾日期,getdate())=0
 and ProjectGUID in()
 */
-select 
-a.projguid ProjectGUID,a.ParentProjGUID,gl.动态成本调整值*100000000 动态成本调整值_粤中,bzgl.动态成本调整值*100000000 动态成本调整值_标准
-,(isnull(gl.动态成本调整值,0)+isnull(bzgl.动态成本调整值,0))*100000000 as 动态成本调整值
-into #projguid
-from data_wide_cb_ProjCostAccount a 
-left join (select * from data_tb_yz_cb_xmgl where batch_update_time = (select max(batch_update_time)batch_update_time from data_tb_yz_cb_xmgl)) gl on a.ProjGUID=gl.ProjGUID
-left join (select * from data_tb_cb_xmgl where batch_update_time = (select max(batch_update_time)batch_update_time from data_tb_cb_xmgl)) bzgl on a.ProjGUID=bzgl.分期guid
-where CostLevel=1 and (
-(a.buguid in('6acca53b-0df4-43c3-bc9a-874feba48986','455fc380-b609-4a5a-9aac-ee0f84c7f1b8') and TargetCost<>0 and (DynamicCost_HFXJ+isnull(gl.动态成本调整值,0))<>0) 
-or 
-(a.buguid not in ('6acca53b-0df4-43c3-bc9a-874feba48986','455fc380-b609-4a5a-9aac-ee0f84c7f1b8') and ((isnull(bzgl.动态成本调整值,0)<>0) or (TargetCost<>0 and DynamicCost_HFXJ<>0)))
-)
+-- 创建临时表存储项目成本调整数据
+SELECT 
+    a.projguid AS ProjectGUID,                                                     -- 项目GUID
+    a.ParentProjGUID,                                                             -- 父项目GUID
+    gl.动态成本调整值 * 100000000 AS 动态成本调整值_粤中,                           -- 粤中公司动态成本调整值(单位:亿元)
+    bzgl.动态成本调整值 * 100000000 AS 动态成本调整值_标准,                         -- 标准动态成本调整值(单位:亿元)
+    (ISNULL(gl.动态成本调整值, 0) + ISNULL(bzgl.动态成本调整值, 0)) * 100000000 AS 动态成本调整值  -- 总动态成本调整值(单位:亿元)
+INTO #projguid
+FROM data_wide_cb_ProjCostAccount a 
+    -- 关联粤中公司成本管理表(取最新批次)
+    LEFT JOIN (
+        SELECT ProjGUID, 动态成本调整值
+        FROM data_tb_yz_cb_xmgl 
+        WHERE batch_update_time = (
+            SELECT MAX(batch_update_time) FROM data_tb_yz_cb_xmgl
+        )
+    ) gl ON a.ProjGUID = gl.ProjGUID
+    -- 关联标准成本管理表(取最新批次) 
+    LEFT JOIN (
+        SELECT 分期guid, 动态成本调整值
+        FROM data_tb_cb_xmgl 
+        WHERE batch_update_time = (
+            SELECT MAX(batch_update_time) FROM data_tb_cb_xmgl
+        )
+    ) bzgl ON a.ProjGUID = bzgl.分期guid
+WHERE CostLevel = 1 
+    AND (
+        -- 粤中、华南公司条件:目标成本不为0且动态成本不为0
+        (a.buguid IN ('6acca53b-0df4-43c3-bc9a-874feba48986','455fc380-b609-4a5a-9aac-ee0f84c7f1b8') 
+            AND TargetCost <> 0 
+            AND (DynamicCost_HFXJ + ISNULL(gl.动态成本调整值, 0)) <> 0
+        ) 
+        OR 
+        -- 其他公司条件:动态成本调整值不为0,或目标成本和动态成本都不为0
+        (a.buguid NOT IN ('6acca53b-0df4-43c3-bc9a-874feba48986','455fc380-b609-4a5a-9aac-ee0f84c7f1b8') 
+            AND (
+                ISNULL(bzgl.动态成本调整值, 0) <> 0 
+                OR (TargetCost <> 0 AND DynamicCost_HFXJ <> 0)
+            )
+        )
+    )
+
+-- 添加聚集索引
+CREATE CLUSTERED INDEX IX_projguid_ProjectGUID ON #projguid(ProjectGUID)
 
 --粤中要求目标成本、动态成本都为0的项目要去掉。标准看板要求取填报的不为0或者目标和动态成本都不为0
 --公司级
@@ -69,6 +101,10 @@ WHERE CostLevel IN (1, 2) --AND buname='粤中公司'
 and exists(select * from #projguid where ProjectGUID=a.ProjGUID)
 GROUP BY 
 grouping sets((),(buguid,buname),( buguid,buname,a.ParentProjGUID,ParentProjName),(buguid,buname,a.ParentProjGUID,ParentProjName,a.ProjGUID,ProjName,p.p_projname,p.TgProjCode,ConstructStatus,ProjCode,a.TargetStageVersion))
+
+-- 添加索引
+CREATE NONCLUSTERED INDEX IX_cb_temp01_OrgGUID ON #cb_temp01(OrgGUID)
+CREATE NONCLUSTERED INDEX IX_cb_temp01_ProjGUID ON #cb_temp01(ProjGUID)
 
 --超限科目数 ，分期
 select '直投'type,
@@ -188,12 +224,14 @@ SELECT
 	,ISNULL((a.动态成本-a.动态成本_不含非现金)/NULLIF(p.总建筑面积,0),0) 其中非现金单方
 	,ISNULL(a.已发生成本/NULLIF(p.总建筑面积,0),0)已发生成本单方
 	,ISNULL(a.待发生成本/NULLIF(p.总建筑面积,0),0)待发生成本单方
-FROM #cb_temp02 a
-     LEFT JOIN #proj p ON a.orgguid=p.orgguid AND a.OrgType=p.OrgType
-	 left join #lasemonth_dt b on b.cb_type=a.type and a.OrgGUID=b.ProjectGUID
-	 left join (select * from data_tb_sichuan_projname where batch_update_time=(select max(batch_update_time)batch_update_time from data_tb_sichuan_projname))  pj on a.parentguid = pj.项目GUID
-	 left join #cx_proj cx on cx.type =a.type and cx.ProjGUID=a.OrgGUID
-	 left join data_wide_dws_mdm_project pp on a.parentguid = pp.projguid
+FROM #cb_temp02 a WITH (NOLOCK)
+     LEFT JOIN #proj p WITH (NOLOCK) ON a.orgguid=p.orgguid AND a.OrgType=p.OrgType
+	 LEFT JOIN #lasemonth_dt b WITH (NOLOCK) ON b.cb_type=a.type and a.OrgGUID=b.ProjectGUID
+	 LEFT JOIN data_tb_sichuan_projname pj WITH (NOLOCK) ON 
+        a.parentguid = pj.项目GUID 
+        AND pj.batch_update_time=(select max(batch_update_time) from data_tb_sichuan_projname)
+	 LEFT JOIN #cx_proj cx WITH (NOLOCK) ON cx.type =a.type and cx.ProjGUID=a.OrgGUID
+	 LEFT JOIN data_wide_dws_mdm_project pp WITH (NOLOCK) ON a.parentguid = pp.projguid
 --where a.buname='粤中公司' and a.OrgType='平台公司'
 
 --删除临时表
