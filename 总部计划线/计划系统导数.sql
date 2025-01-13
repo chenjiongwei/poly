@@ -77,3 +77,24 @@ LEFT JOIN (
 WHERE p.IfEnd = 1
 AND jp.PlanType = 103
 AND jp.IsExamin = 1;
+
+
+
+-- select  bu.buname AS 公司名称,
+--        mpp.projname AS 一级项目名称,
+--        p.projname AS 分期名称,
+--        sw.Name AS 标段名称,
+--        pw.Name AS 计划组团名称,
+--        wk.BuildingName AS 工程楼栋名称
+-- FROM dbo.p_Project p WITH (NOLOCK)
+-- INNER JOIN mybusinessunit bu WITH (NOLOCK) ON bu.buguid = p.buguid
+-- INNER JOIN erp25.dbo.mdm_project mp WITH (NOLOCK) ON mp.projguid = p.ProjGUID
+-- INNER JOIN erp25.dbo.mdm_project mpp WITH (NOLOCK) ON mp.ParentProjGUID = mpp.projguid
+-- INNER JOIN p_HkbBiddingSectionWork sw WITH (NOLOCK) ON sw.ProjGUID = p.ProjGUID
+-- INNER JOIN p_HkbBiddingBuildingWork pw WITH (NOLOCK) ON pw.BidGUID = sw.BidGUID
+-- INNER JOIN jd_ProjectPlanExecute jp WITH (NOLOCK) ON jp.ObjectID = pw.BuildGUID
+-- LEFT JOIN (
+--     SELECT a.BudGUID,BuildingName
+--     FROM dbo.p_HkbBiddingBuilding2BuildingWork a WITH (NOLOCK)
+--     INNER JOIN ERP25.dbo.mdm_GCBuild gc WITH (NOLOCK) ON gc.GCBldGUID = a.BuildingGUID
+-- ) wk ON wk.BudGUID = pw.BuildGUID

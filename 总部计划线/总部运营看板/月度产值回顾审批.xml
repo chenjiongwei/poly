@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="utf-8"?><BusinessObject><myWorkflowBusinessObject><Name>月度产值回顾审批</Name><Type>2</Type><Description>111</Description><MainTable></MainTable><MainKey></MainKey><BookType>0</BookType><BookStoredProcedure></BookStoredProcedure><EnabledExtendBusinessObjectXML>0</EnabledExtendBusinessObjectXML><ExtendBusinessObjectXMLUrl></ExtendBusinessObjectXMLUrl><BusinessJSFile></BusinessJSFile><SelectPage></SelectPage><ApproveModifyURL></ApproveModifyURL><DataSourceType>1</DataSourceType><DataSourceSPName></DataSourceSPName><EventHandlerType>1</EventHandlerType><EventHandlerSPName></EventHandlerSPName><CreatedByName>系+先生+</CreatedByName><CreatedOn>2024/11/18 17:15:48</CreatedOn><ModifiedByName>系+先生+</ModifiedByName><ModifiedOn>2024/12/31 11:06:44</ModifiedOn><InitiateModifyURL></InitiateModifyURL></myWorkflowBusinessObject><myWorkflowBizType><BusinessTypeName>月度产值回顾审批</BusinessTypeName><Application>0202</Application><Description>月度产值回顾审批</Description></myWorkflowBizType><myWorkflowEntityDataSources><myWorkflowEntityDataSource><DataSourceName>主表</DataSourceName><SQL>
+SELECT ReportDate AS [汇报日期],
+       b.ProjName AS [项目名称],
+       b.ProjName + '(' + REPLACE(CONVERT(VARCHAR(100), a.ReportDate, 23), '-', '.') + ')形象进度回顾报告' AS [名称标题],
+       c.UserName AS [创建人]
+FROM jd_OutValueView a
+    LEFT JOIN dbo.p_Project b
+        ON a.ProjGUID = b.ProjGUID
+    LEFT JOIN dbo.myUser c
+        ON c.UserGUID = a.CreatedOn
+WHERE OutValueViewGUID = [业务GUID]
+</SQL><IsMaster>True</IsMaster><SeqNo>1</SeqNo><Description></Description><PKFieldName></PKFieldName></myWorkflowEntityDataSource><myWorkflowEntityDataSource><DataSourceName>形象进度回顾</DataSourceName><SQL>DECLARE @ProjGUID AS UNIQUEIDENTIFIER;
+SELECT @ProjGUID = ProjGUID
+FROM dbo.jd_OutValueView
+WHERE OutValueViewGUID = [业务GUID];
+
+SELECT *
+INTO #GCbuild
+FROM
+(
+    SELECT ISNULL(p.ProjName, '') + '-' + ISNULL(gc.BldName, '') AS BldName,
+           gc.BldName AS ShortBldName,
+           gc.SumBuildArea,
+           BldGUID,
+           gc.ProjGUID,
+           gc.BldCode,
+           gc.CurVersion,
+           gc.CreateDate,
+           gc.BldKeyGUID,
+           gc.SumJrArea,
+           gc.SumSaleArea,
+           gc.UpNum,
+           gc.DownNum
+    FROM dbo.md_GCBuild gc
+        LEFT JOIN
+        (
+            SELECT *
+            FROM
+            (
+                SELECT *,
+                       ROW_NUMBER() OVER (PARTITION BY ProjGUID ORDER BY CreateDate DESC) AS rowno
+                FROM dbo.md_Project
+            ) t
+            WHERE t.rowno = 1
+        ) p
+            ON gc.ProjGUID = p.ProjGUID
+    WHERE gc.CurVersion IN ( '预售查丈版', '竣工验收版' )
+          AND gc.IsActive = 1
+          AND gc.ProjGUID = @ProjGUID
+    UNION
+    SELECT ISNULL(t.ProjName, '') + '-' + ISNULL(t.BldName, '') AS BldName,
+           t.BldName AS ShortBldName,
+           ISNULL(t.SumBuildArea, 0) AS SumBuildArea,
+           t.BldGUID,
+           t.ProjGUID,
+           t.BldCode,
+           t.CurVersion,
+           t.CreateDate,
+           t.BldKeyGUID,
+           t.SumJrArea,
+           t.SumSaleArea,
+           t.UpNum,
+           t.DownNum
+    FROM
+    (
+        SELECT p.ProjName,
+               gc.*
+        FROM md_GCBuild gc
+            INNER JOIN
+            (
+                SELECT *
+                FROM
+                (
+                    SELECT ROW_NUMBER() OVER (PARTITION BY ProjGUID ORDER BY CreateDate DESC) AS rowmo,
+                           *
+                    FROM dbo.md_Project
+                    WHERE ApproveState = '已审核'
+                          AND ISNULL(CreateReason, '') &lt;&gt; '补录'
+                          AND CurVersion IN ( '立项版', '定位版', '修详规版', '建规证版' )
+                ) x
+                WHERE x.rowmo = 1
+            ) p
+                ON p.VersionGUID = gc.VersionGUID
+        WHERE NOT EXISTS
+        (
+            SELECT 1
+            FROM dbo.md_GCBuild
+            WHERE CurVersion IN ( '预售查丈版', '竣工验收版' )
+                  AND md_GCBuild.IsActive = 1
+                  AND md_GCBuild.BldGUID = gc.BldGUID
+        )
+              AND gc.ProjGUID = @ProjGUID
+    ) t
+) a;
+
+SELECT DISTINCT
+       a.OutValueJdhbNodeGUID,
+       a.OutValueJdhbGUID
+INTO #Diff
+FROM
+(
+    SELECT a.KeyNodeGUID,
+           a.CompleteScale,
+           a.CompleteDate,
+           c.BldGUID,
+           a.OutValueJdhbNodeGUID,
+           b.OutValueJdhbGUID
+    FROM jd_OutValueJdhb b
+        INNER JOIN dbo.jd_OutValueJdhbBld c
+            ON c.OutValueJdhbGUID = b.OutValueJdhbGUID
+        LEFT JOIN dbo.jd_OutValueJdhbNode a
+            ON b.OutValueJdhbGUID = a.OutValueJdhbGUID
+    WHERE b.OutValueViewGUID = [业务GUID]
+) a
+    LEFT JOIN
+    (
+        SELECT a.KeyNodeGUID,
+               a.CompleteScale,
+               a.CompleteDate,
+               c.BldGUID
+        FROM jd_OutValueJdhb b
+            INNER JOIN dbo.jd_OutValueJdhbBld c
+                ON c.OutValueJdhbGUID = b.OutValueJdhbGUID
+            LEFT JOIN dbo.jd_OutValueJdhbNode a
+                ON b.OutValueJdhbGUID = a.OutValueJdhbGUID
+            INNER JOIN
+            (
+                SELECT TOP 1
+                       OutValueViewGUID
+                FROM dbo.jd_OutValueView
+                WHERE ProjGUID = @ProjGUID
+                      AND ApproveState = '已审核'
+                      AND ApproveDate &lt;=
+                      (
+                          SELECT ISNULL(ApproveDate, '2099-12-01')
+                          FROM dbo.jd_OutValueView
+                          WHERE OutValueViewGUID = [业务GUID]
+                      )
+                      AND OutValueViewGUID &lt;&gt; [业务GUID]
+                ORDER BY ReportDate DESC
+            ) d
+                ON d.OutValueViewGUID = b.OutValueViewGUID
+    ) b
+        ON ISNULL(b.KeyNodeGUID, '00000000-0000-0000-0000-000000000000') = ISNULL(
+                                                                                     a.KeyNodeGUID,
+                                                                                     '00000000-0000-0000-0000-000000000000'
+                                                                                 )
+           AND b.BldGUID = a.BldGUID
+WHERE b.BldGUID IS NULL
+      OR (ISNULL(a.CompleteScale, 0) &lt;&gt; ISNULL(b.CompleteScale, 0))
+      OR (ISNULL(a.CompleteDate, '1900-01-01') &lt;&gt; ISNULL(b.CompleteDate, '1900-01-01'));
+
+SELECT a.OutValueJdhbGUID,
+       c.BldName,
+       c.SumBuildArea,
+       c.SumJrArea,
+       c.SumSaleArea,
+       NULL AS KgDate,
+       ISNULL(c.UpNum, 0) + ISNULL(c.DownNum, 0) AS Floor,
+       b.BldGUID,
+       a.BuildConstructionGUID
+INTO #Temp
+FROM jd_OutValueJdhb a
+    INNER JOIN jd_OutValueJdhbBld b
+        ON b.OutValueJdhbGUID = a.OutValueJdhbGUID
+    INNER JOIN #GCbuild c
+        ON c.BldGUID = b.BldGUID
+WHERE a.OutValueViewGUID = [业务GUID];
+
+
+SELECT BldName AS [楼栋名称],
+       YtName AS [业态],
+       BldArea AS [建筑面积],
+       SaleArea AS [可售面积],
+       JrArea AS [计容面积],
+       KgDate AS [开工时间],
+       Floor AS [楼层],
+       JsStatus AS [楼栋建设状态],
+       KeyNodeName AS [汇报节点],
+       CompleteValue AS [完成比例/层数],
+       CompleteDate AS [完成时间],
+       Remark AS [详细描述],
+	   Code AS [主键字段]
+FROM
+(
+    SELECT STUFF(
+           (
+               SELECT ';' + CAST(a1.BldName AS VARCHAR(40))
+               FROM #Temp a1
+               WHERE a1.OutValueJdhbGUID = a.OutValueJdhbGUID
+               FOR XML PATH('')
+           ),
+           1,
+           1,
+           ''
+                ) AS BldName,
+           a.YtName,
+           CAST(ISNULL(b.SumBuildArea, 0) AS VARCHAR(20)) AS BldArea,
+           CAST(ISNULL(b.SumSaleArea, 0) AS VARCHAR(20)) AS SaleArea,
+           CAST(ISNULL(b.SumJrArea, 0) AS VARCHAR(20)) AS JrArea,
+           CONVERT(VARCHAR(100), c.KgDate, 23) AS KgDate,
+           CAST(ISNULL(a.Floor, 0) AS VARCHAR(20)) AS Floor,
+           a.JsStatus,
+           '' AS KeyNodeName,
+           NULL AS KeyNodeGUID,
+           NULL AS CompleteScale,
+           NULL AS CompleteDate,
+           '' AS Remark,
+           CAST(a.OutValueJdhbGUID AS VARCHAR(40)) AS Code,
+           STUFF(
+           (
+               SELECT ';' + CAST(a1.BldGUID AS VARCHAR(40))
+               FROM jd_OutValueJdhbBld a1
+               WHERE a1.OutValueJdhbGUID = a.OutValueJdhbGUID
+               FOR XML PATH('')
+           ),
+           1,
+           1,
+           ''
+                ) AS BldGUID,
+           0 AS IfEnd,
+           0 AS IsEdit,
+           0 AS Hgxs,
+           2 AS Acc,
+           '' Unit,
+           NULL AS CompleteValue
+    FROM dbo.jd_OutValueJdhb a
+        INNER JOIN
+        (SELECT DISTINCT OutValueJdhbGUID FROM #Diff) d
+            ON d.OutValueJdhbGUID = a.OutValueJdhbGUID
+        LEFT JOIN
+        (
+            SELECT SUM(ISNULL(SumBuildArea, 0)) AS SumBuildArea,
+                   SUM(ISNULL(SumJrArea, 0)) AS SumJrArea,
+                   SUM(ISNULL(SumSaleArea, 0)) AS SumSaleArea,
+                   SUM(ISNULL(Floor, 0)) AS Floor,
+                   OutValueJdhbGUID
+            FROM #Temp
+            GROUP BY OutValueJdhbGUID
+        ) b
+            ON b.OutValueJdhbGUID = a.OutValueJdhbGUID
+        LEFT JOIN
+        (
+            SELECT MIN(d.ActualFinish) AS KgDate,
+                   a.OutValueJdhbGUID
+            FROM #Temp a
+                INNER JOIN p_BiddingBuilding2Building b
+                    ON b.BuildingGUID = a.BldGUID
+                INNER JOIN p_BiddingBuilding bb
+                    ON bb.BuildGUID = b.BudGUID
+                INNER JOIN jd_ProjectPlanExecute c
+                    ON c.ObjectID = b.BudGUID
+                INNER JOIN jd_ProjectPlanTaskExecute d
+                    ON c.ID = d.PlanID
+                INNER JOIN jd_KeyNode e
+                    ON e.KeyNodeGUID = d.KeyNodeID
+            WHERE d.ActualFinish IS NOT NULL
+                  AND c.PlanType = 103
+                  AND e.KeyNodeName = '实际开工'
+            GROUP BY a.OutValueJdhbGUID
+        ) c
+            ON c.OutValueJdhbGUID = a.OutValueJdhbGUID
+    WHERE a.OutValueViewGUID = [业务GUID]
+    UNION
+    SELECT '' AS BldName,
+           '' AS YtName,
+           NULL AS BldArea,
+           NULL AS SaleArea,
+           NULL AS JrArea,
+           NULL AS KgDate,
+           NULL AS Floor,
+           '' AS JsStatus,
+           a.KeyNodeName AS KeyNodeName,
+           a.KeyNodeGUID AS KeyNodeGUID,
+           CAST(a.CompleteScale AS VARCHAR(10)) AS CompleteScale,
+           CONVERT(VARCHAR(100), a.CompleteDate, 23) AS CompleteDate,
+           a.Remark,
+           CAST(a.OutValueJdhbGUID AS VARCHAR(40)) + '.'
+           + CAST(ROW_NUMBER() OVER (PARTITION BY a.OutValueJdhbGUID ORDER BY b.KeyNodeCode DESC) AS VARCHAR(10)) AS Code,
+           NULL AS BldGUID,
+           1 AS IfEnd,
+           a.IsEdit,
+           a.Hgxs,
+           CASE
+               WHEN a.Hgxs = 0 THEN
+                   0
+               ELSE
+                   2
+           END Acc,
+           CASE
+               WHEN a.Hgxs = 0 THEN
+                   '层'
+               ELSE
+                   '%'
+           END AS Unit,
+           CASE
+               WHEN a.Hgxs = 2
+                    AND a.CompleteDate IS NOT NULL THEN
+                   100
+               ELSE
+                   a.CompleteValue
+           END CompleteValue
+    FROM jd_OutValueJdhbNode a
+        INNER JOIN #Diff c
+            ON c.OutValueJdhbNodeGUID = a.OutValueJdhbNodeGUID
+        LEFT JOIN dbo.jd_KeyNode b
+            ON b.KeyNodeGUID = a.KeyNodeGUID
+) t
+ORDER BY t.Code;
+</SQL><IsMaster>False</IsMaster><SeqNo>2</SeqNo><Description></Description><PKFieldName>主键字段</PKFieldName></myWorkflowEntityDataSource></myWorkflowEntityDataSources><myWorkflowEventHandlerClass><AssemblyName>Mysoft.Xmjd.Business</AssemblyName><ClassName>OutValueViewApproveHTML</ClassName><BeforeInitiateFunction>BeforeInitiateFunction</BeforeInitiateFunction><AfterInitiateFunction>AfterInitiateFunction</AfterInitiateFunction><BeforeNormalEndFunction>BeforeNormalEndFunction</BeforeNormalEndFunction><AfterNormalEndFunction>AfterNormalEndFunction</AfterNormalEndFunction><BeforeAbnormalEndFunction>BeforeAbnormalEndFunction</BeforeAbnormalEndFunction><AfterAbnormalEndFunction>AfterAbnormalEndFunction</AfterAbnormalEndFunction></myWorkflowEventHandlerClass><myWorkflowBusinessLinks><myWorkflowBusinessLink><LinkName /><LinkAddress /><LinkType /><SeqNo /><ModifyBusinessDomain /></myWorkflowBusinessLink></myWorkflowBusinessLinks></BusinessObject>
