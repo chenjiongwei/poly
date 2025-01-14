@@ -456,13 +456,14 @@ LEFT JOIN (
     INNER JOIN ERP25.dbo.mdm_GCBuild gc  ON gc.GCBldGUID = a.BuildingGUID
     GROUP BY a.BudGUID
 ) wk ON wk.BudGUID = pw.BuildGUID
-left join (
-    select  d.ObjectID, tg.Type as TgType 
+outer  apply (
+    select top  1  d.ObjectID, tg.Type as TgType 
     from jd_StopOrReturnWork tg
     left join jd_ProjectPlanTaskExecute f ON f.PlanID = tg.PlanID AND f.Level = 1
     left join jd_ProjectPlanExecute d ON d.ID = f.PlanID AND d.PlanType = 103
-    where tg.ApplyState = '已审核' 
-) cyj on  cyj.ObjectID = pw.BuildGUID
+    where tg.ApplyState = '已审核'  and  d.ObjectID = pw.BuildGUID
+	order by tg.StopTime desc 
+) cyj 
 LEFT JOIN (
     SELECT PlanID,
            NodeNum,
@@ -549,7 +550,7 @@ FROM jd_OutValueView a
             sum(case when [竣工备案实际完成时间] is not null then isnull([工程楼栋建筑面积],0) else 0 end ) as [累计竣工建筑面积],
             sum( isnull([工程楼栋建筑面积],0) ) as [工程楼栋建筑面积],
             sum( case when  datediff(year,getdate(),[实际开工实际完成时间]) =0 then isnull([工程楼栋建筑面积],0) else 0 end ) as [本年开工面积],
-            sum( case when  [是否停工] = '停工' and [实际开工实际完成时间] is not null and [竣工备案实际完成时间] is not null then isnull([工程楼栋建筑面积],0) else 0 end ) as [当前停工面积],
+            sum( case when  [是否停工] = '停工'  then isnull([工程楼栋建筑面积],0) else 0 end ) as [当前停工面积],
             sum( case when  datediff(year,getdate(),[竣工备案实际完成时间]) =0 then isnull([工程楼栋建筑面积],0) else 0 end ) as [本年竣工面积]
             from #ld
             group by [分期GUID]
