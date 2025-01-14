@@ -396,6 +396,13 @@ FROM jd_OutValueView a
 WHERE OutValueViewGUID = [业务GUID]
 
 ----------------- version 4.0 ------------------------------------------------------------------------------
+/*
+好的，都改了。包括昨天的两个问题
+1、本年开工、本年竣工、累计开工、累计竣工，不判断分期的工程状态；
+2、末批准备的实际日期；
+3、分期总建筑面积
+*/
+
 
 SELECT bu.buname AS [公司名称],
        mpp.projname AS [一级项目名称],
@@ -413,6 +420,7 @@ SELECT bu.buname AS [公司名称],
                 '缓建'
            ELSE '正常'
        END AS [是否停工],
+        gc.isCompare as [是否按期完成],
         dbo.fn_jd_PlanTaskExecuteObject(jp.ID, '项目获取', '计划完成时间') AS [项目获取计划完成时间],
         dbo.fn_jd_PlanTaskExecuteObject(jp.ID, '项目获取', '预计完成时间') AS [项目获取预计完成时间],
         dbo.fn_jd_PlanTaskExecuteObject(jp.ID, '项目获取', '实际完成时间') AS [项目获取实际完成时间],
@@ -455,6 +463,26 @@ left join (
     left join jd_ProjectPlanExecute d ON d.ID = f.PlanID AND d.PlanType = 103
     where tg.ApplyState = '已审核' 
 ) cyj on  cyj.ObjectID = pw.BuildGUID
+LEFT JOIN (
+    SELECT PlanID,
+           NodeNum,
+           TaskStateNum,
+           CASE 
+               WHEN ISNULL(NodeNum,0) = ISNULL(TaskStateNum,0) THEN '是' 
+               ELSE '否' 
+           END AS isCompare
+    FROM (
+        SELECT PlanID,
+               COUNT(1) AS NodeNum,
+               SUM(CASE 
+                   WHEN enumTask.EnumerationName IN ('按期完成','延期完成') THEN 1 
+                   ELSE 0 
+               END) AS TaskStateNum
+        FROM jd_ProjectPlanTaskExecute jpte
+        LEFT JOIN jd_EnumerationDictionary enumTask   ON enumTask.EnumerationType = '工作状态枚举' AND enumTask.EnumerationValue = jpte.TaskState
+        GROUP BY PlanID
+    ) jppt
+) gc ON gc.PlanID = jp.id
 WHERE p.IfEnd = 1  
 AND jp.PlanType = 103
 AND jp.IsExamin = 1
@@ -491,19 +519,34 @@ FROM jd_OutValueView a
         select  
             jdo.OutValueViewGUID as [月度产值回顾审批GUID],
             mp.ProjGUID as [分期GUID],
-            sum(case when  mp.ConstructStatus ='已完工' then isnull([本年竣工面积],0) else 0 end ) as [本年竣工面积],
-            sum([工程楼栋建筑面积]) as [总建筑面积],
-            sum(case when  mp.ConstructStatus ='已完工' then isnull([工程楼栋建筑面积],0) else 0 end ) as [累计竣工面积],
+            mproj.SumBuildArea as [总建筑面积],
+            sum( isnull([本年竣工面积],0) ) as [本年竣工面积],
+
+            sum( isnull([累计竣工建筑面积],0)  ) as [累计竣工面积],
 
 
-            sum(case when  mp.ConstructStatus ='在建' then isnull([工程楼栋建筑面积],0) else 0 end ) as [累计开工面积],
+            sum( isnull([累计开工建筑面积],0) ) as [累计开工面积],
 
-            sum(case when  mp.ConstructStatus ='在建' then isnull([本年开工面积],0) else 0 end ) as [本年开工面积],
+            sum( isnull([本年开工面积],0)  ) as [本年开工面积],
             sum( isnull([当前停工面积],0) ) as [当前停工面积] 
         from jd_OutValueView jdo
         inner join ERP25.dbo.mdm_Project  mp on mp.ProjGUID =jdo.ProjGUID
         left join (
+                  SELECT x.ProjGUID,x.SumBuildArea
+                    FROM
+                    (
+                        SELECT ROW_NUMBER() OVER (PARTITION BY ProjGUID ORDER BY CreateDate DESC) AS rowmo,
+                                *
+                        FROM dbo.md_Project
+                        WHERE ApproveState = '已审核'
+                                AND ISNULL(CreateReason, '') <> '补录'
+                    ) x
+                    WHERE x.rowmo = 1
+        ) mproj on mproj.ProjGUID = mp.ProjGUID
+        left join (
             select [分期GUID],
+            sum(case when [实际开工实际完成时间] is not null then isnull([工程楼栋建筑面积],0) else 0 end ) as [累计开工建筑面积],
+            sum(case when [竣工备案实际完成时间] is not null then isnull([工程楼栋建筑面积],0) else 0 end ) as [累计竣工建筑面积],
             sum( isnull([工程楼栋建筑面积],0) ) as [工程楼栋建筑面积],
             sum( case when  datediff(year,getdate(),[实际开工实际完成时间]) =0 then isnull([工程楼栋建筑面积],0) else 0 end ) as [本年开工面积],
             sum( case when  [是否停工] = '停工' and [实际开工实际完成时间] is not null and [竣工备案实际完成时间] is not null then isnull([工程楼栋建筑面积],0) else 0 end ) as [当前停工面积],
@@ -512,10 +555,10 @@ FROM jd_OutValueView a
             group by [分期GUID]
         ) ld on ld.[分期GUID] = mp.ProjGUID
        where  jdo.OutValueViewGUID = [业务GUID]
-        group by jdo.OutValueViewGUID,mp.ProjGUID
+        group by jdo.OutValueViewGUID,mp.ProjGUID,mproj.SumBuildArea
     ) d on d.[分期GUID] = b.ProjGUID
     left  join (
-        select [分期GUID] as [分期ProjGUID],
+        select [分期GUID] as [分期ProjGUID],[是否按期完成] as [是否按期完成],
         max([项目获取计划完成时间]) as [项目获取计划完成日期],
         max([项目获取实际完成时间]) as [项目获取实际完成日期],
         min([实际开工计划完成时间]) as [首批实际开工计划完成日期],
@@ -525,12 +568,13 @@ FROM jd_OutValueView a
         min([竣工备案计划完成时间]) as [首批竣工备案计划完成日期],
         min([竣工备案实际完成时间]) as [首批竣工备案实际完成日期],
         max([竣工备案计划完成时间]) as [末批竣工备案计划完成日期],
-        case  when  count(1) = sum(case when [竣工备案工作项状态] in ('按期完成','延期完成') then 1 else 0 end ) then 
-           max([竣工备案实际完成时间]) end [末批竣工备案实际完成日期]
+        case when [是否按期完成] = '是' then max([竣工备案实际完成时间]) else null end as [末批竣工备案实际完成日期]
         from #ld 
-        group by [分期GUID]
+        group by [分期GUID],[是否按期完成]
     ) e on e.[分期ProjGUID] = b.ProjGUID
 WHERE OutValueViewGUID = [业务GUID]
+
+
 
 -- 月度进度计划审批表单-楼栋建设状态
 select  
