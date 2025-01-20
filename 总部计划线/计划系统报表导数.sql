@@ -1,11 +1,19 @@
+USE [MyCost_Erp352]
+GO
+/****** Object:  StoredProcedure [dbo].[usp_rpt_PlanSystemOutValueReport]    Script Date: 2025/1/20 10:17:19 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
 /*
 存储过程名称: usp_rpt_PlanSystemOutValueReport
 功能描述: 计划系统报表导数
-执行实例: exec usp_rpt_PlanSystemOutValueReport '63E5AF54-6BF4-4D37-B2D6-48E60116334A'
+执行实例: exec usp_rpt_PlanSystemOutValueReport 'F9E90091-2FDF-4502-A672-7DC4D38D7A98'
 */
-ALTER PROC usp_rpt_PlanSystemOutValueReport(
-    @ProjGUID VARCHAR(max)
-)
+ALTER PROC [dbo].[usp_rpt_PlanSystemOutValueReport]
+-- (
+--     @ProjGUID VARCHAR(max)
+-- )
 AS
 BEGIN
     -- 查询最新版进度回顾时间
@@ -14,16 +22,27 @@ BEGIN
         rowmo,
         ProjGUID,
         ReportDate,
-        OutValueViewGUID
+        OutValueViewGUID,
+        InitiateDatetime,  -- 流程发起时间
+        FinishDatetime  -- 流程完成时间
     INTO #FirstView 
     FROM (
         SELECT 
             ROW_NUMBER() OVER(PARTITION BY jdv.ProjGUID ORDER BY jdv.ReportDate DESC) AS rowmo,
             jdv.ProjGUID,
             jdv.ReportDate,
-            jdv.OutValueViewGUID
+            jdv.OutValueViewGUID,
+            b.InitiateDatetime, -- 流程发起时间
+            b.FinishDatetime  -- 流程完成时间
         FROM jd_OutValueView jdv 
-        WHERE jdv.ApproveState = '已审核'
+        outer apply (
+            select top  1  b.BusinessGUID,b.ProcessGUID,InitiateDatetime,FinishDatetime
+            from  myWorkflowProcessEntity b 
+            where b.IsHistory =0 and b.ProcessStatus  in (0,1,2)
+            and b.BusinessGUID = jdv.OutValueViewGUID
+            order by b.InitiateDatetime desc
+        ) b 
+       --  WHERE jdv.ApproveState = '已审核'
     ) FirstView
     WHERE FirstView.rowmo = 1
 
@@ -32,16 +51,27 @@ BEGIN
         rowmo,
         ProjGUID,
         ReportDate,
-        OutValueViewGUID
+        OutValueViewGUID,
+        InitiateDatetime,  -- 流程发起时间
+        FinishDatetime  -- 流程完成时间
     INTO #SecondView
     FROM (
         SELECT 
             ROW_NUMBER() OVER(PARTITION BY jdv.ProjGUID ORDER BY jdv.ReportDate DESC) AS rowmo,
             jdv.ProjGUID,
             jdv.ReportDate,
-            jdv.OutValueViewGUID
+            jdv.OutValueViewGUID,
+            b.InitiateDatetime, -- 流程发起时间
+            b.FinishDatetime  -- 流程完成时间
         FROM jd_OutValueView jdv 
-        WHERE jdv.ApproveState = '已审核'
+        outer apply (
+            select top  1  b.BusinessGUID,b.ProcessGUID,InitiateDatetime,FinishDatetime
+            from  myWorkflowProcessEntity b 
+            where b.IsHistory =0 and b.ProcessStatus  in (0,1,2)
+            and b.BusinessGUID = jdv.OutValueViewGUID
+            order by b.InitiateDatetime desc
+        ) b 
+      --  WHERE jdv.ApproveState = '已审核'
     ) SecondView
     WHERE SecondView.rowmo = 2
 
@@ -62,9 +92,10 @@ BEGIN
         ISNULL(p.SumSaleArea, 0) / 10000.0 AS [总可售面积],
         ISNULL(jd.累计开工面积, 0) / 10000.0 AS [累计开工面积],
         ISNULL(jd.累计竣工面积, 0) / 10000.0 AS [累计竣工面积],
+        ISNULL(jd.当前停工面积, 0) / 10000.0 AS [当前停工面积],
         -- 当前在建面积 = 累计开工面积 - 累计竣工面积 - 当前停工面积
         (ISNULL(jd.累计开工面积, 0) - ISNULL(jd.累计竣工面积, 0) - ISNULL(jd.当前停工面积, 0)) / 10000.0 AS [当前在建面积],
-        ISNULL(ysmj.ysmj, 0) / 10000.0 AS [累计销售面积], -- 没有口径不太好计算
+        ISNULL(ysmj.ysmj, 0) / 10000.0 AS [累计销售面积], 
         
         -- 比例信息
         -- 累计开工比例 = 累计开工面积/总建筑面积
@@ -73,8 +104,8 @@ BEGIN
             ELSE ISNULL(jd.累计开工面积, 0) / ISNULL(p.SumBuildArea, 0) 
         END AS [累计开工比例],
         CASE 
-            WHEN ISNULL(p.SumBuildArea, 0) = 0 THEN 0 
-            ELSE ISNULL(ysmj.ysmj, 0) / ISNULL(p.SumBuildArea, 0) 
+            WHEN ISNULL(p.SumSaleArea, 0) = 0 THEN 0 
+            ELSE ISNULL(ysmj.ysmj, 0) / ISNULL(p.SumSaleArea, 0) 
         END [累计销售比例], -- 累计销售面积/总可售面积
         
         -- 时间节点
@@ -83,7 +114,8 @@ BEGIN
         jd.分期末批竣工时间 AS [分期末批竣备时间], -- 取分期整体竣工时间（未完成取计划时间）
         
         -- 最新版进度回顾信息
-        fv.ReportDate AS [最新版进度回顾时间], -- 最新一版审核归档版进度回顾的归档时间
+        fv.ReportDate as  [最新版进度回顾发起时间], 
+        fv.FinishDatetime AS [最新版进度回顾时间], -- 最新一版审核归档版进度回顾的归档时间
         FvLd.[最新版未开工面积],
         FvLd.[最新版施工准备面积],
         FvLd.[最新版地下结构施工面积],
@@ -94,7 +126,8 @@ BEGIN
         FvLd.[最新版已交付面积],
         
         -- 次新版进度回顾信息
-        sv.ReportDate AS [次新版进度回顾时间],
+        sv.ReportDate as  [次新版进度回顾发起时间],
+        isnull(sv.FinishDatetime,sv.ReportDate)  AS [次新版进度回顾时间],
         Secvld.[次新版未开工面积],
         Secvld.[次新版施工准备面积],
         Secvld.[次新版地下结构施工面积],
@@ -174,7 +207,7 @@ BEGIN
                 ELSE 0 
             END) AS 累计竣工面积,
             SUM(CASE 
-                WHEN ISNULL(是否停工, '') <> '正常' THEN ISNULL(计划组团建筑面积, 0) 
+                WHEN ISNULL( 是否停工, '') <> '正常' and 实际开工实际完成时间 is not null     THEN ISNULL(计划组团建筑面积, 0) 
                 ELSE 0 
             END) AS 当前停工面积,
             MIN(ISNULL(实际开工实际完成时间, 实际开工计划完成时间)) AS 分期开工时间,
@@ -251,17 +284,20 @@ BEGIN
                 a.YtName, -- 业态名称
                 a.KeyNodeName, -- 已完成最新关键节点
                 b.status, -- 楼栋建设状态名称
-                ld.Name, -- 组团名称
+               -- ld.Name, -- 组团名称
                 ld.SumBuildArea -- 楼栋建筑面积
-            FROM jd_OutValueJszt a
+            FROM (
+               SELECT a.*,Value as BuildGUID   -- 楼栋GUID
+                FROM  jd_OutValueJszt a
+                CROSS  APPLY  dbo.fn_Split1(a.BldGUID,',') 
+                WHERE  ISNULL(a.BldGUID,'')<>'' 
+            ) a
             INNER JOIN #FirstView fv    ON fv.OutValueViewGUID = a.OutValueViewGUID 
             INNER JOIN jd_BuildConstruction b  ON a.BuildConstructionGUID = b.BuildConstructionGUID
             LEFT JOIN (
                 SELECT 
-                    a1.BuildingName,
-                    a1.BudGUID,
-                    pw.BidGUID,
-                    pw.Name,
+                    p.projguid,
+                    gc.BldGUID,
                     sum(gc.SumBuildArea) as SumBuildArea
                 FROM md_GCBuild gc
                 INNER JOIN (
@@ -276,14 +312,11 @@ BEGIN
                     ) x
                     WHERE x.rowmo = 1
                 ) p ON p.VersionGUID = gc.VersionGUID  AND p.ProjGUID = gc.ProjGUID
-                INNER JOIN p_BiddingBuilding2Building a1  ON a1.BuildingGUID = gc.BldGUID
-                LEFT JOIN p_HkbBiddingBuildingWork pw   ON pw.BuildGUID = a1.BudGUID
-                group by 
-                    a1.BuildingName,
-                    a1.BudGUID,
-                    pw.BidGUID,
-                    pw.Name
-            ) ld ON ld.BudGUID = a.BusinessGUID
+                -- INNER JOIN p_BiddingBuilding2Building a1  ON a1.BuildingGUID = gc.BldGUID
+                -- LEFT JOIN p_HkbBiddingBuildingWork pw   ON pw.BuildGUID = a1.BudGUID
+                group by  p.projguid,
+                    gc.BldGUID
+            ) ld ON ld.BldGUID = a.BuildGUID
         ) fvl
         GROUP BY fvl.ProjGUID ,fvl.OutValueViewGUID
     ) FvLd ON FvLd.ProjGUID = p.ProjGUID
@@ -336,17 +369,21 @@ BEGIN
                 a.YtName, -- 业态名称
                 a.KeyNodeName, -- 已完成最新关键节点
                 b.status, -- 楼栋建设状态名称
-                ld.Name, -- 组团名称
+                -- ld.Name, -- 组团名称
                 ld.SumBuildArea -- 楼栋建筑面积
-            FROM jd_OutValueJszt a
+            FROM (
+                SELECT a.*,Value as BuildGUID   -- 楼栋GUID
+                FROM  jd_OutValueJszt a
+                CROSS  APPLY  dbo.fn_Split1(a.BldGUID,',') 
+                WHERE  ISNULL(a.BldGUID,'')<>'' 
+                -- and OutValueViewGUID ='BFBB3F0B-FF0A-4326-955E-E90DA234B754'
+            ) a
             INNER JOIN #SecondView sv   ON sv.OutValueViewGUID = a.OutValueViewGUID 
             INNER JOIN jd_BuildConstruction b  ON a.BuildConstructionGUID = b.BuildConstructionGUID
             LEFT JOIN (
                 SELECT 
-                    a1.BuildingName,
-                    a1.BudGUID,
-                    pw.BidGUID,
-                    pw.Name,
+                    p.projguid,
+                    gc.BldGUID,
                     sum(gc.SumBuildArea) as SumBuildArea
                 FROM md_GCBuild gc
                 INNER JOIN (
@@ -361,14 +398,11 @@ BEGIN
                     ) x
                     WHERE x.rowmo = 1
                 ) p ON p.VersionGUID = gc.VersionGUID  AND p.ProjGUID = gc.ProjGUID
-                INNER JOIN p_BiddingBuilding2Building a1  ON a1.BuildingGUID = gc.BldGUID
-                LEFT JOIN p_HkbBiddingBuildingWork pw   ON pw.BuildGUID = a1.BudGUID
-                group by 
-                    a1.BuildingName,
-                    a1.BudGUID,
-                    pw.BidGUID,
-                    pw.Name
-            ) ld ON ld.BudGUID = a.BusinessGUID
+                -- INNER JOIN p_BiddingBuilding2Building a1  ON a1.BuildingGUID = gc.BldGUID
+                -- LEFT JOIN p_HkbBiddingBuildingWork pw   ON pw.BuildGUID = a1.BudGUID
+                group by  p.projguid,
+                    gc.BldGUID
+            ) ld ON ld.BldGUID = a.BuildGUID
         ) svl
         GROUP BY svl.ProjGUID , svl.OutValueViewGUID 
     ) Secvld ON Secvld.ProjGUID = p.ProjGUID
@@ -415,5 +449,5 @@ BEGIN
         ORDER BY tg.StopTime DESC 
     ) isTg
     WHERE mp.Level = 3
-        AND mp.projguid IN (  select strGUID from   [dbo].[fn_GetGuidTable](@ProjGUID) )
+      --  AND mp.projguid IN (  select strGUID from   [dbo].[fn_GetGuidTable](@ProjGUID) )
 END

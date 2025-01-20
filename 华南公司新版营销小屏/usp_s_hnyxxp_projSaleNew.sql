@@ -1,6 +1,6 @@
 USE [HighData_prod]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_s_hnyxxp_projSaleNew]    Script Date: 2024/11/27 9:55:20 ******/
+/****** Object:  StoredProcedure [dbo].[usp_s_hnyxxp_projSaleNew]    Script Date: 2025/1/17 15:28:35 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -595,7 +595,7 @@ AS
         INSERT INTO s_hnyxxp_projSaleNew
         -- 区域层级-全部区域
 		SELECT  @DateText AS 数据清洗日期 ,
-				'区域' AS 层级 ,
+				'营销大区' AS 层级 ,
 				p.BUGUID AS 公司GUID ,
 				tb.营销事业部 AS 区域 ,
 				tb.营销片区 ,
@@ -759,7 +759,7 @@ AS
         UNION ALL
         -- 区域层级的平衡处理
 		SELECT  @DateText AS 数据清洗日期 ,
-                '区域' AS 层级 ,
+                '营销大区' AS 层级 ,
                 p.BUGUID AS 公司GUID ,
                 tb.营销事业部 AS 区域 ,
                 tb.营销片区 ,
@@ -896,7 +896,7 @@ AS
 	    UNION ALL
         -- 区域层级-各区域名称
         SELECT  @DateText AS 数据清洗日期 ,
-                '区域' AS 层级 ,
+                '营销大区' AS 层级 ,
                 p.BUGUID AS 公司GUID ,
                 tb.营销事业部 AS 区域 ,
                 tb.营销片区 ,
