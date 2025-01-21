@@ -180,3 +180,139 @@ FROM jd_OutValueView a
         group by [分期GUID],[是否按期完成]
     ) e on e.[分期ProjGUID] = b.ProjGUID
 WHERE OutValueViewGUID = 'A33026B2-14E3-46CD-9810-8FD2F802B091'
+
+
+
+
+--- 湾区公司利率预警简讯配置
+-- drop table #s_M002项目级毛利净利汇总表New
+
+--获取符合小于-25%的签约和认购利润数据
+SELECT a.projguid,
+	  产品类型,
+       产品名称,
+       '签约' as 类型,
+       SUM(本月净利润签约) * 10000 本月销售净利润,
+       CASE
+           WHEN SUM(本月签约金额不含税) > 0 THEN
+                SUM(本月净利润签约) / SUM(本月签约金额不含税)
+           ELSE 0
+       END 本月净利润率,
+       sum(本月净利润签约) as 本月销售利润,
+       sum(本月签约套数)  as 本月销售套数,
+       sum(本月签约面积) as 本月销售面积,
+       sum(本月签约金额)*10000 as 本月销售金额,
+       case when sum(本月签约面积) = 0 then 0 else sum(本月签约金额) / sum(本月签约面积) end*10000 as 本月销售均价
+INTO #s_M002项目级毛利净利汇总表New
+FROM s_M002项目级毛利净利汇总表New a 
+WHERE DATEDIFF(DAY, qxdate, getdate()) = 0
+AND a.OrgGuid = 'C69E89BB-A2DB-E511-80B8-E41F13C51836'
+GROUP BY a.projguid,
+         产品名称,
+		 产品类型
+HAVING (CASE
+            WHEN SUM(本月签约金额不含税) > 0 THEN
+                 SUM(本月净利润签约) / SUM(本月签约金额不含税)
+            ELSE 0
+        END
+       ) <= -0.25
+union all 
+SELECT a.projguid,
+	   产品类型,
+       产品名称,
+       '认购' as 类型,
+       SUM(本月净利润认购) * 10000 本月销售净利润,
+       CASE
+           WHEN SUM(本月认购金额不含税) > 0 THEN
+                SUM(本月净利润认购) / SUM(本月认购金额不含税)
+           ELSE 0
+       END 本月净利润率,
+       sum(本月净利润认购) as 本月销售利润,
+       sum(本月认购套数)  as 本月销售套数,
+       sum(本月认购面积) as 本月销售面积,
+       sum(本月认购金额)*10000 as 本月销售金额,
+       case when sum(本月认购面积) = 0 then 0 else sum(本月认购金额) / sum(本月认购面积) end*10000  as 本月销售均价 
+FROM s_M002项目级毛利净利汇总表New a 
+WHERE DATEDIFF(DAY, qxdate, getdate()) = 0
+AND a.OrgGuid = 'C69E89BB-A2DB-E511-80B8-E41F13C51836'
+GROUP BY a.projguid,
+         产品名称,
+		 产品类型
+HAVING (CASE
+            WHEN SUM(本月认购金额不含税) > 0 THEN
+                 SUM(本月净利润认购) / SUM(本月认购金额不含税)
+            ELSE 0
+        END
+       ) <=  -0.25; 
+
+--若签约认购数据是一致的话，只统计签约的情况
+select projguid,产品名称,产品类型,本月销售金额,本月销售套数,本月销售均价,本月销售利润,本月净利润率,count(类型) as rn
+into #tc
+from #s_M002项目级毛利净利汇总表New 
+group by projguid,产品名称,产品类型,本月销售金额,本月销售套数,本月销售均价,本月销售利润,本月净利润率
+having count(类型) > 1
+
+
+-- drop table #cb
+--获取成本情况
+select t.projguid,
+       t.产品名称,
+       t.产品类型,
+       max(盈利规划营业成本单方+盈利规划营销费用单方+盈利规划综合管理费单方协议口径+盈利规划税金及附加单方) as 成本单方 
+into #cb
+ from s_M002业态净利毛利大底表 t
+where OrgGuid = 'C69E89BB-A2DB-E511-80B8-E41F13C51836'
+and versionType = '本月版' 
+and exists (select 1 from #s_M002项目级毛利净利汇总表New a where a.projguid = t.projguid and a.产品名称 = t.产品名称)
+group by t.projguid,
+         t.产品名称,
+	    t.产品类型;
+
+-- drop table #res_业态合并;
+--预处理业态结论数据
+with res as (
+select p.推广名,
+t.产品类型,
+t.产品名称,
+t.类型,
+convert(decimal(16,1),t.本月销售金额) as 本月销售金额,
+convert(int,t.本月销售套数) as 本月销售套数, 
+convert(int,cb.成本单方) as 成本单方,
+convert(decimal(16,2),t.本月销售利润) as 本月销售利润, 
+convert(decimal(16,0),t.本月净利润率*100) as 本月净利润率,
+convert(int,case when t.产品类型 = '地下室/车库' then 10000 else 1 end * t.本月销售均价) as 本月销售均价
+from #s_M002项目级毛利净利汇总表New t 
+left join vmdm_projectFlag p on t.projguid = p.projguid
+left join #cb cb on t.projguid = cb.projguid and t.产品名称 = cb.产品名称 and t.产品类型 = cb.产品类型
+left join #tc tc on t.projguid = tc.projguid and t.产品名称 = tc.产品名称 and t.产品类型 = tc.产品类型 and t.类型 = '认购'
+where tc.rn is null --剔除当日认购转签约的情况，以签约的为准
+)
+select 
+ 推广名,业态结论=STUFF((
+        SELECT ';' + 产品名称 + '本月' + 类型 + 
+            convert(varchar,本月销售金额) + '万元(' +
+            convert(varchar,本月销售套数) + '套、均价' +
+            convert(varchar,本月销售均价) + '元，成本单方' +
+            convert(varchar,成本单方) + '元），销售利润' +
+            convert(varchar,本月销售利润) + 
+            '亿（销净率' + convert(varchar,本月净利润率) + '%）'
+        FROM res r2
+        WHERE r2.推广名 = res.推广名
+        ORDER BY r2.本月净利润率 DESC
+        FOR XML PATH('')
+    ), 1, 1, ''),
+	row_number() over(order by max(本月净利润率)) as 排序
+into #res_业态合并
+from res
+group by 推广名  
+
+--输出最终结论
+select '248B1E17-AACB-E511-80B8-E41F13C51836' buguid,
+case when t.利率结论 is null then 结论2 else 结论1+char(13)+char(10)+isnull(利率结论,'') end as 利润率通报情况
+from 
+(select '各位领导,截止今日19点湾区公司本月成交销净率低于-25%的项目有：' as 结论1,
+'各位领导， 截止今日19点湾区公司无本月成交销净率低于-25%的项目。' as 结论2) as a
+left join (select STRING_AGG(convert(varchar,t.排序)+'、'+t.推广名+t.业态结论+';',char(13)+char(10)) as 利率结论 
+from #res_业态合并 t) t on 1=1 
+
+drop table #res_业态合并,#cb,#tc,#s_M002项目级毛利净利汇总表New

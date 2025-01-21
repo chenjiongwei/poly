@@ -1,0 +1,19 @@
+1、更新待迁移项目清单，可参照脚本【迁移项目清单.sql]
+
+2、导出在途流程给客户进行处理，可参照脚本【XXX.sql]
+
+3、在费用系统中添加部门科目。
+
+4、跟客户确认战略协议的处理方案，可参照脚本【3 战略协议.sql】
+
+5、确认合约包模板是否需要迁移，如果合约包名称不一致的，可通过直接复制一份原有公司的模板到新公司，如果模板名称是一致的话，那么就判断新公司合约包是否涵盖了原有公司的合约包，如果是的话，那就不需要迁移模板
+需要迁移模板：qytype = 0
+不需要迁移模板：qytype = 1
+
+select * from cb_HybPack t
+left join cb_HybPack t1 on t1.HybTemplateGUID in ( 
+'7020485D-36EC-E711-80BA-E61F13C57837' --新公司的合约包模板
+)    and t.HtName = t1.HtName
+ where t.HybTemplateGUID in (
+'44A08AE9-C316-4B26-AE9A-CBA2269EAF0E'  --原公司的合约包模板
+) and t1.HybTemplateGUID is null
