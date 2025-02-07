@@ -1,6 +1,6 @@
 USE [ERP25]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_s_rptAjFkInfo_qx]    Script Date: 2024/12/25 15:13:53 ******/
+/****** Object:  StoredProcedure [dbo].[usp_s_rptAjFkInfo_qx]    Script Date: 2025/2/7 16:49:06 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -41,6 +41,7 @@ AS
         INNER JOIN(             SELECT   
                                         v1.ProjGUID,
                                         v1.VouchGUID ,
+                                        g1.GetinGUID,
                                         v1.Jkr ,
                                         case when g1.ItemName in ('银行按揭','按揭款','组合贷款','按揭装修款','信用卡装修房款') then  v1.ajbank  end ajbank ,
                                         case when g1.ItemName in ('公积金', '保证金（公积金）') then  v1.gjjbank end as  gjjbank,
@@ -58,7 +59,7 @@ AS
                                 FROM    s_Bank sbk
                                 WHERE  sbk.ProjGUID = v1.ProjGUID AND  v1.gjjbank = sbk.BankName AND sbk.GroupBankName <> ''
                                                                         and g1.ItemType ='贷款类房款' ) t2
-                ) v ON v.VouchGUID = g.VouchGUID
+                ) v ON v.VouchGUID = g.VouchGUID and g.GetinGUID = v.GetinGUID
                 --LEFT JOIN [s_Bank] bk WITH(NOLOCK)ON bk.projguid = v.projguid AND  v.ajbank = bk.BankName
                 --LEFT JOIN [s_Bank] gjj WITH(NOLOCK)ON gjj.projguid = v.projguid AND v.ajbank = gjj.BankName and  g.itemname IN ('公积金', '保证金（公积金）')
         WHERE   ISNULL(g.Status, '') <> '作废' AND g.SaleType = '交易' AND  g.SaleGUID IS NOT NULL
