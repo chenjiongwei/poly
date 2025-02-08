@@ -19,8 +19,8 @@ WITH #getin AS (SELECT  g.Saleguid ,
                        -- CASE WHEN g.ItemName IN ('公积金', '保证金（公积金）') THEN v.GROUPbankname END AS gjjGROUPbankname ,
                         v.gjjGROUPbankname ,
                         SUM(g.Amount) AS FkGetAmount ,
-                        SUM(CASE WHEN g.ItemType = '贷款类房款' THEN g.Amount ELSE 0 END) AS AjFkAmount ,
-                        MAX(CASE WHEN g.ItemType = '贷款类房款' THEN g.GetDate END) AS LastGetDate ,
+                        SUM(CASE WHEN g.ItemType = '贷款类房款' and itemname not in ('公积金', '保证金（公积金）') THEN g.Amount ELSE 0 END) AS AjFkAmount ,
+                        MAX(CASE WHEN g.ItemType = '贷款类房款' and itemname not in ('公积金', '保证金（公积金）') THEN g.GetDate END) AS LastGetDate ,
                         --公积金
                         SUM(CASE WHEN g.ItemType = '贷款类房款' AND  itemname IN ('公积金', '保证金（公积金）') THEN g.Amount ELSE 0 END) AS gjjFkAmount ,
                         MAX(CASE WHEN g.ItemType = '贷款类房款' AND  itemname IN ('公积金', '保证金（公积金）') THEN g.GetDate END) AS LastGjjGetDate
@@ -63,11 +63,11 @@ WITH #getin AS (SELECT  g.Saleguid ,
         -- 待收款
      #fee AS (SELECT    TradeGUID ,
                         SUM(Amount) AS YsFKAmount ,
-                        SUM(CASE WHEN ItemType = '贷款类房款' THEN Amount ELSE 0 END) AS YsAjAmount ,
-                        SUM(CASE WHEN ItemType = '贷款类房款' THEN ye ELSE 0 END) AS DsAjAmount ,
-                        MIN(CASE WHEN ItemType = '贷款类房款' THEN lastDate END) AS NearlastDate ,                                                                                           --该房间按揭类款项最新的付款期限
-                        SUM(CASE WHEN ItemType = '贷款类房款' AND   DATEDIFF(YEAR, GETDATE(), lastDate) = 0 THEN Ye ELSE 0 END) AS ThisYearDsAjAmount ,                                      -- 本年待收按揭款
-                        SUM(CASE WHEN ItemType = '贷款类房款' AND   DATEDIFF(YEAR, GETDATE(), lastDate) = 1 THEN Ye ELSE 0 END) AS NextYearDsAjAmount ,                                      -- 明年待收按揭款
+                        SUM(CASE WHEN ItemType = '贷款类房款' and itemname not in ('公积金', '保证金（公积金）') THEN Amount ELSE 0 END) AS YsAjAmount ,
+                        SUM(CASE WHEN ItemType = '贷款类房款' and itemname not in ('公积金', '保证金（公积金）') THEN ye ELSE 0 END) AS DsAjAmount ,
+                        MIN(CASE WHEN ItemType = '贷款类房款' and itemname not in ('公积金', '保证金（公积金）') THEN lastDate END) AS NearlastDate ,                                                                                           --该房间按揭类款项最新的付款期限
+                        SUM(CASE WHEN ItemType = '贷款类房款' and itemname not in ('公积金', '保证金（公积金）') AND   DATEDIFF(YEAR, GETDATE(), lastDate) = 0 THEN Ye ELSE 0 END) AS ThisYearDsAjAmount ,                                      -- 本年待收按揭款
+                        SUM(CASE WHEN ItemType = '贷款类房款' and itemname not in ('公积金', '保证金（公积金）') AND   DATEDIFF(YEAR, GETDATE(), lastDate) = 1 THEN Ye ELSE 0 END) AS NextYearDsAjAmount ,                                      -- 明年待收按揭款
                                                                                                                                                                                         --公积金
                         SUM(CASE WHEN ItemType = '贷款类房款' AND   itemname IN ('公积金', '保证金（公积金）') THEN Amount ELSE 0 END) AS YsGjjAmount ,
                         SUM(CASE WHEN ItemType = '贷款类房款' AND   itemname IN ('公积金', '保证金（公积金）') THEN ye ELSE 0 END) AS DsGjjAmount ,
