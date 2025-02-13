@@ -34,15 +34,18 @@ WHERE (1=1)  AND (2=2)
 -- from cb_FbfzInfo inner join p_Project on cb_FbfzInfo.ProjGUID=p_Project.ProjGUID
 -- WHERE cb_FbfzInfo.FbfzInfoGUID= [业务GUID]
 
-    SELECT 
+
+-- 湖北公司-一期-工程策划审批-0006
+
+ SELECT 
         Fbfz.FbfzInfoGUID as [工程策划GUID],
         Fbfz.VersionName as [版本],
         Fbfz.JbrName as [经办人],
-        mp.ProjName as [项目分期],
+        isnull(pp.ProjName,'') + '-' + mp.ProjName as [项目分期],
         mp.AcquisitionDate as [获取时间],
-        mp.SumUpArea as [总建面],
+        mp.SumBuildArea as [总建面],
         mp.SumDownArea as [地下建面],
-        mp.SumBuildArea as [地上建面],
+        mp.SumUpArea as [地上建面],
         bd.BdCount as [总包标段个数],
         sgz.sgzcount as [施工证个数],
         sgz.YsBatchCount as [验收批次个数]
@@ -50,6 +53,7 @@ WHERE (1=1)  AND (2=2)
         INNER JOIN
         (
             SELECT ProjGUID,
+			       ParentProjGUID,
                    ProjName,
                    ProjCode,
                    AcquisitionDate,
@@ -68,13 +72,14 @@ WHERE (1=1)  AND (2=2)
                       AND ISNULL(CreateReason, '') <> '补录'
             ) x
             WHERE x.rowmo = 1
-        ) mp
-            ON mp.ProjGUID = Fbfz.ProjGUID
+        ) mp  ON mp.ProjGUID = Fbfz.ProjGUID
+		left join p_Project  pp on pp.ProjGUID =mp.ParentProjGUID and  pp.Level =2
         LEFT JOIN
         (
             SELECT FbfzInfoGUID,
                    SUM(ISNULL(BdCount, 0)) AS BdCount 
             FROM cb_FbfzInfo2Bdhf
+            where  ContractType ='施工总承包工程'
             GROUP BY FbfzInfoGUID
         ) bd
             ON bd.FbfzInfoGUID = Fbfz.FbfzInfoGUID
@@ -88,5 +93,5 @@ WHERE (1=1)  AND (2=2)
             GROUP BY FbfzInfoGUID
         ) sgz
             ON sgz.FbfzInfoGUID = Fbfz.FbfzInfoGUID
-      WHERE Fbfz.FbfzInfoGUID =  [业务GUID]
+    WHERE Fbfz.FbfzInfoGUID =  [业务GUID]
    -- WHERE Fbfz.FbfzInfoGUID = '6B845FAB-1FB0-4F3A-A71C-411975A5C446'
