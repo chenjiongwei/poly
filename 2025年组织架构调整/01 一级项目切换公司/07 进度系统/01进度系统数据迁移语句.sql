@@ -1,6 +1,6 @@
----½ø¶ÈÏµÍ³ĞŞ¸´½Å±¾
+---è¿›åº¦ç³»ç»Ÿä¿®å¤è„šæœ¬
 /*
---ÎŞÊı¾İ
+--æ— æ•°æ®
 jd_DeptExamine  
 jd_DeptExaminePhotoFormula 
 jd_DeptExaminePhotoSystem 
@@ -20,7 +20,7 @@ jd_Work
 jd_work_Editing 
 jd_PhotoTask
 
---¿¼ºËÏà¹ØµÄÃ»ÓÃÉÏ£¬²»ĞèÒª×öÇ¨ÒÆ
+--è€ƒæ ¸ç›¸å…³çš„æ²¡ç”¨ä¸Šï¼Œä¸éœ€è¦åšè¿ç§»
 jd_DeptExamineAddSubScoreSetting
 jd_DeptExamineFormula
 jd_DeptExaminePeriod
@@ -30,16 +30,16 @@ jd_ExaminPeriodSet
 jd_ExaminSet
 jd_ExaminStandardSetting
 
---½öÊÇ¹«Ë¾²ã¼¶µÄÅäÖÃ£¬²»×öÇ¨ÒÆ
+--ä»…æ˜¯å…¬å¸å±‚çº§çš„é…ç½®ï¼Œä¸åšè¿ç§»
 jd_TaskWarningConfig
 jd_WorkTaskDelayWarningSet
 
---ÍåÇø¸ú»ªÄÏ¹«Ë¾Ã»ÓĞÊı¾İµÄ±í£¬²»×öÇ¨ÒÆ
+--æ¹¾åŒºè·Ÿåå—å…¬å¸æ²¡æœ‰æ•°æ®çš„è¡¨ï¼Œä¸åšè¿ç§»
 jd_NotProjectSpecialPlanCompile
 jd_NotProjectSpecialPlanExecute  
 jd_TaskWarningInProgressConfig
 
---ÒÑ¿¼ÂÇÇ¨ÒÆ
+--å·²è€ƒè™‘è¿ç§»
 jd_ProjectPlanTemplate
 jd_ProjectPlanTemplateTask
 jd_PlanTaskExecuteObjectForReport
@@ -52,16 +52,19 @@ jd_WorkDay
 jd_WorkDayExecute 
 jd_PlanTaskExecuteObjectForReportTemp
 
---´ı²¹³ä½Å±¾
+--å¾…è¡¥å……è„šæœ¬
 jd_ProjectSpecialPlanCompile
 jd_ProjectSpecialPlanExecute 
 jd_ProjectSpecialPlanTemplate
 */
-USE MyCost_Erp352;
+
+
+
+USE MyCost_Erp352_ceshi
 GO
 
 BEGIN
-    --»º´æpomÏîÄ¿
+    --ç¼“å­˜pomé¡¹ç›®
     SELECT  a.* ,
             b.NewBuguid ,
             b.NewBuname ,
@@ -70,23 +73,23 @@ BEGIN
             b.OldProjGuid
     INTO    #p
     FROM    dbo.p_HkbProjectWork a
-            INNER JOIN dqy_proj_20240613 b ON a.ProjGUID = b.OldProjGuid;
+            INNER JOIN dqy_proj_20250121 b ON a.ProjGUID = b.OldProjGuid;
 
     DECLARE @qytype INT;
 
     SET @qytype = 1;
 
-    /* 
-		Ç¨ÒÆÀàĞÍ qytype£º
-		0 : ´ú±í×Å²»ĞèÒªÔÚÇ¨ÒÆºó¹«Ë¾ÖĞĞÂÔöÄ£°å,Ö±½Ó½«Ô­ÓĞ¹«Ë¾Ä£°åÈ«²¿Ç¨ÒÆÔÚĞÂ¹«Ë¾
-		1 :´ú±í×ÅĞèÒªÔÚÇ¨ÒÆºó¹«Ë¾ÖĞĞÂÔöÔ­ÓĞ¹«Ë¾Ä£°åÇÒ±£³ÖÔ­ÓĞÄ£°å²»±ä
+       /* 
+        è¿ç§»ç±»å‹ qytypeï¼š
+        0 : ä»£è¡¨ç€ä¸éœ€è¦åœ¨è¿ç§»åå…¬å¸ä¸­æ–°å¢æ¨¡æ¿,ç›´æ¥å°†åŸæœ‰å…¬å¸æ¨¡æ¿å…¨éƒ¨è¿ç§»åœ¨æ–°å…¬å¸
+        1 :ä»£è¡¨ç€éœ€è¦åœ¨è¿ç§»åå…¬å¸ä¸­æ–°å¢åŸæœ‰å…¬å¸æ¨¡æ¿ä¸”ä¿æŒåŸæœ‰æ¨¡æ¿ä¸å˜
 	*/
     IF(@qytype = 1)
         BEGIN
-            --1¡¢¼Æ»®Ä£°å¸´ÖÆÒ»·İµ½ĞÂ¹«Ë¾
-            --»º´æÒ»·İÔ­¹«Ë¾µÄ¼Æ»®Ä£°å
+            --1ã€è®¡åˆ’æ¨¡æ¿å¤åˆ¶ä¸€ä»½åˆ°æ–°å…¬å¸
+            --ç¼“å­˜ä¸€ä»½åŸå…¬å¸çš„è®¡åˆ’æ¨¡æ¿
             SELECT  DISTINCT a.ID oldId ,
-                                -- NEWID() AS id ,
+                             -- NEWID() AS id ,
                              a.ParentID ,
                              REPLACE(a.Name, t.OldBuname, t.NewBuname) AS Name ,
                              a.Code ,
@@ -108,9 +111,9 @@ BEGIN
             -- INNER JOIN(SELECT   DISTINCT OldBuguid, OldBuname, NewBuname, NewBuguid FROM    #p) b ON b.OldBuguid = a.BUGUID;
             WHERE   t.NewBuguid <> a.Buguid;
 
-			-- ¸ù¾İĞèÒª²åÈëµÄĞÂ¹«Ë¾Éú³ÉĞÂ¼Æ»®Ä£°æµÄÁÙÊ±±í
-			SELECT  NEWID() AS id ,
-			        oldId,
+	    -- æ ¹æ®éœ€è¦æ’å…¥çš„æ–°å…¬å¸ç”Ÿæˆæ–°è®¡åˆ’æ¨¡ç‰ˆçš„ä¸´æ—¶è¡¨
+	    SELECT  NEWID() AS id ,
+		    oldId,
                     ParentID ,
                     Name ,
                     Code ,
@@ -125,16 +128,16 @@ BEGIN
                     BUGUID ,
                     PlanModuleTypeGUID ,
                     PlanModuleTypeName 
-			INTO   #temp
-			FROM   #tempPlan
+		    INTO   #temp
+		   FROM   #tempPlan
            
-		   PRINT 'jd_ProjectPlanTemplate';
-				IF OBJECT_ID(N'jd_ProjectPlanTemplate_bak_20240613', N'U') IS NULL
-					SELECT  a.*
-					INTO    dbo.jd_ProjectPlanTemplate_bak_20240613
-					FROM    dbo.jd_ProjectPlanTemplate a;
+	PRINT 'jd_ProjectPlanTemplate';
+	IF OBJECT_ID(N'jd_ProjectPlanTemplate_bak_20250121', N'U') IS NULL
+                SELECT  a.*
+                INTO    dbo.jd_ProjectPlanTemplate_bak_20250121
+                FROM    dbo.jd_ProjectPlanTemplate a;
 
-            --¸´ÖÆÒ»·İÄ£°åµ½ĞÂ¹«Ë¾
+            --å¤åˆ¶ä¸€ä»½æ¨¡æ¿åˆ°æ–°å…¬å¸
             INSERT INTO dbo.jd_ProjectPlanTemplate(ID, ParentID, Name, Code, IfEnd, CreatorID, CreateDate, Instructions, Remarks, PublishState, KeyNodeTemplateID, PlanType, BUGUID ,
                                                    PlanModuleTypeGUID , PlanModuleTypeName)
             SELECT  id ,
@@ -154,14 +157,14 @@ BEGIN
                     PlanModuleTypeName
             FROM    #temp;
 
-            PRINT '¸´ÖÆÄ£°æµ½ĞÂ¹«Ë¾jd_ProjectPlanTemplate£º' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+            PRINT 'å¤åˆ¶æ¨¡ç‰ˆåˆ°æ–°å…¬å¸jd_ProjectPlanTemplateï¼š' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-            ----ÏÈË¢¹ØÁªÁË¼Æ»®Ä£°åµÄÄ£°åID
+            ----å…ˆåˆ·å…³è”äº†è®¡åˆ’æ¨¡æ¿çš„æ¨¡æ¿ID
             PRINT 'jd_ProjectPlanTemplateTask';
 
-            IF OBJECT_ID(N'jd_ProjectPlanTemplateTask_bak_20240613', N'U') IS NULL
+            IF OBJECT_ID(N'jd_ProjectPlanTemplateTask_bak_20250121', N'U') IS NULL
                 SELECT  a.*
-                INTO    dbo.jd_ProjectPlanTemplateTask_bak_20240613
+                INTO    dbo.jd_ProjectPlanTemplateTask_bak_20250121
                 FROM    dbo.jd_ProjectPlanTemplateTask a
                         INNER JOIN #temp b ON a.ProjectPlanTemplateID = b.oldId;
 
@@ -201,12 +204,12 @@ BEGIN
             FROM    dbo.jd_ProjectPlanTemplateTask a
                     INNER JOIN #temp b ON a.ProjectPlanTemplateID = b.oldId;
 
-            PRINT '²åÈëjd_ProjectPlanTemplateTask±í' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+            PRINT 'æ’å…¥jd_ProjectPlanTemplateTaskè¡¨' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
             PRINT 'jd_ProjectPlanExecute';
 
-            IF OBJECT_ID(N'jd_ProjectPlanExecute_bak_20240613', N'U') IS NULL
+            IF OBJECT_ID(N'jd_ProjectPlanExecute_bak_20250121', N'U') IS NULL
                 SELECT  a.*
-                INTO    dbo.jd_ProjectPlanExecute_bak_20240613
+                INTO    dbo.jd_ProjectPlanExecute_bak_20250121
                 FROM    dbo.jd_ProjectPlanExecute a
                         INNER JOIN #temp b ON a.TemplatePlanID = b.oldId
                         INNER JOIN #p p ON p.ProjGUID = a.ProjGUID
@@ -219,12 +222,12 @@ BEGIN
                     INNER JOIN #p p ON p.ProjGUID = a.ProjGUID
             WHERE   a.TemplatePlanID <> b.id;
 
-            PRINT 'ĞŞ¸Äjd_ProjectPlanExecute±í' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+            PRINT 'ä¿®æ”¹jd_ProjectPlanExecuteè¡¨' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
             PRINT 'jd_ProjectPlanCompile';
 
-            IF OBJECT_ID(N'jd_ProjectPlanCompile_bak_20240613', N'U') IS NULL
+            IF OBJECT_ID(N'jd_ProjectPlanCompile_bak_20250121', N'U') IS NULL
                 SELECT  a.*
-                INTO    dbo.jd_ProjectPlanCompile_bak_20240613
+                INTO    dbo.jd_ProjectPlanCompile_bak_20250121
                 FROM    dbo.jd_ProjectPlanCompile a
                         INNER JOIN #temp b ON a.TemplatePlanID = b.oldId
                         INNER JOIN #p p ON p.ProjGUID = a.ProjGUID
@@ -237,14 +240,14 @@ BEGIN
                     INNER JOIN #p p ON p.ProjGUID = a.ProjGUID
             WHERE   a.TemplatePlanID <> b.id;
 
-            PRINT 'ĞŞ¸Äjd_ProjectPlanCompile' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+            PRINT 'ä¿®æ”¹jd_ProjectPlanCompile' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
 
-        --2¡¢ÉèÖÃµÄÊı¾İ¸´ÖÆÒ»·İ
+        --2ã€è®¾ç½®çš„æ•°æ®å¤åˆ¶ä¸€ä»½
         /* PRINT 'jd_PlanOffset';
 
-            IF OBJECT_ID(N'jd_PlanOffset_bak_20240613', N'U') IS NULL
-                SELECT  a.* INTO    dbo.jd_PlanOffset_bak_20240613 FROM dbo.jd_PlanOffset a;
+            IF OBJECT_ID(N'jd_PlanOffset_bak_20250121', N'U') IS NULL
+                SELECT  a.* INTO    dbo.jd_PlanOffset_bak_20250121 FROM dbo.jd_PlanOffset a;
 
             INSERT INTO jd_PlanOffset
             SELECT  NEWID() ,
@@ -259,11 +262,11 @@ BEGIN
             FROM    jd_PlanOffset a
                     INNER JOIN #p b ON b.OldBuguid = a.BUGUID;
            
-            PRINT 'jd_DeptExaminePeriod[²¿ÃÅ¿¼ºËÖÜÆÚ±í]';
+            PRINT 'jd_DeptExaminePeriod[éƒ¨é—¨è€ƒæ ¸å‘¨æœŸè¡¨]';
 
-            IF OBJECT_ID(N'jd_DeptExaminePeriod_bak_20240613', N'U') IS NULL
+            IF OBJECT_ID(N'jd_DeptExaminePeriod_bak_20250121', N'U') IS NULL
                 SELECT  a.*
-                INTO    dbo.jd_DeptExaminePeriod_bak_20240613
+                INTO    dbo.jd_DeptExaminePeriod_bak_20250121
                 FROM    jd_DeptExaminePeriod a
                         INNER JOIN #p b ON b.OldBuguid = a.BUGUID;
 
@@ -281,9 +284,9 @@ BEGIN
         BEGIN
             PRINT 'jd_ProjectPlanTemplate';
 
-            IF OBJECT_ID(N'jd_ProjectPlanTemplate_bak_20240613', N'U') IS NULL
+            IF OBJECT_ID(N'jd_ProjectPlanTemplate_bak_20250121', N'U') IS NULL
                 SELECT  a.*
-                INTO    dbo.jd_ProjectPlanTemplate_bak_20240613
+                INTO    dbo.jd_ProjectPlanTemplate_bak_20250121
                 FROM    jd_ProjectPlanTemplate a
                         INNER JOIN #p b ON b.OldBuguid = a.BUGUID
                 WHERE   a.BUGUID <> b.BUGUID;
@@ -295,12 +298,12 @@ BEGIN
             WHERE   a.BUGUID <> b.BUGUID;
         END;
 
-    --Àï³Ì±®Êı¾İ×ªÒÆ 
+    --é‡Œç¨‹ç¢‘æ•°æ®è½¬ç§» 
     PRINT 'jd_ProjectPlanCompile';
 
-    IF OBJECT_ID(N'jd_ProjectPlanCompile_bak_20240613', N'U') IS NULL
+    IF OBJECT_ID(N'jd_ProjectPlanCompile_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_ProjectPlanCompile_bak_20240613
+        INTO    dbo.jd_ProjectPlanCompile_bak_20250121
         FROM    jd_ProjectPlanCompile a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -311,12 +314,12 @@ BEGIN
             INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
     WHERE   a.BUGUID <> b.BUGUID;
 
-    --¼Æ»®ÀúÊ·±í 
+    --è®¡åˆ’å†å²è¡¨ 
     PRINT 'jd_ProjectPlanExecuteHistory';
 
-    IF OBJECT_ID(N'jd_ProjectPlanExecuteHistory_bak_20240613', N'U') IS NULL
+    IF OBJECT_ID(N'jd_ProjectPlanExecuteHistory_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_ProjectPlanExecuteHistory_bak_20240613
+        INTO    dbo.jd_ProjectPlanExecuteHistory_bak_20250121
         FROM    jd_ProjectPlanExecuteHistory a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -329,9 +332,9 @@ BEGIN
 
     PRINT 'jd_ProjectPlanExecute_del';
 
-    IF OBJECT_ID(N'jd_ProjectPlanExecute_del_bak_20240613', N'U') IS NULL
+    IF OBJECT_ID(N'jd_ProjectPlanExecute_del_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_ProjectPlanExecute_del_bak_20240613
+        INTO    dbo.jd_ProjectPlanExecute_del_bak_20250121
         FROM    jd_ProjectPlanExecute_del a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -344,9 +347,9 @@ BEGIN
 
     PRINT 'jd_ProjectPlanExecutePhoto';
 
-    IF OBJECT_ID(N'jd_ProjectPlanExecutePhoto_bak_20240613', N'U') IS NULL
+    IF OBJECT_ID(N'jd_ProjectPlanExecutePhoto_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_ProjectPlanExecutePhoto_bak_20240613
+        INTO    dbo.jd_ProjectPlanExecutePhoto_bak_20250121
         FROM    jd_ProjectPlanExecutePhoto a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -359,9 +362,9 @@ BEGIN
 
     PRINT 'jd_WorkDay';
 
-    IF OBJECT_ID(N'jd_WorkDay_bak_20240613', N'U') IS NULL
+    IF OBJECT_ID(N'jd_WorkDay_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_WorkDay_bak_20240613
+        INTO    dbo.jd_WorkDay_bak_20250121
         FROM    jd_WorkDay a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -374,9 +377,9 @@ BEGIN
 
     PRINT 'jd_ProjectPlanExecute';
 
-    IF OBJECT_ID(N'jd_ProjectPlanExecute_bak_20240613', N'U') IS NULL
+    IF OBJECT_ID(N'jd_ProjectPlanExecute_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_ProjectPlanExecute_bak_20240613
+        INTO    dbo.jd_ProjectPlanExecute_bak_20250121
         FROM    jd_ProjectPlanExecute a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -387,11 +390,11 @@ BEGIN
             INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
     WHERE   a.BUGUID <> b.BUGUID;
 
-    PRINT '¼Æ»®¹¤×÷ÈÕÖ´ĞĞ±íjd_WorkDayExecute';
+    PRINT 'è®¡åˆ’å·¥ä½œæ—¥æ‰§è¡Œè¡¨jd_WorkDayExecute';
 
-    IF OBJECT_ID(N'jd_WorkDayExecute_bak_20240613', N'U') IS NULL
+    IF OBJECT_ID(N'jd_WorkDayExecute_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_WorkDayExecute_bak_20240613
+        INTO    dbo.jd_WorkDayExecute_bak_20250121
         FROM    jd_WorkDayExecute a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -402,11 +405,11 @@ BEGIN
             INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
     WHERE   a.BUGUID <> b.BUGUID;
 
-    PRINT '¼Æ»®»ã±¨ÁÙÊ±±íjd_PlanTaskExecuteObjectForReportTemp';
+    PRINT 'è®¡åˆ’æ±‡æŠ¥ä¸´æ—¶è¡¨jd_PlanTaskExecuteObjectForReportTemp';
 
-    IF OBJECT_ID(N'jd_PlanTaskExecuteObjectForReportTemp_bak_20240613', N'U') IS NULL
+    IF OBJECT_ID(N'jd_PlanTaskExecuteObjectForReportTemp_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_PlanTaskExecuteObjectForReportTemp_bak_20240613
+        INTO    dbo.jd_PlanTaskExecuteObjectForReportTemp_bak_20250121
         FROM    jd_PlanTaskExecuteObjectForReportTemp a
                 INNER JOIN #p b ON b.ProjGUID = a.projguid
         WHERE   a.buguid <> b.BUGUID;
@@ -417,11 +420,11 @@ BEGIN
             INNER JOIN #p b ON b.ProjGUID = a.projguid
     WHERE   a.buguid <> b.BUGUID;
 
-    PRINT 'Àï³Ì±®½Úµã¼Æ»®Ö´ĞĞÀúÊ·±íjd_ProjectKeyNodePlanExecuteHistory';
+    PRINT 'é‡Œç¨‹ç¢‘èŠ‚ç‚¹è®¡åˆ’æ‰§è¡Œå†å²è¡¨jd_ProjectKeyNodePlanExecuteHistory';
 
-    IF OBJECT_ID(N'jd_ProjectKeyNodePlanExecuteHistory_bak_20240613', N'U') IS NULL
+    IF OBJECT_ID(N'jd_ProjectKeyNodePlanExecuteHistory_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_ProjectKeyNodePlanExecuteHistory_bak_20240613
+        INTO    dbo.jd_ProjectKeyNodePlanExecuteHistory_bak_20250121
         FROM    jd_ProjectKeyNodePlanExecuteHistory a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -432,11 +435,11 @@ BEGIN
             INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
     WHERE   a.BUGUID <> b.BUGUID;
 
-    PRINT '½Úµã¼Æ»®Ö´ĞĞÀúÊ·±íjd_WorkDayExecuteHistory';
+    PRINT 'èŠ‚ç‚¹è®¡åˆ’æ‰§è¡Œå†å²è¡¨jd_WorkDayExecuteHistory';
 
-    IF OBJECT_ID(N'jd_WorkDayExecuteHistory_bak_20240613', N'U') IS NULL
+    IF OBJECT_ID(N'jd_WorkDayExecuteHistory_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_WorkDayExecuteHistory_bak_20240613
+        INTO    dbo.jd_WorkDayExecuteHistory_bak_20250121
         FROM    jd_WorkDayExecuteHistory a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -447,11 +450,11 @@ BEGIN
             INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
     WHERE   a.BUGUID <> b.BUGUID;
 
-    PRINT 'Àï³Ì±®½ÚµãÖ´ĞĞ±íÉ¾³ı±íjd_ProjectKeyNodePlanExecute_del';
+    PRINT 'é‡Œç¨‹ç¢‘èŠ‚ç‚¹æ‰§è¡Œè¡¨åˆ é™¤è¡¨jd_ProjectKeyNodePlanExecute_del';
 
-    IF OBJECT_ID(N'jd_ProjectKeyNodePlanExecute_del_bak_20240613', N'U') IS NULL
+    IF OBJECT_ID(N'jd_ProjectKeyNodePlanExecute_del_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_ProjectKeyNodePlanExecute_del_bak_20240613
+        INTO    dbo.jd_ProjectKeyNodePlanExecute_del_bak_20250121
         FROM    jd_ProjectKeyNodePlanExecute_del a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -462,11 +465,11 @@ BEGIN
             INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
     WHERE   a.BUGUID <> b.BUGUID;
 
-    PRINT '¼Æ»®Ö´ĞĞ»ã±¨±íjd_PlanTaskExecuteObjectForReport';
+    PRINT 'è®¡åˆ’æ‰§è¡Œæ±‡æŠ¥è¡¨jd_PlanTaskExecuteObjectForReport';
 
-    IF OBJECT_ID(N'jd_PlanTaskExecuteObjectForReport_bak_20240613', N'U') IS NULL
+    IF OBJECT_ID(N'jd_PlanTaskExecuteObjectForReport_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_PlanTaskExecuteObjectForReport_bak_20240613
+        INTO    dbo.jd_PlanTaskExecuteObjectForReport_bak_20250121
         FROM    jd_PlanTaskExecuteObjectForReport a
                 INNER JOIN #p b ON b.ProjGUID = a.projguid
         WHERE   a.buguid <> b.BUGUID;
@@ -477,11 +480,11 @@ BEGIN
             INNER JOIN #p b ON b.ProjGUID = a.projguid
     WHERE   a.buguid <> b.BUGUID;
 
-    PRINT 'Àï³Ì±®½ÚµãÖ´ĞĞ±íjd_ProjectKeyNodePlanExecute';
+    PRINT 'é‡Œç¨‹ç¢‘èŠ‚ç‚¹æ‰§è¡Œè¡¨jd_ProjectKeyNodePlanExecute';
 
-    IF OBJECT_ID(N'jd_ProjectKeyNodePlanExecute_bak_20240613', N'U') IS NULL
+    IF OBJECT_ID(N'jd_ProjectKeyNodePlanExecute_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_ProjectKeyNodePlanExecute_bak_20240613
+        INTO    dbo.jd_ProjectKeyNodePlanExecute_bak_20250121
         FROM    jd_ProjectKeyNodePlanExecute a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -492,11 +495,11 @@ BEGIN
             INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
     WHERE   a.BUGUID <> b.BUGUID;
 
-    PRINT 'Àï³Ì±®½Úµã±àÖÆ±íjd_ProjectKeyNodePlanCompile';
+    PRINT 'é‡Œç¨‹ç¢‘èŠ‚ç‚¹ç¼–åˆ¶è¡¨jd_ProjectKeyNodePlanCompile';
 
-    IF OBJECT_ID(N'jd_ProjectKeyNodePlanCompile_bak_20240613', N'U') IS NULL
+    IF OBJECT_ID(N'jd_ProjectKeyNodePlanCompile_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_ProjectKeyNodePlanCompile_bak_20240613
+        INTO    dbo.jd_ProjectKeyNodePlanCompile_bak_20250121
         FROM    jd_ProjectKeyNodePlanCompile a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -506,7 +509,37 @@ BEGIN
     FROM    jd_ProjectKeyNodePlanCompile a
             INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
     WHERE   a.BUGUID <> b.BUGUID;
+ 
+    PRINT 'ç»„å›¢å¾…åŠæ¥æ”¶äººè®¾ç½®è¡¨ jd_GroupTaskReceiverSet';
 
-    --É¾³ıÁÙÊ±±í
+    IF OBJECT_ID(N'jd_GroupTaskReceiverSet_bak_20250121', N'U') IS NULL
+        SELECT  a.*
+        INTO    dbo.jd_GroupTaskReceiverSet_bak_20250121
+        FROM    jd_GroupTaskReceiverSet a
+                INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
+        WHERE   a.BUGUID <> b.BUGUID;
+
+    UPDATE  a
+    SET a.BUGUID = b.BUGUID
+    FROM    jd_GroupTaskReceiverSet a
+            INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
+    WHERE   a.BUGUID <> b.BUGUID;
+    
+    PRINT 'jd_ProjectKeyNodePlanCompile_PreData';
+
+    IF OBJECT_ID(N'jd_ProjectKeyNodePlanCompile_PreData_bak_20250121', N'U') IS NULL
+        SELECT  a.*
+        INTO    dbo.jd_ProjectKeyNodePlanCompile_PreData_bak_20250121
+        FROM    jd_ProjectKeyNodePlanCompile_PreData a
+                INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
+        WHERE   a.BUGUID <> b.BUGUID;
+
+    UPDATE  a
+    SET a.BUGUID = b.BUGUID
+    FROM    jd_ProjectKeyNodePlanCompile_PreData a
+            INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
+    WHERE   a.BUGUID <> b.BUGUID;
+
+    --åˆ é™¤ä¸´æ—¶è¡¨
     DROP TABLE #p,#tempPlan
 END;

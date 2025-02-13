@@ -10,28 +10,28 @@
 --FROM    dbo.myWorkflowProcessEntity
 --WHERE   ProcessStatus IN ( 0, 1 )
 --        AND BUGUID = '248B1E17-AACB-E511-80B8-E41F13C51836'
---        AND BusinessType = 'ºÏÍ¬³ÊÅú¼þÇë¿îÉóÅú';
+--        AND BusinessType = 'åˆåŒå‘ˆæ‰¹ä»¶è¯·æ¬¾å®¡æ‰¹';
 
---ºÏÍ¬³ÊÅú¼þÇë¿îÉóÅú 259
---ÑÓÆÚÇ©Ô¼ÉóÅú 101
---¹©¿î±íµ÷ÕûÉóÅú 49
---Ôö¼õÈ¨ÒæÈËÉóÅú 40
---¸¶¿îÆÚÏÞ±ä¸üÉóÅú 32
---µ÷¼Û·½°¸ÉóÅú 15
---ÍË·¿ÉóÅú 14
---ÍË·¿Ãæ»ý±ä¸üÉóÅú 8
---ÕÛ¿Û·½°¸ÉóÅú 7
---Ì¢¶¨ºóÍË¿îÉóÅú 6
---Ó¶½ðÉê±¨ÉóÅú 4
---Ì¢¶¨ÉóÅú 3
---·ÇºÏÍ¬¸¶¿îÉóÅú 2
---ÕÛ¿Û±ä¸üÉóÅú 2
---ºÏÍ¬³ÊÅú¼þÉóÅú 1
+--åˆåŒå‘ˆæ‰¹ä»¶è¯·æ¬¾å®¡æ‰¹ 259
+--å»¶æœŸç­¾çº¦å®¡æ‰¹ 101
+--ä¾›æ¬¾è¡¨è°ƒæ•´å®¡æ‰¹ 49
+--å¢žå‡æƒç›Šäººå®¡æ‰¹ 40
+--ä»˜æ¬¾æœŸé™å˜æ›´å®¡æ‰¹ 32
+--è°ƒä»·æ–¹æ¡ˆå®¡æ‰¹ 15
+--é€€æˆ¿å®¡æ‰¹ 14
+--é€€æˆ¿é¢ç§¯å˜æ›´å®¡æ‰¹ 8
+--æŠ˜æ‰£æ–¹æ¡ˆå®¡æ‰¹ 7
+--æŒžå®šåŽé€€æ¬¾å®¡æ‰¹ 6
+--ä½£é‡‘ç”³æŠ¥å®¡æ‰¹ 4
+--æŒžå®šå®¡æ‰¹ 3
+--éžåˆåŒä»˜æ¬¾å®¡æ‰¹ 2
+--æŠ˜æ‰£å˜æ›´å®¡æ‰¹ 2
+--åˆåŒå‘ˆæ‰¹ä»¶å®¡æ‰¹ 1
 
---¶¨Òå²éÑ¯ÏîÄ¿·¶Î§ÁÙÊ±±í
+--å®šä¹‰æŸ¥è¯¢é¡¹ç›®èŒƒå›´ä¸´æ—¶è¡¨
 --DROP TABLE #proj
 
---½«ÍåÖÐ¹«Ë¾ÏîÄ¿ºÍ·ÖÆÚ²åÈëµ½ÁÙÊ±±íÖÐ
+--å°†æ¹¾ä¸­å…¬å¸é¡¹ç›®å’Œåˆ†æœŸæ’å…¥åˆ°ä¸´æ—¶è¡¨ä¸­
 SELECT  *
 INTO    #proj
 FROM(SELECT ProjGUID ,
@@ -52,7 +52,7 @@ FROM(SELECT ProjGUID ,
                                'A169EA26-C70A-EC11-B398-F40270D39969' , '64D4173E-F10F-E911-80BF-E61F13C57837', '07DE0456-F10F-E911-80BF-E61F13C57837', '154BDB79-F10F-E911-80BF-E61F13C57837' ,
                                '49D1D48B-F10F-E911-80BF-E61F13C57837' , '7E13BDA3-F10F-E911-80BF-E61F13C57837', '2481A886-E71E-E911-80BF-E61F13C57837')) t;
 
---´´½¨ÁÙÊ±±í
+--åˆ›å»ºä¸´æ—¶è¡¨
 CREATE TABLE #Workflow (projname VARCHAR(200) ,
                         ProcessKindName VARCHAR(200) ,
                         BusinessType VARCHAR(200) ,
@@ -62,7 +62,7 @@ CREATE TABLE #Workflow (projname VARCHAR(200) ,
                         InitiateDatetime DATETIME ,
                         ProcessStatus VARCHAR(200));
 
---ERP25 ÏúÊÛ±ä¸üÉóÅú
+--ERP25 é”€å”®å˜æ›´å®¡æ‰¹
 INSERT INTO #Workflow
 SELECT  p.projname ,
         pe2.ProcessKindName ,
@@ -72,22 +72,22 @@ SELECT  p.projname ,
         pe2.OwnerName ,
         pe2.InitiateDatetime ,
         pe2.ProcessStatus
-FROM    vs_SaleModiApply_WF a --Ìæ»»¶ÔÓ¦µÄÒµÎñÏµÍ³±í
+FROM    vs_SaleModiApply_WF a --æ›¿æ¢å¯¹åº”çš„ä¸šåŠ¡ç³»ç»Ÿè¡¨
         INNER JOIN dbo.myWorkflowProcessEntity pe2 ON a.SaleModiApplyGUID = pe2.BusinessGUID
         INNER JOIN dbo.p_Project p ON a.ProjGUID = p.ProjGUID
 WHERE   p.ProjGUID IN(SELECT    ProjGUID FROM   #proj) AND  pe2.ProcessStatus IN (0, 1);
 
---ºÏÍ¬ÉóÅú
-SELECT  projname AS ÏîÄ¿Ãû³Æ ,
-        ProcessKindName AS Á÷³Ì·ÖÀà ,
-        BusinessType AS ÒµÎñÀàÐÍ ,
+--åˆåŒå®¡æ‰¹
+SELECT  projname AS é¡¹ç›®åç§° ,
+        ProcessKindName AS æµç¨‹åˆ†ç±» ,
+        BusinessType AS ä¸šåŠ¡ç±»åž‹ ,
         ProcessKindGUID ,
-        ProcessName AS Á÷³ÌÃû³Æ ,
-        OwnerName AS ÔðÈÎÈË ,
-        InitiateDatetime AS Á÷³Ì·¢ÆðÊ±¼ä ,
-        CASE WHEN ProcessStatus = 0 THEN 'ÉóÅúÖÐ' WHEN ProcessStatus = 1 THEN '´ý¹éµµ' END AS Á÷³Ì×´Ì¬
+        ProcessName AS æµç¨‹åç§° ,
+        OwnerName AS è´£ä»»äºº ,
+        InitiateDatetime AS æµç¨‹å‘èµ·æ—¶é—´ ,
+        CASE WHEN ProcessStatus = 0 THEN 'å®¡æ‰¹ä¸­' WHEN ProcessStatus = 1 THEN 'å¾…å½’æ¡£' END AS æµç¨‹çŠ¶æ€
 FROM    #Workflow;
 
-----É¾³ýÁÙÊ±±í
+----åˆ é™¤ä¸´æ—¶è¡¨
 --DROP TABLE  #Workflow
 --DROP TABLE #proj

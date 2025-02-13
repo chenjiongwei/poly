@@ -1,9 +1,11 @@
 USE dotnet_erp60;
 GO
 
-/*172.16.4.130 erp60¿â*/
+/*æ³¨æ„è¦æ›¿æ¢ MyCost_Erp352_ceshi ä»¥åŠæ•°æ®åº“è¿æ¥åœ°å€åº“å*/
+
+/*172.16.4.130 erp60åº“*/
 BEGIN
-    /*--ÅĞ¶Ï×éÖ¯¼Ü¹¹¹«Ë¾ÊÇ·ñ´æÔÚ£¬Èç¹ûÃ»ÓĞ£¬ÔòĞèÒª²åÈëÊı¾İ
+    /*--åˆ¤æ–­ç»„ç»‡æ¶æ„å…¬å¸æ˜¯å¦å­˜åœ¨ï¼Œå¦‚æœæ²¡æœ‰ï¼Œåˆ™éœ€è¦æ’å…¥æ•°æ®
     INSERT INTO dbo.myBusinessUnit(AreaType, BUCode, BUFullName, BUName, BUPersonInCharge, BUType, Charter, CityGUID, Comments, CompanyAddr, CompanyFullName, CompanyGUID, CorporationDeputy ,
                                    erp_bu_guid , erp_bu_name, Fax, FyStationGUID, HierarchyCode, IsCompany, IsEndCompany, IsEndDepartment, IsFc, Level, NamePath, OrderCode, OrderHierarchyCode ,
                                    ParentGUID , PartitionID, ProjGUID, ProvinceGUID, RefStationName, WebSite, BUGUID, CreatedGUID, CreatedName, CreatedTime, ModifiedGUID, ModifiedName, ModifiedTime)
@@ -46,12 +48,12 @@ BEGIN
             NULL ModifiedGUID ,
             NULL ModifiedName ,
             NULL ModifiedTime
-    FROM    [172.16.4.129].MyCost_Erp352.dbo.myBusinessUnit
+    FROM    [172.16.4.129].MyCost_Erp352_ceshi.dbo.myBusinessUnit
     WHERE   IsEndCompany = 1 AND BUGUID NOT IN(SELECT   BUGUID FROM dbo.myBusinessUnit);*/
 
-    --´¦ÀíÏîÄ¿¿âÏîÄ¿p_Project,×¢ÒâÕıÊ½»·¾³ĞèÒªÌæ»»µ½±àÂëĞÅÏ¢
+    --å¤„ç†é¡¹ç›®åº“é¡¹ç›®p_Project,æ³¨æ„æ­£å¼ç¯å¢ƒéœ€è¦æ›¿æ¢åˆ°ç¼–ç ä¿¡æ¯
 
-    --´´½¨ÏîÄ¿ÁÙÊ±±í
+    --åˆ›å»ºé¡¹ç›®ä¸´æ—¶è¡¨
     SELECT  p.HierarchyCode ,
             ParentCode ,
             ProjCode ,
@@ -61,15 +63,16 @@ BEGIN
             old.BUCode AS oldBUCode ,
             t.*
     INTO    #dqy_proj
-    FROM    [172.16.4.129].MyCost_Erp352.dbo.dqy_proj_20240613 t
+    FROM    -- [172.16.4.129].MyCost_Erp352_ceshi.dbo.dqy_proj_20250121 t
+            MyCost_Erp352_ceshi.dbo.dqy_proj_20250121 t
             INNER JOIN dbo.p_Project p ON t.OldProjGuid = p.p_projectId
             INNER JOIN dbo.myBusinessUnit bu ON t.NewBuguid = bu.BUGUID
             INNER JOIN dbo.myBusinessUnit old ON old.BUGUID = t.OldBuguid;
 
-    --´¦ÀíÏîÄ¿¿âÏîÄ¿p_Project,×¢ÒâÕıÊ½»·¾³ĞèÒªÌæ»»µ½±àÂëĞÅÏ¢
-    IF OBJECT_ID(N'p_Project_bak_20240613', N'U') IS NULL
+    --å¤„ç†é¡¹ç›®åº“é¡¹ç›®p_Project,æ³¨æ„æ­£å¼ç¯å¢ƒéœ€è¦æ›¿æ¢åˆ°ç¼–ç ä¿¡æ¯
+    IF OBJECT_ID(N'p_Project_bak_20250121', N'U') IS NULL
         SELECT  p.*
-        INTO    p_Project_bak_20240613
+        INTO    p_Project_bak_20250121
         FROM    dbo.p_Project p
                 INNER JOIN #dqy_proj t ON p.p_projectId = t.OldProjGuid;
 
@@ -81,18 +84,18 @@ BEGIN
     FROM    dbo.p_Project p
             INNER JOIN #dqy_proj t ON p.p_projectId = t.OldProjGuid;
 
-    PRINT '´¦ÀíÏîÄ¿¿âÏîÄ¿p_Project' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+    PRINT 'å¤„ç†é¡¹ç›®åº“é¡¹ç›®p_Project' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-    /* --´¦Àí·şÎñ¹«Ë¾
-    IF OBJECT_ID(N'cl_ServiceBusinessUnit_bak_20240613', N'U') IS NULL
+    /* --å¤„ç†æœåŠ¡å…¬å¸
+    IF OBJECT_ID(N'cl_ServiceBusinessUnit_bak_20250121', N'U') IS NULL
         SELECT  p.*
-        INTO    cl_ServiceBusinessUnit_bak_20240613
+        INTO    cl_ServiceBusinessUnit_bak_20250121
         FROM    dbo.cl_ServiceBusinessUnit p;
 
     INSERT INTO dbo.cl_ServiceBusinessUnit(Code, FullName, HierarchyCode, Name, ParentGUID, CreatedGUID, CreatedName, CreatedTime, ModifiedGUID, ModifiedName, ModifiedTime, ServiceBusinessUnitGUID ,
                                            Level , HierarchyName)
     SELECT  newBUCode AS Code ,
-            '±£Àû·¢Õ¹¼¯ÍÅ-' + NewBuname AS FullName ,
+            'ä¿åˆ©å‘å±•é›†å›¢-' + NewBuname AS FullName ,
             newHierarchyCode AS HierarchyCode ,
             NewBuname AS Name ,
             ParentGUID ,
@@ -114,12 +117,12 @@ BEGIN
                        FROM #dqy_proj) t ON bu.ServiceBusinessUnitGUID = t.OldBuguid
     WHERE   t.NewBuguid NOT IN(SELECT   ServiceBusinessUnitGUID FROM    cl_ServiceBusinessUnit);
 
-    PRINT '´¦Àí·şÎñ¹«Ë¾cl_ServiceBusinessUnit' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+    PRINT 'å¤„ç†æœåŠ¡å…¬å¸cl_ServiceBusinessUnit' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 	
     --cl_ClCompany2BusinessUnit
-    IF OBJECT_ID(N'cl_ClCompany2BusinessUnit_bak_20240613', N'U') IS NULL
+    IF OBJECT_ID(N'cl_ClCompany2BusinessUnit_bak_20250121', N'U') IS NULL
         SELECT  p.*
-        INTO    cl_ClCompany2BusinessUnit_bak_20240613
+        INTO    cl_ClCompany2BusinessUnit_bak_20250121
         FROM    dbo.cl_ClCompany2BusinessUnit p;
 
     INSERT INTO dbo.cl_ClCompany2BusinessUnit(BUGUID, ServiceBusinessUnitGUID, ClCompany2BusinessUnitGUID, CreatedGUID, CreatedName, CreatedTime, ModifiedGUID, ModifiedName, ModifiedTime)
@@ -141,13 +144,13 @@ BEGIN
                        FROM #dqy_proj) t ON bu.ServiceBusinessUnitGUID = t.NewBuguid
     WHERE   t.NewBuguid NOT IN(SELECT   BUGUID FROM cl_ClCompany2BusinessUnit);
 
-    PRINT '´¦Àí²ÄÁÏ¹«Ë¾·şÎñ¹«Ë¾£¨×éÖ¯¹«Ë¾£©¹ØÏµ±ícl_ClCompany2BusinessUnit' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+    PRINT 'å¤„ç†ææ–™å…¬å¸æœåŠ¡å…¬å¸ï¼ˆç»„ç»‡å…¬å¸ï¼‰å…³ç³»è¡¨cl_ClCompany2BusinessUnit' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 	*/
 
-    --cl_ClCompany2ServiceProject²ÄÁÏ¹«Ë¾£¨×éÖ¯¹«Ë¾£©·şÎñÏîÄ¿¹ØÏµ±í
-    IF OBJECT_ID(N'cl_ClCompany2ServiceProject_bak_20240613', N'U') IS NULL
+    --cl_ClCompany2ServiceProjectææ–™å…¬å¸ï¼ˆç»„ç»‡å…¬å¸ï¼‰æœåŠ¡é¡¹ç›®å…³ç³»è¡¨
+    IF OBJECT_ID(N'cl_ClCompany2ServiceProject_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    cl_ClCompany2ServiceProject_bak_20240613
+        INTO    cl_ClCompany2ServiceProject_bak_20250121
         FROM    cl_ClCompany2ServiceProject a
                 INNER JOIN cl_ServiceProject b ON b.ServiceProjectGUID = a.ServiceProjectGUID
                 INNER JOIN #dqy_proj pj ON pj.HierarchyCode = b.HierarchyCode;
@@ -162,12 +165,12 @@ BEGIN
     -- INNER JOIN(SELECT   DISTINCT oldbuguid, NewBuguid FROM  #dqy_proj) p ON p.oldbuguid = b.BUGUID;
     WHERE   a.BUGUID <> pj.NewBUGUID;
 
-    PRINT '²ÄÁÏ¹«Ë¾£¨×éÖ¯¹«Ë¾£©·şÎñÏîÄ¿¹ØÏµ±ícl_ClCompany2ServiceProject' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+    PRINT 'ææ–™å…¬å¸ï¼ˆç»„ç»‡å…¬å¸ï¼‰æœåŠ¡é¡¹ç›®å…³ç³»è¡¨cl_ClCompany2ServiceProject' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-    --cl_ServiceProject·şÎñÏîÄ¿
-    IF OBJECT_ID(N'cl_ServiceProject_bak_20240613', N'U') IS NULL
+    --cl_ServiceProjectæœåŠ¡é¡¹ç›®
+    IF OBJECT_ID(N'cl_ServiceProject_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    cl_ServiceProject_bak_20240613
+        INTO    cl_ServiceProject_bak_20250121
         FROM    cl_ServiceProject a
                 INNER JOIN #dqy_proj b ON b.HierarchyCode = a.HierarchyCode
                 INNER JOIN dbo.p_Project p ON p.p_projectId = b.OldProjGuid;
@@ -180,14 +183,14 @@ BEGIN
             INNER JOIN #dqy_proj b ON b.HierarchyCode = a.HierarchyCode
             INNER JOIN dbo.p_Project p ON p.p_projectId = b.OldProjGuid;
 
-    PRINT '´¦Àí·şÎñÏîÄ¿cl_ServiceProject' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+    PRINT 'å¤„ç†æœåŠ¡é¡¹ç›®cl_ServiceProject' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --====================================================================================================================
-    --´¦ÀíÒµÎñÊı¾İ
-    --²ÄÁÏÉêÇë±í
-    IF OBJECT_ID(N'cl_Apply_bak_20240613', N'U') IS NULL
+    --å¤„ç†ä¸šåŠ¡æ•°æ®
+    --ææ–™ç”³è¯·è¡¨
+    IF OBJECT_ID(N'cl_Apply_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    cl_Apply_bak_20240613
+        INTO    cl_Apply_bak_20250121
         FROM    cl_Apply a
                 INNER JOIN dbo.p_Project p ON a.ProjGUID = p.p_projectId
         WHERE   a.ProjGUID IN(SELECT    OldProjGuid FROM    #dqy_proj);
@@ -198,12 +201,12 @@ BEGIN
             INNER JOIN dbo.p_Project p ON a.ProjGUID = p.p_projectId
     WHERE   a.ProjGUID IN(SELECT    OldProjGuid FROM    #dqy_proj);
 
-    PRINT '²ÄÁÏÉêÇë±ícl_Apply' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+    PRINT 'ææ–™ç”³è¯·è¡¨cl_Apply' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-    --¶©µ¥±í
-    IF OBJECT_ID(N'cl_Order_bak_20240613', N'U') IS NULL
+    --è®¢å•è¡¨
+    IF OBJECT_ID(N'cl_Order_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    cl_Order_bak_20240613
+        INTO    cl_Order_bak_20250121
         FROM    cl_Order a
                 INNER JOIN dbo.p_Project p ON a.ProjGUID = p.p_projectId
         WHERE   a.ProjGUID IN(SELECT    OldProjGuid FROM    #dqy_proj);
@@ -214,12 +217,12 @@ BEGIN
             INNER JOIN dbo.p_Project p ON a.ProjGUID = p.p_projectId
     WHERE   a.ProjGUID IN(SELECT    OldProjGuid FROM    #dqy_proj);
 
-    PRINT '¶©µ¥±ícl_Order' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+    PRINT 'è®¢å•è¡¨cl_Order' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-    --ÑéÊÕµ¥
-    IF OBJECT_ID(N'cl_Recipient_bak_20240613', N'U') IS NULL
+    --éªŒæ”¶å•
+    IF OBJECT_ID(N'cl_Recipient_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    cl_Recipient_bak_20240613
+        INTO    cl_Recipient_bak_20250121
         FROM    cl_Recipient a
                 INNER JOIN dbo.p_Project p ON a.ProjGUID = p.p_projectId
         WHERE   a.ProjGUID IN(SELECT    OldProjGuid FROM    #dqy_proj);
@@ -230,12 +233,12 @@ BEGIN
             INNER JOIN dbo.p_Project p ON a.ProjGUID = p.p_projectId
     WHERE   a.ProjGUID IN(SELECT    OldProjGuid FROM    #dqy_proj);
 
-    PRINT 'ÑéÊÕµ¥cl_Recipient' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+    PRINT 'éªŒæ”¶å•cl_Recipient' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-    --ÍË»õµ¥
-    IF OBJECT_ID(N'x_cl_ReturnOrder_bak_20240613', N'U') IS NULL
+    --é€€è´§å•
+    IF OBJECT_ID(N'x_cl_ReturnOrder_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    x_cl_ReturnOrder_bak_20240613
+        INTO    x_cl_ReturnOrder_bak_20250121
         FROM    x_cl_ReturnOrder a
                 INNER JOIN dbo.p_Project p ON a.x_ProjGUID = p.p_projectId
         WHERE   a.x_ProjGUID IN(SELECT  OldProjGuid FROM    #dqy_proj);
@@ -246,12 +249,12 @@ BEGIN
             INNER JOIN dbo.p_Project p ON a.x_ProjGUID = p.p_projectId
     WHERE   a.x_ProjGUID IN(SELECT  OldProjGuid FROM    #dqy_proj);
 
-    PRINT 'ÍË»õµ¥x_cl_ReturnOrder';
+    PRINT 'é€€è´§å•x_cl_ReturnOrder';
 
-    --²ÄÁÏºÏÍ¬±í
-    IF OBJECT_ID(N'cl_Contract_bak_20240613', N'U') IS NULL
+    --ææ–™åˆåŒè¡¨
+    IF OBJECT_ID(N'cl_Contract_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    cl_Contract_bak_20240613
+        INTO    cl_Contract_bak_20250121
         FROM    cl_Contract a
                 INNER JOIN dbo.p_Project p ON a.ProjGUID = p.p_projectId
         WHERE   a.ProjGUID IN(SELECT    OldProjGuid FROM    #dqy_proj);
@@ -262,12 +265,12 @@ BEGIN
             INNER JOIN dbo.p_Project p ON a.ProjGUID = p.p_projectId
     WHERE   a.ProjGUID IN(SELECT    OldProjGuid FROM    #dqy_proj);
 
-    PRINT '²ÄÁÏºÏÍ¬±ícl_Contract' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+    PRINT 'ææ–™åˆåŒè¡¨cl_Contract' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-    --Êµ¼ÊÓÃÁÏ¼Æ»®±í
-    IF OBJECT_ID(N'cl_ProductRequirement_bak_20240613', N'U') IS NULL
+    --å®é™…ç”¨æ–™è®¡åˆ’è¡¨
+    IF OBJECT_ID(N'cl_ProductRequirement_bak_20250121', N'U') IS NULL
         SELECT  a.*
-        INTO    cl_ProductRequirement_bak_20240613
+        INTO    cl_ProductRequirement_bak_20250121
         FROM    cl_ProductRequirement a
                 INNER JOIN dbo.p_Project p ON a.ProjGUID = p.p_projectId
         WHERE   a.ProjGUID IN(SELECT    OldProjGuid FROM    #dqy_proj);
@@ -278,20 +281,20 @@ BEGIN
             INNER JOIN dbo.p_Project p ON a.ProjGUID = p.p_projectId
     WHERE   a.ProjGUID IN(SELECT    OldProjGuid FROM    #dqy_proj);
 
-    PRINT 'Êµ¼ÊÓÃÁÏ¼Æ»®±ícl_ProductRequirement' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+    PRINT 'å®é™…ç”¨æ–™è®¡åˆ’è¡¨cl_ProductRequirement' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-    --²ÄÁÏ±í£¨ÊÊÓÃÇøÓò£©
+    --ææ–™è¡¨ï¼ˆé€‚ç”¨åŒºåŸŸï¼‰
     --SELECT * FROM dbo.cl_Product WHERE pr
 
-    --²ÄÁÏÊÊÓÃÇøÓò¹ØÏµ±í
+    --ææ–™é€‚ç”¨åŒºåŸŸå…³ç³»è¡¨
     --SELECT * FROM cl_Product2BusinessUnit
 
-    --Õ½ÂÔĞ­Òé±í£¨ÏîÄ¿ÔİÎ´Ê¹ÓÃ£©
+    --æˆ˜ç•¥åè®®è¡¨ï¼ˆé¡¹ç›®æš‚æœªä½¿ç”¨ï¼‰
     --SELECT *
     --FROM   cl_TacticCgAgreement a
     --     INNER JOIN dbo.p_Project p ON a.ProjGUID = p.p_projectId
     --WHERE  a.ProjGUID IN ( SELECT p_projectId FROM #proj );
 
-    --É¾³ıÁÙÊ±±í
+    --åˆ é™¤ä¸´æ—¶è¡¨
     --DROP TABLE #dqy_proj;
 END;

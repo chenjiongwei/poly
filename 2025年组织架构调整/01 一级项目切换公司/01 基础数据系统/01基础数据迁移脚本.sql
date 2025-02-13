@@ -1,17 +1,17 @@
---1�����ݶԱ����������ݱ����Ų飬����������֯�ܹ�������Ӱ�����ػ�������ϵͳ�������£�
+--1、根据对保利基础数据表的排查，现梳理出组织架构调整有影响的相关基础数据系统表，如下：
 --  select buguid, * from md_Room
 --  select buguid, * from md_RoomTengNuoLog
 --  select buguid, * from md_RoomTengNuoApprove
 --  select buguid, * from md_RoomPropertyAdjust
---  ƽ̨��˾��
+--  平台公司：
 --  SELECT DevelopmentCompanyGUID,* FROM dbo.md_Project
---2����Խű����˵��������£�
--- a����κ�ͬ�����ڶ����Ŀ����ôǨ�ƺ�ͬ��ĳһ����Ŀ���¹�˾���˺�ͬӦ�������������
--- b�����ҵ���е��������ţ����ҵ������Ǩ�Ƶ��µĹ�˾���棬��ô��Щ���Ź����¹�˾���Ǹ���Ӧ�����У�
--- c������ϵͳҵ�����ݶ�Ӧ�Ĺ�˾GUID���߲�����ϢҪͳһ����Ǩ��
--- d������ϵͳҵ�����ݵ���Ŀ������Ҫ������������Ŀ����Ŀ����
--- e��ҵ�����Ǩ����Ҫ���ʵ�ʳ������кϲ��޸������ҵ��������ͨ��ҵ�����GUID����ʹ�õģ�����Ҫ��ҵ�����ݶ�Ӧ��ҵ�����ˢ�³����µ�ҵ�����GUID
-USE MyCost_Erp352;
+--2、针对脚本复核的问题如下：
+-- a、如何合同归属于多个项目，那么迁移合同的某一个项目到新公司，此合同应该如何做处理？
+-- b、针对业务中的所属部门，如果业务数据迁移到新的公司下面，那么这些部门挂在新公司的那个对应部门中？
+-- c、所有系统业务数据对应的公司GUID或者部门信息要统一进行迁移
+-- d、所有系统业务数据的项目编码需要调整成最新项目的项目编码
+-- e、业务参数迁移需要针对实际场景进行合并修复，如果业务数据有通过业务参数GUID进行使用的，还需要将业务数据对应的业务参数刷新成最新的业务参数GUID
+USE MyCost_Erp352_ceshi
 GO
 
 /****** Object:  StoredProcedure [dbo].[usp_mdm_Updatemdm]    Script Date: 2021/3/3 13:21:50 ******/
@@ -21,20 +21,20 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 
---exec [usp_mdm_Updatemdm_20240613]
+--exec [usp_mdm_Updatemdm_20250121]
 
-CREATE PROC [dbo].[usp_mdm_Updatemdm_20240613]
+CREATE PROC [dbo].[usp_mdm_Updatemdm_20250121]
 /*
-     �޸Ļ���������Ŀ����ƽ̨��˾��Ϣ
+     修改基础数据项目所属平台公司信息
      */
 AS
-    BEGIN --��ȡ��Ǩ����Ϣ��
-        SELECT  * INTO  #dqy_proj FROM  dqy_proj_20240613;
+    BEGIN --获取待迁移信息表
+        SELECT  * INTO  #dqy_proj FROM  dqy_proj_20250121;
 
-        --�޸���Ŀ������˾
-        IF OBJECT_ID(N'md_Project_bak_20240613', N'U') IS NULL
+        --修改项目所属公司
+        IF OBJECT_ID(N'md_Project_bak_20250121', N'U') IS NULL
             SELECT  a.*
-            INTO    dbo.md_Project_bak_20240613
+            INTO    dbo.md_Project_bak_20250121
             FROM    dbo.md_Project a
                     INNER JOIN #dqy_proj b ON a.ProjGUID = b.OldProjGuid;
 
@@ -43,11 +43,11 @@ AS
         FROM    md_Project a
                 INNER JOIN #dqy_proj b ON a.ProjGUID = b.OldProjGuid;
 
-        PRINT '��Ŀ��:md_Project' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+        PRINT '项目表:md_Project' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        IF OBJECT_ID(N'md_Project_work_bak_20240613', N'U') IS NULL
+        IF OBJECT_ID(N'md_Project_work_bak_20250121', N'U') IS NULL
             SELECT  A.*
-            INTO    dbo.md_Project_work_bak_20240613
+            INTO    dbo.md_Project_work_bak_20250121
             FROM    dbo.md_Project_work A
                     INNER JOIN #dqy_proj B ON A.ProjGUID = B.OldProjGuid;
 
@@ -56,13 +56,13 @@ AS
         FROM    md_Project_work a
                 INNER JOIN #dqy_proj b ON a.ProjGUID = b.OldProjGuid;
 
-        PRINT '��Ŀ��:md_Project_work' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+        PRINT '项目表:md_Project_work' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        --�޸Ļ����������ҵ���
-        --������ҵϵͳ��Ŀ��֯�ܹ�:20220113, add by lintx
-        IF OBJECT_ID(N'md_Project2OrgCompany_bak_20240613', N'U') IS NULL
+        --修改基础数据相关业务表
+        --留存物业系统项目组织架构:20220113, add by lintx
+        IF OBJECT_ID(N'md_Project2OrgCompany_bak_20250121', N'U') IS NULL
             SELECT  a.*
-            INTO    dbo.md_Project2OrgCompany_bak_20240613
+            INTO    dbo.md_Project2OrgCompany_bak_20250121
             FROM    md_Project2OrgCompany a
                     INNER JOIN #dqy_proj b ON a.ProjGUID = b.OldProjGuid;
 
@@ -71,12 +71,12 @@ AS
         FROM    md_Project2OrgCompany a
                 INNER JOIN #dqy_proj b ON a.ProjGUID = b.OldProjGuid;
 
-        PRINT '������ҵϵͳ��Ŀ��֯�ܹ�:md_Project2OrgCompany' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+        PRINT '留存物业系统项目组织架构:md_Project2OrgCompany' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        --������Ϣ��
-        IF OBJECT_ID(N'md_Room_bak_20240613', N'U') IS NULL
+        --房间信息表
+        IF OBJECT_ID(N'md_Room_bak_20250121', N'U') IS NULL
             SELECT  A.*
-            INTO    dbo.md_Room_bak_20240613
+            INTO    dbo.md_Room_bak_20250121
             FROM    dbo.md_Room A
                     INNER JOIN #dqy_proj B ON A.ProjGUID = B.OldProjGuid;
 
@@ -85,12 +85,12 @@ AS
         FROM    dbo.md_Room A
                 INNER JOIN #dqy_proj B ON A.ProjGUID = B.OldProjGuid;
 
-        PRINT '������Ϣ��:md_Room' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+        PRINT '房间信息表:md_Room' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        --������Ų��־��  
-        IF OBJECT_ID(N'md_RoomTengNuoLog_bak_20240613', N'U') IS NULL
+        --房间腾挪日志表  
+        IF OBJECT_ID(N'md_RoomTengNuoLog_bak_20250121', N'U') IS NULL
             SELECT  A.*
-            INTO    dbo.md_RoomTengNuoLog_bak_20240613
+            INTO    dbo.md_RoomTengNuoLog_bak_20250121
             FROM    dbo.md_RoomTengNuoLog A
                     INNER JOIN #dqy_proj B ON A.ProjGUID = B.OldProjGuid;
 
@@ -99,12 +99,12 @@ AS
         FROM    dbo.md_RoomTengNuoLog A
                 INNER JOIN #dqy_proj B ON A.ProjGUID = B.OldProjGuid;
 
-        PRINT '������Ų��־��:md_RoomTengNuoLog' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+        PRINT '房间腾挪日志表:md_RoomTengNuoLog' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        --������Ų��˱�
-        IF OBJECT_ID(N'md_RoomTengNuoApprove_bak_20240613', N'U') IS NULL
+        --房间腾挪审核表
+        IF OBJECT_ID(N'md_RoomTengNuoApprove_bak_20250121', N'U') IS NULL
             SELECT  a.*
-            INTO    dbo.md_RoomTengNuoApprove_bak_20240613
+            INTO    dbo.md_RoomTengNuoApprove_bak_20250121
             FROM    dbo.md_RoomTengNuoApprove a
                     INNER JOIN md_Room r ON r.RoomGUID = a.RoomGUID
                     INNER JOIN #dqy_proj B ON r.ProjGUID = B.OldProjGuid;
@@ -115,12 +115,12 @@ AS
                 INNER JOIN md_Room r ON r.RoomGUID = a.RoomGUID
                 INNER JOIN #dqy_proj B ON r.ProjGUID = B.OldProjGuid;
 
-        PRINT '������Ų��˱�:md_RoomTengNuoApprove' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+        PRINT '房间腾挪审核表:md_RoomTengNuoApprove' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        --����ʹ�����Ե���������
-        IF OBJECT_ID(N'md_RoomPropertyAdjust_bak_20240613', N'U') IS NULL
+        --房间使用属性调整方案表
+        IF OBJECT_ID(N'md_RoomPropertyAdjust_bak_20250121', N'U') IS NULL
             SELECT  a.*
-            INTO    dbo.md_RoomPropertyAdjust_bak_20240613
+            INTO    dbo.md_RoomPropertyAdjust_bak_20250121
             FROM    dbo.md_RoomPropertyAdjust a
                     INNER JOIN #dqy_proj B ON a.ProjGUID = B.OldProjGuid;
 
@@ -129,12 +129,12 @@ AS
         FROM    md_RoomPropertyAdjust a
                 INNER JOIN #dqy_proj B ON a.ProjGUID = B.OldProjGuid;
 
-        PRINT '����ʹ�����Ե���������:md_RoomPropertyAdjust' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+        PRINT '房间使用属性调整方案表:md_RoomPropertyAdjust' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
         -- md_ProjectOperLog 
-        IF OBJECT_ID(N'md_ProjectOperLog_bak_20240613', N'U') IS NULL
+        IF OBJECT_ID(N'md_ProjectOperLog_bak_20250121', N'U') IS NULL
             SELECT  a.*
-            INTO    dbo.md_ProjectOperLog_bak_20240613
+            INTO    dbo.md_ProjectOperLog_bak_20250121
             FROM    dbo.md_ProjectOperLog a
                     INNER JOIN #dqy_proj B ON a.ProjGUID = B.OldProjGuid;
 
@@ -145,11 +145,11 @@ AS
 
         PRINT 'md_ProjectOperLog' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-		--md_ZBPCRemindSetû�����ݲ�����
+		--md_ZBPCRemindSet没有数据不处理
 
-        /*--������֯�ܹ���˾��ƽ̨��˾��ӳ���ϵ
-        IF OBJECT_ID(N'companyjoin_bak_20240613', N'U') IS NULL
-            SELECT  a.* INTO    dbo.companyjoin_bak_20240613 FROM   dbo.CompanyJoin a;
+        /*--增加组织架构公司跟平台公司的映射关系
+        IF OBJECT_ID(N'companyjoin_bak_20250121', N'U') IS NULL
+            SELECT  a.* INTO    dbo.companyjoin_bak_20250121 FROM   dbo.CompanyJoin a;
 
         INSERT INTO CompanyJoin
         SELECT  NEWID() AS companyjoinguid ,
@@ -169,8 +169,8 @@ AS
             LEFT JOIN CompanyJoin b ON a.NewBuguid = b.buguid
         WHERE   b.buguid IS NULL;
 
-        PRINT '��֯�ܹ���˾��ƽ̨��˾��ӳ���ϵcompanyjoin:' + CONVERT(NVARCHAR(20), @@ROWCOUNT);*/
+        PRINT '组织架构公司跟平台公司的映射关系companyjoin:' + CONVERT(NVARCHAR(20), @@ROWCOUNT);*/
 
-        --ɾ����ʱ��
+        --删除临时表
         DROP TABLE #dqy_proj;
     END;

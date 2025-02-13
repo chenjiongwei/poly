@@ -1,27 +1,27 @@
 SELECT  *
 FROM(SELECT [TacticCgAgreementGUID] ,
-            [AgreementCode] AS Õ½ÂÔĞ­Òé±àºÅ ,
-            [AgreementName] AS Õ½ÂÔĞ­ÒéÃû³Æ ,
-            [YfProviderName] AS ÒÒ·½µ¥Î» ,
-            [ValidBeginDate] AS ÓĞĞ§¿ªÊ¼ÈÕÆÚ ,
-            [ValidEndDate] AS ÓĞĞ§½ØÖ¹ÈÕÆÚ ,
-            [CgProjectName] AS ²É¹ºÏî ,
+            [AgreementCode] AS æˆ˜ç•¥åè®®ç¼–å· ,
+            [AgreementName] AS æˆ˜ç•¥åè®®åç§° ,
+            [YfProviderName] AS ä¹™æ–¹å•ä½ ,
+            [ValidBeginDate] AS æœ‰æ•ˆå¼€å§‹æ—¥æœŸ ,
+            [ValidEndDate] AS æœ‰æ•ˆæˆªæ­¢æ—¥æœŸ ,
+            [CgProjectName] AS é‡‡è´­é¡¹ ,
             TacticCgAdjustBillGUID ,
             --JicaiLevelGuid,
             --ISNULL(CAST([Provider2ServiceGUID] AS NVARCHAR(36)), '') Provider2ServiceGUID,
-            [SignDate] AS Ç©Ô¼ÈÕÆÚ ,
+            [SignDate] AS ç­¾çº¦æ—¥æœŸ ,
             --ApplyAreaGUIDList,
-            Operator AS ¾­°ìÈË ,
+            Operator AS ç»åŠäºº ,
             --CreateDate,
             --AuditDate,
-            State AS ×´Ì¬ ,
+            State AS çŠ¶æ€ ,
             AuditState ,
             [CgSolutionGUID] ,
             CgPlanGUID ,
-            CASE WHEN ApplyAreaGUIDList = '00000000-0000-0000-0000-000000000000' THEN 'È«¹ú'
+            CASE WHEN ApplyAreaGUIDList = '00000000-0000-0000-0000-000000000000' THEN 'å…¨å›½'
                  ELSE
-            (CASE WHEN CHARINDEX('00000000-0000-0000-0000-000000000000', ApplyAreaGUIDList) <> 0 THEN 'È«¹ú£»' ELSE '' END)
-            + SUBSTRING((SELECT     '£»' + BUName
+            (CASE WHEN CHARINDEX('00000000-0000-0000-0000-000000000000', ApplyAreaGUIDList) <> 0 THEN 'å…¨å›½ï¼›' ELSE '' END)
+            + SUBSTRING((SELECT     'ï¼›' + BUName
                          FROM   dbo.myBusinessUnit
                          WHERE   BUGUID IN(SELECT   B.value
                                            FROM     (SELECT CONVERT(XML, '<v>' + REPLACE(CASE ApplyAreaGUIDList WHEN '' THEN NULL ELSE ApplyAreaGUIDList END, ',', '</v><v>') + '</v>') AS value) AS A
@@ -29,13 +29,13 @@ FROM(SELECT [TacticCgAgreementGUID] ,
                                                                 FROM    A.[value].nodes('/v') N(v) ) AS B )
                          ORDER BY OrderHierarchyCode
                         FOR XML PATH('')), 2, 8000)
-            END AS ÊÊÓÃÇøÓò ,
+            END AS é€‚ç”¨åŒºåŸŸ ,
             IsHistoryData ,
-            CASE WHEN IsPublish = 1 THEN 'ÒÑ¹«Ê¾' ELSE 'Î´¹«Ê¾' END AS ¹«Ê¾½á¹û ,
-            JfProviderName AS ¼×·½µ¥Î» ,
-            ProductTypeName AS ·şÎñ·¶Î§
+            CASE WHEN IsPublish = 1 THEN 'å·²å…¬ç¤º' ELSE 'æœªå…¬ç¤º' END AS å…¬ç¤ºç»“æœ ,
+            JfProviderName AS ç”²æ–¹å•ä½ ,
+            ProductTypeName AS æœåŠ¡èŒƒå›´
      FROM   [dbo].[vcg_TacticCgAgreement] t
             INNER JOIN dbo.myBusinessUnit bu ON t.BUGUID = bu.BUGUID
-     WHERE  bu.BUName = 'ÉÏº£¹«Ë¾') t
-WHERE(((1 = 1) AND  ((2 = 2)) AND   TacticCgAdjustBillGUID IS NULL) OR  ((1 = 1) AND ((2 = 2)) AND  TacticCgAdjustBillGUID IS NOT NULL AND  AuditState = 'ÒÑÉóºË'))
-ORDER BY Ç©Ô¼ÈÕÆÚ DESC;
+     WHERE  bu.BUName = 'ä¸Šæµ·å…¬å¸') t
+WHERE(((1 = 1) AND  ((2 = 2)) AND   TacticCgAdjustBillGUID IS NULL) OR  ((1 = 1) AND ((2 = 2)) AND  TacticCgAdjustBillGUID IS NOT NULL AND  AuditState = 'å·²å®¡æ ¸'))
+ORDER BY ç­¾çº¦æ—¥æœŸ DESC;

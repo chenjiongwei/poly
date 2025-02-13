@@ -1,4 +1,4 @@
-USE MyCost_Erp352;
+USE MyCost_Erp352_ceshi
 GO
 
 
@@ -15,21 +15,18 @@ BEGIN
            old.BUCode AS oldBUCode,
            t.*
     INTO #dqy_proj
-    FROM MyCost_Erp352.dbo.dqy_proj_20240613 t
-        INNER JOIN dbo.p_Project p
-            ON t.OldProjGuid = p.ProjGUID
-        INNER JOIN dbo.myBusinessUnit bu
-            ON t.NewBuguid = bu.BUGUID
-        INNER JOIN dbo.myBusinessUnit old
-            ON old.BUGUID = t.OldBuguid;
+    FROM dbo.dqy_proj_20250121 t
+        INNER JOIN dbo.p_Project p  ON t.OldProjGuid = p.ProjGUID
+        INNER JOIN dbo.myBusinessUnit bu   ON t.NewBuguid = bu.BUGUID
+        INNER JOIN dbo.myBusinessUnit old ON old.BUGUID = t.OldBuguid;
 
     --处理业务数据
     --材料申请表
     PRINT '材料申请表cl_Apply';
 
-    IF OBJECT_ID(N'cl_Apply_bak_20240613', N'U') IS NULL
+    IF OBJECT_ID(N'cl_Apply_bak_20250121', N'U') IS NULL
         SELECT a.*
-        INTO cl_Apply_bak_20240613
+        INTO cl_Apply_bak_20250121
         FROM cl_Apply a
             INNER JOIN dbo.p_Project p
                 ON a.ProjGUID = p.ProjGUID
@@ -51,9 +48,9 @@ BEGIN
     --订单表
     PRINT '订单表cl_Order';
 
-    IF OBJECT_ID(N'cl_Order_bak_20240613', N'U') IS NULL
+    IF OBJECT_ID(N'cl_Order_bak_20250121', N'U') IS NULL
         SELECT a.*
-        INTO cl_Order_bak_20240613
+        INTO cl_Order_bak_20250121
         FROM cl_Order a
             INNER JOIN dbo.p_Project p
                 ON a.ProjGUID = p.ProjGUID
@@ -75,9 +72,9 @@ BEGIN
     --验收单
     PRINT '验收单cl_Recipient';
 
-    IF OBJECT_ID(N'cl_Recipient_bak_20240613', N'U') IS NULL
+    IF OBJECT_ID(N'cl_Recipient_bak_20250121', N'U') IS NULL
         SELECT a.*
-        INTO cl_Recipient_bak_20240613
+        INTO cl_Recipient_bak_20250121
         FROM cl_Recipient a
             INNER JOIN dbo.p_Project p
                 ON a.ProjGUID = p.ProjGUID
@@ -99,9 +96,9 @@ BEGIN
     --退货单
     PRINT '退货单cl_ReturnOrder';
 
-    IF OBJECT_ID(N'cl_ReturnOrder_bak_20240613', N'U') IS NULL
+    IF OBJECT_ID(N'cl_ReturnOrder_bak_20250121', N'U') IS NULL
         SELECT a.*
-        INTO cl_ReturnOrder_bak_20240613
+        INTO cl_ReturnOrder_bak_20250121
         FROM cl_ReturnOrder a
             INNER JOIN dbo.p_Project p
                 ON a.x_ProjGUID = p.ProjGUID

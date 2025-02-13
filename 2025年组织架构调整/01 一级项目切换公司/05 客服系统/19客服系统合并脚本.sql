@@ -1,19 +1,21 @@
---http://192.168.0.103/PubProject/BizParam/BizParamSetting_Option_Edit.aspx?objecttypecode=undefined&funcid=01020209&mode=1&ParamName=k_ProblemCloseResoon&ScopeGUID=248b1e17-aacb-e511-80b8-e41f13c51836&ParamCode=0
+USE ERP25_test
+GO
 
-/*--ÒµÎñ²ÎÊıÉèÖÃ-ÎÊÌâ¹Ø±ÕÔ­Òò
+
+/*--ä¸šåŠ¡å‚æ•°è®¾ç½®-é—®é¢˜å…³é—­åŸå› 
 SELECT  *
 FROM    dbo.myBizParamOption
 WHERE   ParamName = 'k_ProblemCloseResoon' AND  ScopeGUID IN( SELECT BUGUID
                                                              FROM   dbo.myBusinessUnit
-                                                             WHERE  BUName = 'ÎŞÎı¹«Ë¾' AND IsEndCompany = 1 );
+                                                             WHERE  BUName = 'æ— é”¡å…¬å¸' AND IsEndCompany = 1 );
 
---½«½­ËÕ¹«Ë¾µÄÎÊÌâ¹Ø±ÕÔ­ÒòÒµÎñ²ÎÊı¸´ÖÆµ½ÎŞÎı¹«Ë¾
+--å°†æ±Ÿè‹å…¬å¸çš„é—®é¢˜å…³é—­åŸå› ä¸šåŠ¡å‚æ•°å¤åˆ¶åˆ°æ— é”¡å…¬å¸
 INSERT INTO dbo.myBizParamOption(ParamName, ScopeGUID, ParamValue, ParamCode, ParentCode, ParamLevel, IfEnd, IfSys, ParamGUID, IsAjSk, IsQykxdc, TaxItemsDetailCode, IsCalcTax, CompanyGUID, AreaInfo ,
                                  IsLandCbDk , ReceiveTypeValue, myBizParamOptionGUID, IsYxfjxzf)
 SELECT  ParamName ,
         (SELECT BUGUID
          FROM   dbo.myBusinessUnit
-         WHERE  BUName = 'ÎŞÎı¹«Ë¾' AND IsEndCompany = 1) AS ScopeGUID ,
+         WHERE  BUName = 'æ— é”¡å…¬å¸' AND IsEndCompany = 1) AS ScopeGUID ,
         ParamValue ,
         ParamCode ,
         ParentCode ,
@@ -34,32 +36,32 @@ SELECT  ParamName ,
 FROM    dbo.myBizParamOption
 WHERE   ParamName = 'k_ProblemCloseResoon' AND  ScopeGUID IN(SELECT BUGUID
                                                              FROM   dbo.myBusinessUnit
-                                                             WHERE  BUName = '½­ËÕ¹«Ë¾' AND IsEndCompany = 1);
+                                                             WHERE  BUName = 'æ±Ÿè‹å…¬å¸' AND IsEndCompany = 1);
 
---ÒµÎñ²ÎÊıÉèÖÃ-ÎÊÌâ´¦Àí²¿Î»
+--ä¸šåŠ¡å‚æ•°è®¾ç½®-é—®é¢˜å¤„ç†éƒ¨ä½
 SELECT  *
 FROM    dbo.myBizParamOption
 WHERE   ParamName = 'k_place' AND   ScopeGUID IN(SELECT BUGUID
                                                  FROM   dbo.myBusinessUnit
-                                                 WHERE  BUName = 'ÎŞÎı¹«Ë¾' AND IsEndCompany = 1);
+                                                 WHERE  BUName = 'æ— é”¡å…¬å¸' AND IsEndCompany = 1);
 
---±¸·İ
-SELECT  * INTO  myBizParamOption_bak20240613 FROM dbo.myBizParamOption;
+--å¤‡ä»½
+SELECT  * INTO  myBizParamOption_bak20250121 FROM dbo.myBizParamOption;
 
---É¾³ıÎŞÎı¹«Ë¾ÎÊÌâ´¦Àí²¿Î»²ÎÊı
+--åˆ é™¤æ— é”¡å…¬å¸é—®é¢˜å¤„ç†éƒ¨ä½å‚æ•°
 DELETE  FROM dbo.myBizParamOption
 --SELECT * FROM myBizParamOption
 WHERE   ParamName = 'k_place' AND   ScopeGUID IN(SELECT BUGUID
                                                  FROM   dbo.myBusinessUnit
-                                                 WHERE  BUName = 'ÎŞÎı¹«Ë¾' AND IsEndCompany = 1);
+                                                 WHERE  BUName = 'æ— é”¡å…¬å¸' AND IsEndCompany = 1);
 
---²åÈëÎÊÌâ´¦Àí²ÎÊı
+--æ’å…¥é—®é¢˜å¤„ç†å‚æ•°
 INSERT INTO dbo.myBizParamOption(ParamName, ScopeGUID, ParamValue, ParamCode, ParentCode, ParamLevel, IfEnd, IfSys, ParamGUID, IsAjSk, IsQykxdc, TaxItemsDetailCode, IsCalcTax, CompanyGUID, AreaInfo ,
                                  IsLandCbDk , ReceiveTypeValue, myBizParamOptionGUID, IsYxfjxzf)
 SELECT  ParamName ,
         (SELECT BUGUID
          FROM   dbo.myBusinessUnit
-         WHERE  BUName = 'ÎŞÎı¹«Ë¾' AND IsEndCompany = 1) AS ScopeGUID ,
+         WHERE  BUName = 'æ— é”¡å…¬å¸' AND IsEndCompany = 1) AS ScopeGUID ,
         ParamValue ,
         ParamCode ,
         ParentCode ,
@@ -80,20 +82,20 @@ SELECT  ParamName ,
 FROM    dbo.myBizParamOption
 WHERE   ParamName = 'k_place' AND   ScopeGUID IN(SELECT BUGUID
                                                  FROM   dbo.myBusinessUnit
-                                                 WHERE  BUName = '½­ËÕ¹«Ë¾' AND IsEndCompany = 1);
+                                                 WHERE  BUName = 'æ±Ÿè‹å…¬å¸' AND IsEndCompany = 1);
 */
 BEGIN
-    --²åÈëÁÙÊ±±í
+    --æ’å…¥ä¸´æ—¶è¡¨
     SELECT *
     INTO #dqy_proj
-    FROM dqy_proj_20240613 t;
+    FROM dqy_proj_20250121 t;
 
-    -- --ÊÜÀíµ¥Î»±í
-    PRINT 'ÊÜÀíµ¥Î»±ík_AcceptBU';
+    -- --å—ç†å•ä½è¡¨
+    PRINT 'å—ç†å•ä½è¡¨k_AcceptBU';
 
-    IF OBJECT_ID(N'k_AcceptBU_bak20240613', N'U') IS NULL
+    IF OBJECT_ID(N'k_AcceptBU_bak20250121', N'U') IS NULL
         SELECT a.*
-        INTO k_AcceptBU_bak20240613
+        INTO k_AcceptBU_bak20250121
         FROM k_AcceptBU a
             INNER JOIN k_Receive b
                 ON a.ReceiveGUID = b.ReceiveGUID
@@ -110,14 +112,14 @@ BEGIN
             ON p.OldProjGuid = b.ProjGUID
     WHERE a.BUGUID <> p.NewBuguid;
 
-    PRINT 'ÊÜÀíµ¥Î»±ík_AcceptBU' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+    PRINT 'å—ç†å•ä½è¡¨k_AcceptBU' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-    ----ÈÎÎñÊµÌå
-    PRINT 'ÈÎÎñÊµÌåk_Task';
+    ----ä»»åŠ¡å®ä½“
+    PRINT 'ä»»åŠ¡å®ä½“k_Task';
 
-    IF OBJECT_ID(N'k_Task_bak20240613', N'U') IS NULL
+    IF OBJECT_ID(N'k_Task_bak20250121', N'U') IS NULL
         SELECT a.*
-        INTO k_Task_bak20240613
+        INTO k_Task_bak20250121
         FROM k_Task a
             INNER JOIN #dqy_proj p
                 ON p.OldProjGuid = a.ProjGUID
@@ -130,14 +132,14 @@ BEGIN
             ON p.OldProjGuid = a.ProjGUID
     WHERE a.BUGUID <> p.NewBuguid;
 
-    PRINT 'ÈÎÎñÊµÌåk_Task' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+    PRINT 'ä»»åŠ¡å®ä½“k_Task' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-    ----ÊÜÀí±í
-    PRINT 'ÊÜÀí±ík_Receive';
+    ----å—ç†è¡¨
+    PRINT 'å—ç†è¡¨k_Receive';
 
-    IF OBJECT_ID(N'k_Receive_bak20240613', N'U') IS NULL
+    IF OBJECT_ID(N'k_Receive_bak20250121', N'U') IS NULL
         SELECT a.*
-        INTO k_Receive_bak20240613
+        INTO k_Receive_bak20250121
         FROM k_Receive a
             INNER JOIN #dqy_proj p
                 ON p.OldProjGuid = a.ProjGUID
@@ -150,12 +152,12 @@ BEGIN
             ON p.OldProjGuid = a.ProjGUID
     WHERE a.BUGUID <> p.NewBuguid;
 
-    PRINT 'ÊÜÀí±ík_Receive' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+    PRINT 'å—ç†è¡¨k_Receive' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-    --Í¶Ëß×¨Ìâ±ík_Complaint --Ã»ÓĞÊı¾İ
-    IF OBJECT_ID(N'k_Complaint_bak20240613', N'U') IS NULL
+    --æŠ•è¯‰ä¸“é¢˜è¡¨k_Complaint --æ²¡æœ‰æ•°æ®
+    IF OBJECT_ID(N'k_Complaint_bak20250121', N'U') IS NULL
         SELECT a.*
-        INTO k_Complaint_bak20240613
+        INTO k_Complaint_bak20250121
         FROM k_Complaint a
             INNER JOIN #dqy_proj p
                 ON p.OldProjGuid = a.ProjGUID
@@ -168,12 +170,12 @@ BEGIN
             ON p.OldProjGuid = a.ProjGUID
     WHERE a.BUGUID <> p.NewBuguid;
 
-    PRINT 'Í¶Ëß×¨Ìâ±ík_Complaint' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+    PRINT 'æŠ•è¯‰ä¸“é¢˜è¡¨k_Complaint' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-    --Åâ¸¶¼ÇÂ¼ÊµÌåk_Pay --Ã»ÓĞÊı¾İ
-    IF OBJECT_ID(N'k_Pay_bak20240613', N'U') IS NULL
+    --èµ”ä»˜è®°å½•å®ä½“k_Pay --æ²¡æœ‰æ•°æ®
+    IF OBJECT_ID(N'k_Pay_bak20250121', N'U') IS NULL
         SELECT a.*
-        INTO k_Pay_bak20240613
+        INTO k_Pay_bak20250121
         FROM k_Pay a
             INNER JOIN #dqy_proj p
                 ON p.OldProjGuid = a.ProjGUID
@@ -186,33 +188,120 @@ BEGIN
             ON p.OldProjGuid = a.ProjGUID
     WHERE a.BUGUID <> p.NewBuguid;
 
-    PRINT 'Åâ¸¶¼ÇÂ¼ÊµÌåk_Pay' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+    PRINT 'èµ”ä»˜è®°å½•å®ä½“k_Pay' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+
+    -- /////////////////////////////// 2025å¹´ç»„ç»‡æ¶æ„è°ƒæ•´æ–°å¢å¤„ç†è¡¨ å¼€å§‹ /////////////////////////////////////////////
+    IF OBJECT_ID(N'k_CooperativeProjectDelivery_bak20250121', N'U') IS NULL
+        SELECT a.*
+        INTO k_CooperativeProjectDelivery_bak20250121
+        FROM k_CooperativeProjectDelivery a
+            INNER JOIN #dqy_proj p
+                ON p.OldProjGuid = a.ProjGUID
+        WHERE a.BUGUID <> p.NewBuguid;
+
+    UPDATE a
+    SET a.BUGUID = p.NewBuguid
+    FROM k_CooperativeProjectDelivery a
+        INNER JOIN #dqy_proj p
+            ON p.OldProjGuid = a.ProjGUID
+    WHERE a.BUGUID <> p.NewBuguid;
+
+    PRINT 'æ­£å¼äº¤ä»˜è®°å½•ä¸»è¡¨ k_CooperativeProjectDelivery' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+
+    IF OBJECT_ID(N'k_GreatComplaint_bak20250121', N'U') IS NULL
+        SELECT a.*
+        INTO k_GreatComplaint_bak20250121
+        FROM k_GreatComplaint a
+            INNER JOIN #dqy_proj p
+                ON p.OldProjGuid = a.ProjGUID
+        WHERE a.BUGUID <> p.NewBuguid;
+
+    UPDATE a
+    SET a.BUGUID = p.NewBuguid
+    FROM k_GreatComplaint a
+        INNER JOIN #dqy_proj p
+            ON p.OldProjGuid = a.ProjGUID
+    WHERE a.BUGUID <> p.NewBuguid;
+
+    PRINT 'é‡å¤§æŠ•è¯‰è¡¨ k_GreatComplaint' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+
+    IF OBJECT_ID(N'k_HZXMJFLR_bak20250121', N'U') IS NULL
+        SELECT a.*
+        INTO k_HZXMJFLR_bak20250121
+        FROM k_HZXMJFLR a
+            INNER JOIN #dqy_proj p
+                ON p.OldProjGuid = a.ProjGUID
+        WHERE a.BUGUID <> p.NewBuguid;
+
+    UPDATE a
+    SET a.BUGUID = p.NewBuguid
+    FROM k_HZXMJFLR a
+        INNER JOIN #dqy_proj p
+            ON p.OldProjGuid = a.ProjGUID
+    WHERE a.BUGUID <> p.NewBuguid;
+
+    PRINT 'åˆä½œé¡¹ç›®äº¤ä»˜å½•å…¥è¡¨ k_HZXMJFLR' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
 
-----½Ó´ı¼ÇÂ¼±íOK ÏúÊÛÏµÍ³Ç¨ÒÆ½Å±¾ÖĞÒÑ¾­´¦Àí
+    IF OBJECT_ID(N'k_Receivedellog_bak20250121', N'U') IS NULL
+        SELECT a.*
+        INTO k_Receivedellog_bak20250121
+        FROM k_Receivedellog a
+            INNER JOIN #dqy_proj p
+                ON p.OldProjGuid = a.ProjGUID
+        WHERE a.BUGUID <> p.NewBuguid;
+
+    UPDATE a
+    SET a.BUGUID = p.NewBuguid
+    FROM k_Receivedellog a
+        INNER JOIN #dqy_proj p
+            ON p.OldProjGuid = a.ProjGUID
+    WHERE a.BUGUID <> p.NewBuguid;
+
+    PRINT 'k_Receivedellog' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+
+    IF OBJECT_ID(N'k_taskdellog_bak20250121', N'U') IS NULL
+        SELECT a.*
+        INTO k_taskdellog_bak20250121
+        FROM k_taskdellog a
+            INNER JOIN #dqy_proj p
+                ON p.OldProjGuid = a.ProjGUID
+        WHERE a.BUGUID <> p.NewBuguid;
+
+    UPDATE a
+    SET a.BUGUID = p.NewBuguid
+    FROM k_taskdellog a
+        INNER JOIN #dqy_proj p
+            ON p.OldProjGuid = a.ProjGUID
+    WHERE a.BUGUID <> p.NewBuguid;
+
+    PRINT 'k_taskdellog' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+    -- /////////////////////////////// 2025å¹´ç»„ç»‡æ¶æ„è°ƒæ•´æ–°å¢å¤„ç†è¡¨ ç»“æŸ /////////////////////////////////////////////
+
+----æ¥å¾…è®°å½•è¡¨OK é”€å”®ç³»ç»Ÿè¿ç§»è„šæœ¬ä¸­å·²ç»å¤„ç†
 --SELECT a.BUGUID ,
 --       *
 --FROM   k_Receive a
 --       INNER JOIN dbo.p_Project p ON a.ProjGUID = p.ProjGUID
 --       INNER JOIN dbo.myBusinessUnit bu ON bu.BUGUID = p.BUGUID
---WHERE  bu.BUName = 'ÎŞÎı¹«Ë¾'
+--WHERE  bu.BUName = 'æ— é”¡å…¬å¸'
 --       AND bu.IsEndCompany = 1
 --       AND a.BUGUID <> bu.BUGUID;
 
 --k_TaskAutoUpdateSetting
---Éæ¼°´æ´¢¹ı³Ì£ºusp_TaskAutoUpdate
---Éæ¼°µÄÒµÎñ³¡¾°£º¿Í·şÈÎÎñ×Ô¶¯Éı¼¶£¬»á¸ù¾İk_TASKµÄBUGUID¹ØÁª±¾±íµÄBUGUIDÀ´½øĞĞ²åÈëÉı¼¶¶ÌĞÅ»òÓÊ¼şĞÅÏ¢
+--æ¶‰åŠå­˜å‚¨è¿‡ç¨‹ï¼šusp_TaskAutoUpdate
+--æ¶‰åŠçš„ä¸šåŠ¡åœºæ™¯ï¼šå®¢æœä»»åŠ¡è‡ªåŠ¨å‡çº§ï¼Œä¼šæ ¹æ®k_TASKçš„BUGUIDå…³è”æœ¬è¡¨çš„BUGUIDæ¥è¿›è¡Œæ’å…¥å‡çº§çŸ­ä¿¡æˆ–é‚®ä»¶ä¿¡æ¯
 --SELECT  *
 --FROM    k_TaskAutoUpdateSetting
 --WHERE   BUGUID IN(SELECT    BUGUID
 --                  FROM  dbo.myBusinessUnit
---                  WHERE BUName = '½­ËÕ¹«Ë¾' AND IsEndCompany = 1);
+--                  WHERE BUName = 'æ±Ÿè‹å…¬å¸' AND IsEndCompany = 1);
 
 --INSERT INTO dbo.k_TaskAutoUpdateSetting(SettingGUID, BUGUID, TaskLevelName, TimeoutThanDay, TimeoutLessDay, ReBuildThanDay, ReBuildLessDay)
 --SELECT  NEWID() AS SettingGUID ,
 --        (SELECT BUGUID
 --         FROM   dbo.myBusinessUnit
---         WHERE  BUName = 'ÎŞÎı¹«Ë¾' AND IsEndCompany = 1) AS BUGUID ,
+--         WHERE  BUName = 'æ— é”¡å…¬å¸' AND IsEndCompany = 1) AS BUGUID ,
 --        TaskLevelName ,
 --        TimeoutThanDay ,
 --        TimeoutLessDay ,
@@ -221,35 +310,35 @@ BEGIN
 --FROM    k_TaskAutoUpdateSetting
 --WHERE   BUGUID IN(SELECT    BUGUID
 --                  FROM  dbo.myBusinessUnit
---                  WHERE BUName = '½­ËÕ¹«Ë¾' AND IsEndCompany = 1);
+--                  WHERE BUName = 'æ±Ÿè‹å…¬å¸' AND IsEndCompany = 1);
 
-----Éı¼¶ÌáĞÑÈËÉèÖÃ±í
+----å‡çº§æé†’äººè®¾ç½®è¡¨
 --SELECT  *
 --FROM    k_TaskWarnManSetting a
 --        INNER JOIN dbo.mdm_Project p ON a.ProjGUID = p.ProjGUID
 --WHERE   p.DevelopmentCompanyGUID IN(SELECT  DevelopmentCompanyGUID
 --                                    FROM    dbo.p_DevelopmentCompany
---                                    WHERE   DevelopmentCompanyName = 'ÎŞÎı¹«Ë¾');
+--                                    WHERE   DevelopmentCompanyName = 'æ— é”¡å…¬å¸');
 
 --UPDATE  a
 --SET a.BUGUID = (SELECT  BUGUID
 --                FROM    dbo.myBusinessUnit
---                WHERE   BUName = 'ÎŞÎı¹«Ë¾' AND IsEndCompany = 1)
+--                WHERE   BUName = 'æ— é”¡å…¬å¸' AND IsEndCompany = 1)
 --FROM    k_TaskWarnManSetting a
 --        INNER JOIN dbo.mdm_Project p ON a.ProjGUID = p.ProjGUID
 --WHERE   p.DevelopmentCompanyGUID IN(SELECT  DevelopmentCompanyGUID
 --                                    FROM    dbo.p_DevelopmentCompany
---                                    WHERE   DevelopmentCompanyName = 'ÎŞÎı¹«Ë¾');
+--                                    WHERE   DevelopmentCompanyName = 'æ— é”¡å…¬å¸');
 
-----ÈÎÎñ¸ÚÎ»È¨ÏŞ±í --²»ÓÃ´¦Àí
+----ä»»åŠ¡å²—ä½æƒé™è¡¨ --ä¸ç”¨å¤„ç†
 --SELECT * FROM k_Station2Action
-----Ñé·¿/½»¸¶×Ü½á±í --²»ÓÃ´¦Àí
+----éªŒæˆ¿/äº¤ä»˜æ€»ç»“è¡¨ --ä¸ç”¨å¤„ç†
 --SELECT * FROM k_SumUp
 
-----×Ô¶¯Éı¼¶±ê×¼ÉèÖÃ±í --²»ÓÃ´¦Àí
+----è‡ªåŠ¨å‡çº§æ ‡å‡†è®¾ç½®è¡¨ --ä¸ç”¨å¤„ç†
 --SELECT * FROM  k_TaskAutoUpdateSetting
-----ÈÎÎñÀàĞÍÓëÅÉ¹¤µ¥Ä£°å¶ÔÕÕ±í  --²»ÓÃ´¦Àí
+----ä»»åŠ¡ç±»å‹ä¸æ´¾å·¥å•æ¨¡æ¿å¯¹ç…§è¡¨  --ä¸ç”¨å¤„ç†
 --SELECT * FROM  dbo.k_TaskType2WorkTemplet
-----Éı¼¶ÌáĞÑÈËÉèÖÃ±í  --²»ÓÃ´¦Àí
+----å‡çº§æé†’äººè®¾ç½®è¡¨  --ä¸ç”¨å¤„ç†
 --SELECT * FROM  k_TaskWarnManSetting       
 END;

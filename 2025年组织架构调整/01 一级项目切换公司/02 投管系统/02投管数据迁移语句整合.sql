@@ -1,18 +1,28 @@
-USE ERP25
+﻿USE ERP25_test
 GO 
-CREATE PROC [dbo].[usp_Tg_UpdateTg_20240613]
+
+--exec [usp_Tg_UpdateTg_20250121] 
+SET ANSI_NULLS ON;
+GO
+
+SET QUOTED_IDENTIFIER ON;
+GO
+
+alter PROC [dbo].[usp_Tg_UpdateTg_20250121]
 AS
     /*
      修改投管系统项目所属平台公司信息
      */
     BEGIN
-        SELECT  * INTO  #t FROM dqy_proj_20240613;
+
+
+        SELECT  * INTO  #t FROM dqy_proj_20250121;
 
         PRINT '=====开始25迁移=====';
 
-        IF OBJECT_ID(N'mdm_Project_bak_20240613', N'U') IS NULL
+        IF OBJECT_ID(N'mdm_Project_bak_20250121', N'U') IS NULL
             SELECT  mp.*
-            INTO    mdm_Project_bak_20240613
+            INTO    mdm_Project_bak_20250121
             FROM    mdm_Project mp
                     INNER JOIN #t t ON t.OldProjGUID = mp.ProjGUID OR  t.OldProjGUID = mp.ParentProjGUID;
 
@@ -26,9 +36,9 @@ AS
 
         PRINT '项目表:mdm_Project' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        IF OBJECT_ID(N'mdm_Project_Sync_bak_20240613', N'U') IS NULL
+        IF OBJECT_ID(N'mdm_Project_Sync_bak_20250121', N'U') IS NULL
             SELECT  mp.*
-            INTO    mdm_Project_Sync_bak_20240613
+            INTO    mdm_Project_Sync_bak_20250121
             FROM    mdm_Project_Sync mp
                     INNER JOIN #t t ON t.oldprojguid = mp.ProjGUID OR  t.oldprojguid = mp.ParentProjGUID;
 
@@ -50,9 +60,9 @@ AS
         --WHERE  a.DevelopmentCompanyGUID <> NewDevelopmentCompanyGUID;
 
         --备份表
-        IF OBJECT_ID(N'mdm_BldAddType_bak_20240613', N'U') IS NULL
+        IF OBJECT_ID(N'mdm_BldAddType_bak_20250121', N'U') IS NULL
             SELECT  mp.*
-            INTO    mdm_BldAddType_bak_20240613
+            INTO    mdm_BldAddType_bak_20250121
             FROM    mdm_BldAddType mp
                     INNER JOIN #t t ON t.oldprojguid = mp.ProjGUID;
 
@@ -65,9 +75,9 @@ AS
 
         PRINT 'mdm_BldAddType表' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        IF OBJECT_ID(N'mdm_GCBuildIndexSet_bak_20240613', N'U') IS NULL
+        IF OBJECT_ID(N'mdm_GCBuildIndexSet_bak_20250121', N'U') IS NULL
             SELECT  mp.*
-            INTO    mdm_GCBuildIndexSet_bak_20240613
+            INTO    mdm_GCBuildIndexSet_bak_20250121
             FROM    mdm_GCBuildIndexSet mp
                     INNER JOIN #t t ON t.oldprojguid = mp.ProjGUID;
 
@@ -80,9 +90,9 @@ AS
 
         PRINT 'mdm_GCBuildIndexSet表' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        IF OBJECT_ID(N'mdm_ProjCheckLevel_bak_20240613', N'U') IS NULL
+        IF OBJECT_ID(N'mdm_ProjCheckLevel_bak_20250121', N'U') IS NULL
             SELECT  mp.*
-            INTO    mdm_ProjCheckLevel_bak_20240613
+            INTO    mdm_ProjCheckLevel_bak_20250121
             FROM    mdm_ProjCheckLevel mp
                     INNER JOIN #t t ON t.OldProjGUID = mp.ProjGUID;
 
@@ -95,9 +105,9 @@ AS
 
         PRINT 'mdm_ProjCheckLevel表' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        IF OBJECT_ID(N'p_LandInfo_bak_20240613', N'U') IS NULL
+        IF OBJECT_ID(N'p_LandInfo_bak_20250121', N'U') IS NULL
             SELECT  ld.*
-            INTO    p_LandInfo_bak_20240613
+            INTO    p_LandInfo_bak_20250121
             FROM    dbo.mdm_Project2Land a
                     INNER JOIN p_LandInfo ld ON ld.LandGUID = a.LandGUID
                     INNER JOIN mdm_Project mp ON a.ProjGUID = mp.ProjGUID
@@ -121,7 +131,7 @@ AS
 			WHERE   op.ParamName = 'td_city' AND EXISTS (SELECT 1
 															FROM   dbo.myBizParamOption a
 																INNER JOIN mdm_Project mp ON mp.CityGUID = a.ParamGUID
-																INNER JOIN dqy_proj_20240613 t ON t.OldProjGUID = mp.ProjGUID OR mp.ParentProjGUID = t.OldProjGUID
+																INNER JOIN dqy_proj_20250121 t ON t.OldProjGUID = mp.ProjGUID OR mp.ParentProjGUID = t.OldProjGUID
 															WHERE  a.ParamName = 'td_city' AND (op.ParamCode = a.ParamCode OR  op.ParentCode = a.ParamCode));
 
 			--插入城市公司
@@ -166,9 +176,9 @@ AS
 
         --刷新项目公司数据
         --备份
-        IF OBJECT_ID(N'p_DevelopmentCompany_xm_bak_20240613', N'U') IS NULL
+        IF OBJECT_ID(N'p_DevelopmentCompany_xm_bak_20250121', N'U') IS NULL
             SELECT  pdc.*
-            INTO    p_DevelopmentCompany_xm_bak_20240613
+            INTO    p_DevelopmentCompany_xm_bak_20250121
             FROM    dbo.mdm_Project a
                     INNER JOIN #t t ON a.ProjGUID = t.OldProjGUID OR   a.ParentProjGUID = t.OldProjGUID
                     INNER JOIN dbo.p_DevelopmentCompany dc ON dc.DevelopmentCompanyGUID = a.DevelopmentCompanyGUID
@@ -189,8 +199,8 @@ AS
         --刷新合作方数据
         --缓存对应合作方公司数据
         -- 备份p_BelongCompany
-        IF OBJECT_ID(N'p_BelongCompany_bak_20240613', N'U') IS NULL
-            SELECT  a.* INTO    p_BelongCompany_bak_20240613 FROM   p_BelongCompany a;
+        IF OBJECT_ID(N'p_BelongCompany_bak_20250121', N'U') IS NULL
+            SELECT  a.* INTO    p_BelongCompany_bak_20250121 FROM   p_BelongCompany a;
 
         SELECT  mp.PartnerGUID ,
                 mp.ProjGUID ,
