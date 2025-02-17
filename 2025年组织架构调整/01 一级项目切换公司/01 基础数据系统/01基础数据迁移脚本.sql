@@ -1,3 +1,4 @@
+
 --1、根据对保利基础数据表的排查，现梳理出组织架构调整有影响的相关基础数据系统表，如下：
 --  select buguid, * from md_Room
 --  select buguid, * from md_RoomTengNuoLog
@@ -14,7 +15,14 @@
 USE MyCost_Erp352_ceshi
 GO
 
-/****** Object:  StoredProcedure [dbo].[usp_mdm_Updatemdm]    Script Date: 2021/3/3 13:21:50 ******/
+/*
+-- 2025年组织架构调整，4家平台公司的项目及业务数据合并处理
+1、浙南合并进浙江，
+2、齐鲁合并进山东，
+3、大连合并进辽宁，
+4、淮海合并进江苏
+
+*/
 SET ANSI_NULLS ON;
 GO
 

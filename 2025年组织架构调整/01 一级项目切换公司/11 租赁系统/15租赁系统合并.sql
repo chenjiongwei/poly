@@ -1,7 +1,14 @@
 USE CRE_ERP_202_SYZL
 GO
-/*注意要替换 MyCost_Erp352_ceshi 以及数据库连接地址库名*/
 
+
+/*注意:要替换 MyCost_Erp352_ceshi 以及数据库连接地址库名!!!!!!!
+-- 2025年组织架构调整，4家平台公司的项目及业务数据合并处理
+1、浙南合并进浙江，
+2、齐鲁合并进山东，
+3、大连合并进辽宁，
+4、淮海合并进江苏
+*/
 
 --IF OBJECT_ID(N'tempdb..#proj', N'U') IS NOT NULL
 --BEGIN

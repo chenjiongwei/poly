@@ -1,6 +1,14 @@
 use MyCost_Erp352_ceshi
 go 
 
+/*
+-- 2025年组织架构调整，4家平台公司的项目及业务数据合并处理
+1、浙南合并进浙江，
+2、齐鲁合并进山东，
+3、大连合并进辽宁，
+4、淮海合并进江苏
+*/
+
 BEGIN
     --获取待迁移的信息
     SELECT  *, OldProjGuid AS projguid INTO #dqy_proj FROM  dbo.dqy_proj_20250121;

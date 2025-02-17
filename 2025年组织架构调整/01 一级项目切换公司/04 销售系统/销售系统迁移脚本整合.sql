@@ -1,6 +1,15 @@
 USE ERP25_test
 GO
 
+/*
+-- 2025年组织架构调整，4家平台公司的项目及业务数据合并处理
+1、浙南合并进浙江，
+2、齐鲁合并进山东，
+3、大连合并进辽宁，
+4、淮海合并进江苏
+
+*/
+
 DECLARE @i INT = 1;
 DECLARE @j INT;
 DECLARE @oldBuname VARCHAR(MAX);
@@ -95,7 +104,7 @@ FROM   sys.objects
        LEFT JOIN sys.types ON sys.types.system_type_id = sys.columns.system_type_id
 WHERE sys.columns.name = 'buguid' AND
        sys.objects.type = 'U'
-       AND sys.objects.name LIKE 's_%'
+       AND sys.objects.name LIKE 's_yj%'
           ORDER BY sys.objects.name,sys.columns.column_id
 
 -- 影响变更的表

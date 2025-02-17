@@ -62,6 +62,13 @@ jd_ProjectSpecialPlanTemplate
 
 USE MyCost_Erp352_ceshi
 GO
+/*
+-- 2025年组织架构调整，4家平台公司的项目及业务数据合并处理
+1、浙南合并进浙江，
+2、齐鲁合并进山东，
+3、大连合并进辽宁，
+4、淮海合并进江苏
+*/
 
 BEGIN
     --缓存pom项目
