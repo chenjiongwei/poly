@@ -85,7 +85,7 @@ FROM    p_project p
                                       '07.12','07.13','07.14','08','08.01','09','09.01')
             GROUP BY cbp.ProjGUID
         ) htNotfee ON htNotfee.ProjGUID = p.ProjGUID
-WHERE   1=1  and  bu.buguid  in ( @buguid ) 
+WHERE   1=1  and p.level =3  and  bu.buguid  in ( @buguid ) 
 -- AND p.projname = '南昌市青山湖区艾溪湖南路019号85亩项目-一期'
 order by  bu.buname, p.ProjName
 
