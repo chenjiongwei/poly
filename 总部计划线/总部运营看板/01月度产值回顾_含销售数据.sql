@@ -128,6 +128,8 @@ SELECT  bu.buname AS '公司名称',                                            
         flg.工程操盘方 AS '工程操盘方',
         flg.成本操盘方 AS '成本操盘方',
         flg.项目代码 AS '明源系统代码',
+        pp.ProjCode AS '项目代码',
+        p.ProjCode AS '分期代码',
         flg.投管代码 AS '投管代码',
         CONVERT(VARCHAR(7),ovr.ReviewDate,121) AS '月度回顾月份',
         CASE 
@@ -182,12 +184,10 @@ SELECT  bu.buname AS '公司名称',                                            
         ld.Ydczwzfje AS '楼栋产值盘点_已达产值未付金额',
         ld.Yfwfje AS '楼栋产值盘点_应付未付金额'
 FROM    p_project p WITH(NOLOCK)
-        INNER JOIN mybusinessunit bu WITH(NOLOCK)
-            ON p.buguid = bu.buguid
-        INNER JOIN ProjectBase proj 
-            ON proj.ProjGUID = p.ProjGUID
-        LEFT JOIN SalesInfo ys
-            ON ys.ProjGUID = p.ProjGUID
+        LEFT JOIN p_project pp WITH(NOLOCK) ON pp.ProjCode = p.ParentCode AND pp.Level = 2
+        INNER JOIN mybusinessunit bu WITH(NOLOCK)  ON p.buguid = bu.buguid
+        INNER JOIN ProjectBase proj ON proj.ProjGUID = p.ProjGUID
+        LEFT JOIN SalesInfo ys  ON ys.ProjGUID = p.ProjGUID
         INNER JOIN ERP25.dbo.mdm_project mp WITH(NOLOCK)
             ON mp.projguid = p.ProjGUID
         LEFT JOIN erp25.dbo.vmdm_projectFlag flg 
@@ -270,172 +270,3 @@ FROM    p_project p WITH(NOLOCK)
             ON ld.OutputValueMonthReviewGUID = ovr.OutputValueMonthReviewGUID
 WHERE p.level = 3   AND bu.buguid IN (@buguid)
 ORDER BY bu.buname, p.ProjName, ld.BldName
-
-
--- SELECT  b.BldName,
---         ISNULL(b.BldArea, 0) AS BldArea,
---         b.Jszt,
---         ISNULL(a.HtAmount, 0) + ISNULL(a.HtylAmount, 0) AS Zcz,
---         ISNULL(a.Xmpdljwccz, 0) AS Xmpdljwccz,
---         ISNULL(a.Dfscz, 0) AS Dfscz,
---         ISNULL(a.Ljyfkje, 0) AS Ljyfkje,
---         ISNULL(a.Ljsfk, 0) AS Ljsfk,
---         ISNULL(a.Xmpdljwccz,0) - ISNULL(a.Ljsfk, 0) AS Ydczwzfje,
---         ISNULL(a.Ljyfkje, 0) - ISNULL(a.Ljsfk, 0) AS Yfwfje,
---         a.BldGUID
--- FROM    (
---             SELECT  SUM(ISNULL(a.BudgetAmount, 0)) AS BudgetAmount,
---                     SUM(ISNULL(b.HtAmount, 0)) AS HtAmount,
---                     SUM(ISNULL(b.BcxyAmount, 0)) AS BcxyAmount,
---                     SUM(ISNULL(b.HtylAmount, 0)) AS HtylAmount,
---                     SUM(ISNULL(b.Sgdwysbcz, 0)) AS Sgdwysbcz,
---                     SUM(ISNULL(b.Xmpdljwccz, 0)) AS Xmpdljwccz,
---                     SUM(ISNULL(b.Dfscz, 0)) AS Dfscz,
---                     SUM(ISNULL(b.Ljyfkje, 0)) AS Ljyfkje,
---                     SUM(ISNULL(b.Ljsfk, 0)) AS Ljsfk,
---                     BldGUID
---             FROM    cb_OutputValueReviewDetail a
---                     INNER JOIN dbo.cb_OutputValueReviewBld b ON b.OutputValueReviewDetailGUID = a.OutputValueReviewDetailGUID
---             WHERE   (1=1)
---                     AND (2=2)
---             GROUP BY b.BldGUID
---         ) a
---         INNER JOIN (
---             SELECT  DISTINCT b.BldName,
---                     b.BldArea,
---                     b.BldGUID,
---                     b.Jszt
---             FROM    cb_OutputValueReviewDetail a
---                     INNER JOIN dbo.cb_OutputValueReviewBld b ON b.OutputValueReviewDetailGUID = a.OutputValueReviewDetailGUID
---             WHERE   (1=1)
---                     AND (2=2)
---         ) b ON a.BldGUID = b.BldGUID
--- ORDER BY b.BldName DESC
-
-
--- SELECT b.BldName,
---        ISNULL(b.BldArea, 0) AS BldArea,
---        b.Jszt,
---        ISNULL(a.HtAmount, 0) + ISNULL(a.HtylAmount, 0) AS Zcz,
---        ISNULL(a.Xmpdljwccz, 0) AS Xmpdljwccz,
---        ISNULL(a.Dfscz, 0) AS Dfscz,
---        ISNULL(a.Ljyfkje, 0) AS Ljyfkje,
---        ISNULL(a.Ljsfk, 0) AS Ljsfk,
---        ISNULL(a.Xmpdljwccz, 0) - ISNULL(a.Ljsfk, 0) AS Ydczwzfje,
---        ISNULL(a.Ljyfkje, 0) - ISNULL(a.Ljsfk, 0) AS Yfwfje,
---        a.BldGUID
--- FROM
--- (
---     SELECT SUM(ISNULL(a.BudgetAmount, 0)) AS BudgetAmount,
---            SUM(ISNULL(b.HtAmount, 0)) AS HtAmount,
---            SUM(ISNULL(b.BcxyAmount, 0)) AS BcxyAmount,
---            SUM(ISNULL(b.HtylAmount, 0)) AS HtylAmount,
---            SUM(ISNULL(b.Sgdwysbcz, 0)) AS Sgdwysbcz,
---            SUM(ISNULL(b.Xmpdljwccz, 0)) AS Xmpdljwccz,
---            SUM(ISNULL(b.Dfscz, 0)) AS Dfscz,
---            SUM(ISNULL(b.Ljyfkje, 0)) AS Ljyfkje,
---            SUM(ISNULL(b.Ljsfk, 0)) AS Ljsfk,
---            BldGUID
---     FROM cb_OutputValueReviewDetail a
---         INNER JOIN dbo.cb_OutputValueReviewBld b ON b.OutputValueReviewDetailGUID = a.OutputValueReviewDetailGUID
---         INNER JOIN dbo.cb_OutputValueMonthReview c ON c.OutputValueMonthReviewGUID = a.OutputValueMonthReviewGUID
---     WHERE (1 = 1)
---           AND (2 = 2)
---           AND c.ProjGUID = 'b4e52965-44aa-4073-83bd-a7cef63301d'
---     GROUP BY b.BldGUID
--- ) a
---     INNER JOIN
---     (
---         SELECT DISTINCT
---                b.BldName,
---                b.BldArea,
---                b.BldGUID,
---                b.Jszt
---         FROM cb_OutputValueReviewDetail a
---             INNER JOIN dbo.cb_OutputValueReviewBld b
---                 ON b.OutputValueReviewDetailGUID = a.OutputValueReviewDetailGUID
---             INNER JOIN dbo.cb_OutputValueMonthReview c
---                 ON c.OutputValueMonthReviewGUID = a.OutputValueMonthReviewGUID
---         WHERE (1 = 1)
---               AND (2 = 2)
---               AND c.ProjGUID = 'b4e52965-44aa-4073-83bd-a7cef63301d1'
---     ) b
---         ON a.BldGUID = b.BldGUID
--- ORDER BY b.BldName DESC;
-
--- 为主要查询表创建索引
--- 1. cb_OutputValueMonthReview表索引
-CREATE NONCLUSTERED INDEX IX_cb_OutputValueMonthReview_ProjGUID
-ON cb_OutputValueMonthReview (ProjGUID)
-INCLUDE (ReviewDate, TotalOutputValue, YfsOutputValue, LjyfAmount, 
-         LjsfAmount, BnljsfAmount, YdczwfAmount, YfwfAmount, 
-         XyyfzfAmount, Ndzjjh);
-
--- 2. md_Project表索引
-CREATE NONCLUSTERED INDEX IX_md_Project_ProjGUID_ApproveState
-ON md_Project (ProjGUID, ApproveState, CreateDate)
-INCLUDE (CreateReason, SumBuildArea, SumSaleArea);
-
--- 3. p_lddbamj表索引
-CREATE NONCLUSTERED INDEX IX_p_lddbamj_GCBldGUID_QXDate
-ON erp25.dbo.p_lddbamj (GCBldGUID, QXDate)
-INCLUDE (ysmj, zhz, Realysxx_th, syhz, ysje);
-
--- 4. jd_PlanTaskExecuteObjectForReport表索引
-CREATE NONCLUSTERED INDEX IX_jd_PlanTaskExecuteObjectForReport_ProjGUID
-ON jd_PlanTaskExecuteObjectForReport (ProjGUID)
-INCLUDE (实际开工实际完成时间, 计划组团建筑面积, 是否停工);
-
--- 5. p_project表索引
-CREATE NONCLUSTERED INDEX IX_p_project_Level_BUGUID
-ON p_project (level, BUGUID)
-INCLUDE (ProjGUID, ProjName);
-
--- 6. cb_OutputValueReviewBld表索引
-CREATE NONCLUSTERED INDEX IX_cb_OutputValueReviewBld_OutputValueReviewDetailGUID
-ON cb_OutputValueReviewBld (OutputValueReviewDetailGUID)
-INCLUDE (BldGUID, BldName, BldArea, Jszt, HtAmount, HtylAmount,
-         Xmpdljwccz, Dfscz, Ljyfkje, Ljsfk);
-
--- 注意：在创建索引前请注意：
--- 1. 在生产环境执行前先在测试环境验证
--- 2. 选择业务低峰期执行
--- 3. 评估索引对写入性能的影响
--- 4. 确保有足够的磁盘空间
-
-
-SELECT b.ProjName,
-       cb_OutputValueMonthReview.ReviewDate,
-       cb_OutputValueMonthReview.CreateOn,
-       cb_OutputValueMonthReview.ApproveState,
-       cb_OutputValueMonthReview.Approver,
-       cb_OutputValueMonthReview.ApproveDate,
-       cb_OutputValueMonthReview.BuildTotalArea,
-       cb_OutputValueMonthReview.StartWorkArea,
-       cb_OutputValueMonthReview.ShutDownArea,
-       cb_OutputValueMonthReview.TotalOutputValue,
-       cb_OutputValueMonthReview.YfsOutputValue,
-       cb_OutputValueMonthReview.DfsOutputValue,
-       cb_OutputValueMonthReview.LjyfAmount,
-       cb_OutputValueMonthReview.LjsfAmount,
-       cb_OutputValueMonthReview.BnljsfAmount,
-       cb_OutputValueMonthReview.YfwfAmount,
-       cb_OutputValueMonthReview.YdczwfAmount,
-       cb_OutputValueMonthReview.XyyfzfAmount,
-       cb_OutputValueMonthReview.Ndzjjh,
-       cb_OutputValueMonthReview.OutputValueMonthReviewGUID,
-       ISNULL(cb_OutputValueMonthReview.Ndzjjh,0) - ISNULL(cb_OutputValueMonthReview.BnljsfAmount,0) AS BnygsyzfAmount,
-       cb_OutputValueMonthReview.ProjGUID,
-       cb_OutputValueMonthReview.CreateOnGUID,
-       cb_OutputValueMonthReview.OutputValueMonthReviewName,
-       cb_OutputValueMonthReview.Zksmj,
-       cb_OutputValueMonthReview.Ysmj,
-       cb_OutputValueMonthReview.Dsmj,
-       cb_OutputValueMonthReview.Zhz,
-       cb_OutputValueMonthReview.Ydysxxhz,
-       cb_OutputValueMonthReview.Yshz,
-       cb_OutputValueMonthReview.Dshz
-FROM dbo.cb_OutputValueMonthReview
-LEFT JOIN dbo.p_Project b 
-    ON b.ProjGUID = dbo.cb_OutputValueMonthReview.ProjGUID
-WHERE (1=1)

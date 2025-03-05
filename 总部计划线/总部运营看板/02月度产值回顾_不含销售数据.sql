@@ -58,6 +58,8 @@ SELECT  ROW_NUMBER() OVER(ORDER BY bu.buname, p.projname) AS '编号',
         flg.成本操盘方 AS '成本操盘方',
         flg.项目代码 AS '明源系统代码',
         flg.投管代码 AS '投管代码',
+        pp.ProjCode AS '项目代码',
+        p.ProjCode AS '分期代码',
         CONVERT(VARCHAR(7),ovr.ReviewDate,121) AS '月度回顾月份',
         CASE 
             WHEN ISNULL(proj.SumBuildArea,0) = 0 THEN 0 
@@ -89,10 +91,9 @@ SELECT  ROW_NUMBER() OVER(ORDER BY bu.buname, p.projname) AS '编号',
         ld.Ydczwzfje AS '楼栋产值盘点_已达产值未付金额',
         ld.Yfwfje AS '楼栋产值盘点_应付未付金额'
 FROM    p_project p WITH(NOLOCK)
-        INNER JOIN mybusinessunit bu WITH(NOLOCK)
-            ON p.buguid = bu.buguid
-        INNER JOIN ProjectBase proj 
-            ON proj.ProjGUID = p.ProjGUID
+        INNER JOIN p_project pp WITH(NOLOCK) ON pp.ProjCode = p.ParentCode AND pp.Level = 2
+        INNER JOIN mybusinessunit bu WITH(NOLOCK) ON p.buguid = bu.buguid
+        INNER JOIN ProjectBase proj  ON proj.ProjGUID = p.ProjGUID
         INNER JOIN ERP25.dbo.mdm_project mp WITH(NOLOCK)
             ON mp.projguid = p.ProjGUID
         LEFT JOIN erp25.dbo.vmdm_projectFlag flg 

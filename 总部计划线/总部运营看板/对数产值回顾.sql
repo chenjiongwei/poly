@@ -148,6 +148,8 @@ SELECT
 SELECT  bu.buname AS [公司名称],
         p.ProjName AS [所属项目],
         mp.ProjStatus AS [项目状态],
+        pp.ProjName AS [父级项目名称],
+        pp.ProjGUID as [父级项目GUID],
         pp.ProjCode AS [项目代码],
         p.ProjCode as [分期代码],   
         flg.投管代码 AS [投管代码],
@@ -358,8 +360,10 @@ FROM    p_project p WITH(NOLOCK)
                     ) ylj ON ylj.ContractGUID = cb.ContractGUID
                     left join (
                        	select ContractGUID,
-                           sum(isnull(ApplyAmount,0)) as ApplyAmount 
+                           -- sum(isnull(ApplyAmount,0)) as ApplyAmount 
+                           sum(yfamount) as ApplyAmount 
                         from  cb_HTFKApply WITH(NOLOCK)
+                        where  ApplyState ='已审核'
                         group by ContractGUID
                     ) htapply on htapply.ContractGUID = cb.ContractGUID
                     left join (

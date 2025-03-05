@@ -154,7 +154,7 @@ FROM vcb_Contract a
                a.BusinessGUID as ContractGUID,
 			   a.BusinessName,a.BusinessType,  
                Xmpdljwccz, -- 项目盘点累计完成产值
-        ROW_NUMBER() OVER (PARTITION BY a.BusinessGUID ORDER BY ReviewDate DESC) rownum
+               ROW_NUMBER() OVER (PARTITION BY a.BusinessGUID ORDER BY ReviewDate DESC) rownum
         from  cb_OutputValueReviewDetail a
         inner join  cb_OutputValueMonthReview b on a.OutputValueMonthReviewGUID =b.OutputValueMonthReviewGUID
      -- where a.BusinessName ='苏州市姑苏区金门路北项目桩基工程'
