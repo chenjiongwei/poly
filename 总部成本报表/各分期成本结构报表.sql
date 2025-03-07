@@ -1,9 +1,16 @@
+USE [MyCost_Erp352]
+GO
+/****** Object:  StoredProcedure [dbo].[usp_rpt_cb_CostStructureReport]    Script Date: 2025/3/8 0:06:09 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
 /*
  * 各分期成本结构报表
  * 主要功能:查询各分期的成本结构信息,包括基本信息、总成本情况、预留金、产值及支付等
  */
  --exec [usp_rpt_cb_CostStructureReport] 'A8E2ACA1-508E-46F3-B764-8E2114255B4B','264ABDB2-FCA3-E711-80BA-E61F13C57837'
-alter  proc [dbo].[usp_rpt_cb_CostStructureReport]
+ALTER  proc [dbo].[usp_rpt_cb_CostStructureReport]
 (
     @var_buguid varchar(max) ,  -- 公司guid
     @var_projguid varchar(max) =null  -- 项目guid
@@ -249,7 +256,7 @@ SELECT
     p.projname AS [项目分期名称],
     p.projguid AS [项目guid],
     flg.投管代码 AS [投管代码],
-    flg.项目代码 AS [明源系统代码],
+    mp.ProjCode AS [明源系统代码],
     flg.操盘方式 AS [操盘方式],
     flg.获取时间 AS [拿地时间],
     jd.实际开工计划完成时间 AS [计划开工时间],
@@ -400,9 +407,10 @@ left join (
             sum( case when ht.ExecutingBudgetGUID is null then 1 else 0 end ) AS  NotBudgetAmountCount,  -- 未签合同份数
             sum(ISNULL(ht.HtCfAmount,0)) AS HtCfAmount, -- 合同首次签约金额 已签合同金额
             count(DISTINCT ht.ContractGUID ) AS HtCfAmountCount, -- 合同首次签约金额 已签合同数量
-            sum(ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0)) AS  YljAmount , -- 总预留金
+
+            sum( case when ht.jsState='结算' then ISNULL(yfs.ylj_yfs,0) else ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) end ) AS  YljAmount , -- 总预留金
             sum(ISNULL(yfs.ylj_yfs,0) ) AS  YljAmount_Yfs,-- 已发生预留金
-            sum(ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0)) - sum(ISNULL(yfs.ylj_yfs,0) )  AS  dfsljAmount,  -- 待发生预留金
+            sum( case when ht.jsState='结算' then 0 else ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) - ISNULL(yfs.ylj_yfs,0) end )  AS  dfsljAmount,  -- 待发生预留金
             sum(fxj.FxjAmount) as FxjAmount, -- 变更(非现金)
             sum( CASE WHEN  (ht.HtClass='已定非合同' AND  ht.JsState='结算') 
                 THEN ht.HtCfAmount ELSE(  CASE WHEN js.ExecutingBudgetGUID IS NOT NULL   
@@ -413,26 +421,45 @@ left join (
             -- 总价合同 首次签约为总价包干合同
             count( DISTINCT case when ht.是否首次总价合同 =1 then  ht.ContractGUID end  ) as  zjHtCfAmountCount, -- 总价合同份数
             sum(isnull(ht.zjHtCfAmount,0)) as zjHtCfAmount, -- 总价合同首次签约金额
-            sum( case when ht.是否首次总价合同 =1 then  fs.FsBxAmount else 0 end ) as zjFsBxAmount, -- 负数补协金额
-            sum(case when ht.是否首次总价合同 =1 then  ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) else 0 end ) AS  zjYljAmount , -- 总预留金
+            sum(case when ht.是否首次总价合同 =1 then  fs.FsBxAmount else 0 end ) as zjFsBxAmount, -- 负数补协金额
+            -- 判断如果合同已结算，则将预留金总额=【预留金已发生】，然后将预留金余额取为0   
+            sum(case  when  ht.jsState='结算' then case when ht.是否首次总价合同 =1 then  ISNULL(yfs.ylj_yfs,0) else 0 end 
+              else  case when ht.是否首次总价合同 =1 then  ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) else 0 end 
+              end ) AS  zjYljAmount , -- 总预留金
             sum(case when ht.是否首次总价合同 =1 then  ISNULL(yfs.ylj_yfs,0) else 0 end ) AS  zjYljAmount_Yfs,-- 已发生预留金
-            sum(case when ht.是否首次总价合同 =1 then  ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) else 0 end ) - sum(case when ht.是否首次总价合同 =1 then  ISNULL(yfs.ylj_yfs,0) else 0 end )  AS  zjdfsljAmount,  -- 待发生预留金
+            sum(case when ht.jsState='结算' then 0 else 
+                case when ht.是否首次总价合同 =1 then  ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) else 0 end  - 
+                case when ht.是否首次总价合同 =1 then  ISNULL(yfs.ylj_yfs,0) else 0 end
+            end  )  AS  zjdfsljAmount,  -- 待发生预留金
 
             -- 总价合同 首次签约为单价合同，目前已转总价
             count( DISTINCT case when ht.是否已转总价合同 =1 then  ht.ContractGUID end  ) as  yzzjHtCfAmountCount, -- 已转总价合同份数
             sum(isnull(ht.yzzjHtCfAmount,0)) as yzzjHtCfAmount, -- 已转总价合同金额
             sum(case when  ht.是否已转总价合同 =1 then  zzg.ZzgAmount else 0 end ) as zjZzgAmount, -- 暂转固金额
-            sum( case when ht.是否已转总价合同 =1 then  fs.fsBxAmount else 0 end ) as yzzjFsBxAmount, -- 负数补协金额    
-            sum(case when ht.是否已转总价合同 =1 then  ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) else 0 end ) AS  yzzjYljAmount , -- 总预留金
+            sum( case when ht.是否已转总价合同 =1 then  fs.fsBxAmount else 0 end ) as yzzjFsBxAmount, -- 负数补协金额 
+            -- 判断如果合同已结算，则将预留金总额=【预留金已发生】，然后将预留金余额取为0   
+            sum( case when  ht.JsState='结算' then  case when ht.是否已转总价合同 =1 then  ISNULL(yfs.ylj_yfs,0) else 0 end 
+                else   
+                case when ht.是否已转总价合同 =1 then  ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) else 0 end 
+                end ) AS  yzzjYljAmount , -- 总预留金
             sum(case when ht.是否已转总价合同 =1 then  ISNULL(yfs.ylj_yfs,0) else 0 end ) AS  yzzjYljAmount_Yfs,-- 已发生预留金
-            sum(case when ht.是否已转总价合同 =1 then  ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) else 0 end ) - sum(case when ht.是否已转总价合同 =1 then  ISNULL(yfs.ylj_yfs,0) else 0 end )  AS  yzzjdfsljAmount,  -- 待发生预留金 
+            sum(case when ht.jsState='结算' then  0 else 
+                case when ht.是否已转总价合同 =1 then  ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) else 0 end  - 
+                case when ht.是否已转总价合同 =1 then  ISNULL(yfs.ylj_yfs,0) else 0 end
+             end)  AS  yzzjdfsljAmount,  -- 待发生预留金 
             -- 单价合同
             count( DISTINCT case when isnull(ht.bgxs,'')<>'总价包干' then  ht.ContractGUID end  ) as  djHtCfAmountCount, -- 单价合同份数
             sum(isnull(ht.djHtCfAmount,0)) as djHtCfAmount, -- 单价合同金额 
             sum(case when isnull(ht.bgxs,'')<>'总价包干' then  fs.FsBxAmount else 0 end ) as djFsBxAmount, -- 负数补协金额
-            sum(case when  isnull(ht.bgxs,'')<>'总价包干' then  ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) else 0 end ) AS  djYljAmount , -- 总预留金
+            -- 判断如果合同已结算，则将预留金总额=【预留金已发生】，然后将预留金余额取为0   
+            sum(case when  ht.jsState ='结算' then  case when  isnull(ht.bgxs,'')<>'总价包干' then  ISNULL(yfs.ylj_yfs,0) else 0 end  else 
+                 case when  isnull(ht.bgxs,'')<>'总价包干' then  ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) else 0 end 
+            end ) AS  djYljAmount , -- 总预留金
             sum(case when  isnull(ht.bgxs,'')<>'总价包干' then  ISNULL(yfs.ylj_yfs,0) else 0 end ) AS  djYljAmount_Yfs,-- 已发生预留金
-            sum(case when  isnull(ht.bgxs,'')<>'总价包干' then  ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) else 0 end ) - sum(case when  isnull(ht.bgxs,'')<>'总价包干' then  ISNULL(yfs.ylj_yfs,0) else 0 end )  AS  djdfsljAmount, -- 待发生预留金
+            sum(case when  ht.jsState ='结算' then 0 else 
+                  case when  isnull(ht.bgxs,'')<>'总价包干' then  ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) else 0 end  -
+                case when  isnull(ht.bgxs,'')<>'总价包干' then  ISNULL(yfs.ylj_yfs,0) else 0 end 
+            end  )  AS  djdfsljAmount, -- 待发生预留金
             -- 待签约
             sum( case when ht.ExecutingBudgetGUID is null then 1 else 0 end ) as  NewBudgetAmountCount,
             sum( CASE WHEN ht.ExecutingBudgetGUID IS NULL THEN a.BudgetAmount else  0 END) AS  NewBudgetAmount

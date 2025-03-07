@@ -153,6 +153,8 @@ SELECT  bu.buname AS [公司名称],
         pp.ProjCode AS [项目代码],
         p.ProjCode as [分期代码],   
         flg.投管代码 AS [投管代码],
+        flg.工程操盘方 AS [工程操盘方],
+        flg.成本操盘方 AS [成本操盘方],
         mp.ConstructStatus AS [工程状态],
         TotalOutputValue AS [回顾总产值],
         YfsOutputValue AS [回顾已发生产值],
@@ -164,6 +166,8 @@ SELECT  bu.buname AS [公司名称],
         ht.jfljywccz AS [合同现场累计产值],
         ht.wfqcz AS [合同累计未发起产值金额],
         ht.PayAmount AS [合同-累计付款登记],
+        ht.NoPayAmount AS [合同-累计付款登记不含税],
+        ht.JhfkAmountNoTax AS [合同-累计付款登记不含可抵扣税],
         ht.ApplyAmount AS [合同-累计付款申请金额],
         ht.balanceamount AS [合同-结算金额],
         -- 不含土地及三费
@@ -172,6 +176,8 @@ SELECT  bu.buname AS [公司名称],
         htNotfee.jfljywcczNotfee AS [合同现场累计产值不含土地及三费],
         htNotfee.wfqczNotfee AS [合同累计未发起产值金额不含土地及三费],
         htNotfee.PayAmountNotfee AS [合同-累计付款登记不含土地三费],
+        htNotfee.NoPayAmountNotfee AS [合同-累计付款登记不含土地三费不含税],
+        htNotfee.JhfkAmountNoTaxNotfee AS [合同-累计付款登记不含土地三费不含可抵扣税],
         htNotfee.ApplyAmountNotfee AS [合同-累计付款申请金额不含土地三费],
         htNotfee.balanceamountNotfee AS [合同-结算金额不含土地三费],
 
@@ -300,6 +306,8 @@ FROM    p_project p WITH(NOLOCK)
                             ELSE ISNULL(cb.htamount, 0) + ISNULL(cb.sumalteramount, 0)
                     END - ISNULL(cbz.jfljywccz, 0)) AS wfqcz, -- 未发起产值金额
                     sum(isnull(pay.PayAmount,0)) as PayAmount, -- 合同-累计付款登记（含土地+三费）
+                    sum(isnull(pay.NoPayAmount,0)) as NoPayAmount, -- 合同-累计付款登记不含税（不含土地+三费）
+                    sum(isnull(pay.JhfkAmountNoTax,0)) as JhfkAmountNoTax, -- 合同-累计付款登记不含可抵扣税   （不含土地+三费）        
                     sum(isnull(htapply.ApplyAmount,0)) as ApplyAmount, -- 合同-累计付款申请金额（含土地+三费）
                     sum(isnull(balance.balanceamount,0)) as balanceamount -- 合同-结算金额
             FROM    cb_Contract cb WITH(NOLOCK)
@@ -322,7 +330,10 @@ FROM    p_project p WITH(NOLOCK)
                     ) htapply on htapply.ContractGUID = cb.ContractGUID
                     -- 合同-累计付款登记（含土地+三费）
                     left join (
-       			select  ContractGUID,sum(isnull(PayAmount,0)) as PayAmount  
+       			select  ContractGUID,
+                        sum(isnull(PayAmount,0)) as PayAmount,
+                        sum(isnull(NoPayAmount,0)) as NoPayAmount,
+                        sum(isnull(JhfkAmountNoTax,0)) as JhfkAmountNoTax
                         from  cb_Pay WITH(NOLOCK)
                         group by ContractGUID
                     ) pay on pay.ContractGUID = cb.ContractGUID
@@ -346,6 +357,8 @@ FROM    p_project p WITH(NOLOCK)
                             ELSE ISNULL(cb.htamount, 0) + ISNULL(cb.sumalteramount, 0)
                         END - ISNULL(cbz.jfljywccz, 0)) AS wfqczNotfee, -- 未发起产值金额
                     sum(isnull(pay.PayAmount,0)) as PayAmountNotfee, -- 合同-累计付款登记（不含土地+三费）    
+                    sum(isnull(pay.NoPayAmount,0)) as NoPayAmountNotfee, -- 合同-累计付款登记不含税（不含土地+三费）
+                    sum(isnull(pay.JhfkAmountNoTax,0)) as JhfkAmountNoTaxNotfee, -- 合同-累计付款登记不含可抵扣税   （不含土地+三费）        
                     sum(isnull(htapply.ApplyAmount,0)) as ApplyAmountNotfee, -- 合同-累计付款申请金额（含土地+三费）
                     sum(isnull(balance.balanceamount,0)) as balanceamountNotfee -- 合同-结算金额
             FROM    cb_Contract cb WITH(NOLOCK)
@@ -361,13 +374,16 @@ FROM    p_project p WITH(NOLOCK)
                     left join (
                        	select ContractGUID,
                            -- sum(isnull(ApplyAmount,0)) as ApplyAmount 
-                           sum(yfamount) as ApplyAmount 
+                           sum(yfamount) as ApplyAmount
                         from  cb_HTFKApply WITH(NOLOCK)
                         where  ApplyState ='已审核'
                         group by ContractGUID
                     ) htapply on htapply.ContractGUID = cb.ContractGUID
                     left join (
-       			select  ContractGUID,sum(isnull(PayAmount,0)) as PayAmount  
+       			select  ContractGUID,
+                        sum(isnull(PayAmount,0)) as PayAmount,
+                        sum(isnull(NoPayAmount,0)) as NoPayAmount,
+                        sum(isnull(JhfkAmountNoTax,0)) as JhfkAmountNoTax
                         from  cb_Pay WITH(NOLOCK)
                         group by ContractGUID
 

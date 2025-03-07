@@ -160,6 +160,8 @@ SELECT
 
 -- 查询预算明细
  SELECT 
+            bu.buguid,
+            bu.buname as [公司名称],
             a.ProjectGUID,
             p.ProjName as [项目名称],
 			a.BudgetName as [合约名称],
@@ -175,9 +177,14 @@ SELECT
             ISNULL(ht.HtCfAmount,0) AS  [合同首次签约金额], -- 合同首次签约金额 已签合同金额
             isnull(zzg.ZzgAmount,0) as [暂转固金额],
             isnull(fs.fsBxAmount,0) as [负数补协金额],
-            ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) AS  [总预留金] , -- 总预留金
+           
+            case when  ht.JsState='结算' then   ISNULL(yfs.ylj_yfs,0)  
+                else   
+                 ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0)  end  AS  [总预留金] , -- 总预留金
             ISNULL(yfs.ylj_yfs,0)  AS  [已发生预留金],-- 已发生预留金
-            ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) - ISNULL(yfs.ylj_yfs,0)   AS  [待发生预留金],  -- 待发生预留金
+            case when ht.jsState='结算' then  0 else 
+                ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0)  -  ISNULL(yfs.ylj_yfs,0) 
+             end  AS  [待发生预留金],  -- 待发生预留金
             fxj.FxjAmount as [非现金], -- 变更(非现金)
             CASE WHEN  (ht.HtClass='已定非合同' AND  ht.JsState='结算') 
                 THEN ht.HtCfAmount ELSE(  CASE WHEN js.ExecutingBudgetGUID IS NOT NULL   
@@ -186,6 +193,7 @@ SELECT
             case when  ht.JsState='结算' then  ISNULL(ht.HtCfAmount,0) else  0 end  as  [结算合同的首次签约金额] --结算对应合同的首次签约金额
         FROM dbo.cb_Budget_Working a WITH(NOLOCK)
         inner join dbo.p_project p WITH(NOLOCK) on p.ProjGUID=a.ProjectGUID
+        inner join mybusinessunit bu WITH(NOLOCK) on bu.buguid=p.buguid
         LEFT JOIN dbo.cb_Budget_Executing ex WITH(NOLOCK) ON ex.ExecutingBudgetGUID=a.WorkingBudgetGUID
         LEFT JOIN dbo.cb_HtType b WITH(NOLOCK) ON a.BigHTTypeGUID = b.HtTypeGUID
         LEFT JOIN #HT ht WITH(NOLOCK) ON ht.ExecutingBudgetGUID = a.WorkingBudgetGUID
@@ -196,8 +204,8 @@ SELECT
         LEFT JOIN #fsBx fs WITH(NOLOCK) ON fs.ExecutingBudgetGUID=a.WorkingBudgetGUID
         LEFT JOIN #JS js WITH(NOLOCK) ON js.ExecutingBudgetGUID=a.WorkingBudgetGUID
         WHERE b.HtTypeName not in ('土地类','管理费','营销费','财务费')  
-        and a.ProjectGUID in ( SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ',') )
-        order by a.ProjectGUID,a.BudgetName,ht.ContractName
+        and (a.ProjectGUID in ( SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ',') ) or @var_projguid is null)
+        order by bu.buname, a.ProjectGUID,a.BudgetName,ht.ContractName
 
 
 -- 删除临时表
