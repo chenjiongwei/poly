@@ -1,0 +1,22 @@
+1、执行下面SQL语句前，先查询DSS数据库nmap_S_FillDataSynchRule表 SynchOrder最多值，加1 替换  '010106'。
+ 
+
+--填报清洗规则表
+INSERT  INTO dbo.nmap_S_FillDataSynchRule
+        ( FillDataSynchRuleGUID ,
+          FillName ,
+          SynchTableName ,
+          SynchStorName ,
+          SystemType ,
+          SynchOrder
+        )
+VALUES  ( NEWID() ,
+          '明源及盈利规划业态单方沉淀表' ,
+          'nmap_F_明源及盈利规划业态单方沉淀表' ,
+          'usp_nmap_F_明源及盈利规划业态单方沉淀表' ,
+          '9999' ,   --数据库标识
+          '999901'   --数据库标识加上排序
+        );
+go
+
+2、在“填报数据库设置”中，手动建立规则。要严格与需求保持一致。 自定义类型，手动清洗、数据类型、字段
