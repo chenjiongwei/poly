@@ -1,6 +1,6 @@
 
 -- 创建存储过程
-create  PROC [dbo].[usp_nmap_F_平台公司待返还资金]
+alter   PROC [dbo].[usp_nmap_F_平台公司待返还资金]
     (
       @CLEANDATE DATETIME , -- 清洗日期
       @DATABASENAME VARCHAR(100) , -- 数据库地址
@@ -39,9 +39,81 @@ VALUES  ( NEWID() ,
         );
 go
 
-
-
 EXEC usp_nmap_F_平台公司待返还资金 '2025-03-27','erp25.dbo.','E122693F-3FFC-4F14-841B-2D9A0C5E39A8',1
+
+
+
+CREATE TABLE [dbo].[nmap_F_平台公司待返还资金](
+	[平台公司待返还资金GUID] [uniqueidentifier] NOT NULL,
+	[FillHistoryGUID] [uniqueidentifier] NULL,
+	[BusinessGUID] [uniqueidentifier] NULL,
+	[公司简称] [varchar](400) NULL,
+	[区域] [varchar](400) NULL,
+	[项目代码] [varchar](400) NULL,
+	[我司股比] [varchar](400) NULL,
+	[是否并表] [varchar](400) NULL,
+	[挂图问题类型] [varchar](400) NULL,
+	[项目名称] [varchar](400) NULL,
+	[最后导入人] [varchar](400) NULL,
+	[最后导入时间] [datetime] NULL,
+	[RowID] [int] NULL,
+	[合同或立项约定的返还节点、金额] [varchar](400) NULL,
+	[全口径应回收资金总额（万元）] [varchar](400) NULL,
+	[权益应回收资金总额（万元）] [varchar](400) NULL,
+	[并表口径应回收资金总额（万元）] [varchar](400) NULL,
+	[全口径已收回资金总额（万元）] [varchar](400) NULL,
+	[权益已回收资金总额（万元）] [varchar](400) NULL,
+	[并表口径已回收资金总额（万元）] [varchar](400) NULL,
+	[全口径未回收资金总额（万元）] [varchar](400) NULL,
+	[其中：逾期未收回资金（全口径，万元）] [varchar](400) NULL,
+	[左列勾稽检查1] [varchar](400) NULL,
+	[权益未回收资金总额（万元）] [varchar](400) NULL,
+	[其中：逾期未收回资金（权益，万元）] [varchar](400) NULL,
+	[左列勾稽检查2] [varchar](400) NULL,
+	[并表口径未回收资金总额（万元）] [varchar](400) NULL,
+	[其中：逾期未收回资金（并表，万元）] [varchar](400) NULL,
+	[年新增到期资金-全口径（万元，不含24年逾期资金）] [varchar](400) NULL,
+	[2025年资金到期情况] [varchar](400) NULL,
+	[2025年新增到期资金-权益（万元，不含24年逾期资金）] [varchar](400) NULL,
+	[2025年新增到期资金-并表（万元，不含24年逾期资金）] [varchar](400) NULL,
+	[2025年应收回-全口径（逾期加25年到期）] [varchar](400) NULL,
+	[2025年应收回-权益口径（逾期加25年到期）] [varchar](400) NULL,
+	[2025年应收回-并表口径（逾期加25年到期）] [varchar](400) NULL,
+	[2025年全年预计收回资金-全口径（万元）] [varchar](400) NULL,
+	[2025年全年预计收回资金-权益（万元）] [varchar](400) NULL,
+	[一季度] [varchar](400) NULL,
+	[二季度] [varchar](400) NULL,
+	[三季度] [varchar](400) NULL,
+	[四季度] [varchar](400) NULL,
+	[2025年全年预计收回资金-并表（万元）] [varchar](400) NULL,
+	[check] [varchar](400) NULL,
+	[拟置换地块基本情况] [varchar](400) NULL,
+	[是否可以在25年签约] [varchar](400) NULL,
+	[25年预计供货时间] [varchar](400) NULL,
+	[25年预计签约_（亿元）] [varchar](400) NULL,
+	[是否已在2025年1月2日版本中铺排签约] [varchar](400) NULL,
+	[26年预计收回（全口径）] [varchar](400) NULL,
+	[27年预计收回（全口径）] [varchar](400) NULL,
+	[28年及以后预计收回（全口径）] [varchar](400) NULL,
+	[推进及盘活思路] [varchar](400) NULL,
+	[上月工作进展] [varchar](400) NULL,
+	[下月工作计划] [varchar](400) NULL,
+	[预计本季度工作计划是否按节点达成] [varchar](400) NULL,
+	[未按节点达成事项] [varchar](400) NULL,
+	[盘活资金比例（低于应盘活比例百分之70，推送预警）] [varchar](400) NULL,
+	[本季度已收回金额（并表口径、单位万元）] [varchar](400) NULL,
+	[全年累计收回任务（并表口径、单位万元）] [varchar](400) NULL,
+	[全年累计收回金额（并表口径、单位万元）] [varchar](400) NULL,
+	[剩余全口径占压金额（单位万元）] [varchar](400) NULL,
+	[剩余权益口径占压金额（单位万元）] [varchar](400) NULL,
+	[剩余并表口径占压金额（单位万元）] [varchar](400) NULL,
+	[全年累计签约金额（全口径、单位万元）] [varchar](400) NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[平台公司待返还资金GUID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+GO
 
 */
 
@@ -154,10 +226,17 @@ EXEC usp_nmap_F_平台公司待返还资金 '2025-03-27','erp25.dbo.','E122693F-
       ,isnull(d.[28年及以后预计收回（全口径）],a.[28年及以后预计收回（全口径）]) as [28年及以后预计收回（全口径）]
       ,isnull(d.[推进及盘活思路],a.[推进及盘活思路]) as [推进及盘活思路]
       ,isnull(d.[上月工作进展],a.[上月工作进展]) as [上月工作进展]
-      ,isnull(d.[本月工作进展],a.[本月工作进展]) as [本月工作进展]
+      ,isnull(d.[下月工作计划],a.[下月工作计划]) as [下月工作计划]
       ,isnull(d.[预计本季度工作计划是否按节点达成],a.[预计本季度工作计划是否按节点达成]) as [预计本季度工作计划是否按节点达成]
       ,isnull(d.[未按节点达成事项],a.[未按节点达成事项]) as [未按节点达成事项]
       ,isnull(d.[盘活资金比例（低于应盘活比例百分之70，推送预警）],a.[盘活资金比例_（低于应盘活比例70%，推送预警）]) as [盘活资金比例（低于应盘活比例百分之70，推送预警）]
+      ,isnull(d.[本季度已收回金额（并表口径、单位万元）],a.[本季度已收回金额（并表口径、单位万元）]) as [本季度已收回金额（并表口径、单位万元）]
+	    ,isnull(d.[全年累计收回任务（并表口径、单位万元）],a.[全年累计收回任务（并表口径、单位万元）]) as [全年累计收回任务（并表口径、单位万元）]
+	    ,isnull(d.[全年累计收回金额（并表口径、单位万元）],a.[全年累计收回金额（并表口径、单位万元）]) as [全年累计收回金额（并表口径、单位万元）]
+	    ,isnull(d.[剩余全口径占压金额（单位万元）],a.[剩余全口径占压金额（单位万元）]) as [剩余全口径占压金额（单位万元）]
+	    ,isnull(d.[剩余权益口径占压金额（单位万元）],a.[剩余权益口径占压金额（单位万元）]) as [剩余权益口径占压金额（单位万元）]
+	    ,isnull(d.[剩余并表口径占压金额（单位万元）],a.[剩余并表口径占压金额（单位万元）]) as [剩余并表口径占压金额（单位万元）]
+	    ,isnull(d.[全年累计签约金额（全口径、单位万元）],a.[全年累计签约金额（全口径、单位万元）]) as [全年累计签约金额（全口径、单位万元）]
 	INTO #TempData
 	from  待返还资金 a
 	left join erp25.dbo.p_DevelopmentCompany b on  case when a.公司 = '东北公司' then '辽宁公司' else a.公司 end = b.DevelopmentCompanyName
