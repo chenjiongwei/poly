@@ -1,6 +1,6 @@
 USE [MyCost_Erp352]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_rpt_cb_CostStructureReport]    Script Date: 2025/3/8 0:06:09 ******/
+/****** Object:  StoredProcedure [dbo].[usp_rpt_cb_CostStructureReport]    Script Date: 2025/4/1 16:31:51 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -355,14 +355,36 @@ LEFT JOIN (
 -- 组团计划
 LEFT JOIN (
     SELECT 
-        projguid,
+        jd_PlanTaskExecuteObjectForReport.projguid,gc.isCompare,
         MAX(实际开工计划完成时间) AS 实际开工计划完成时间,
         MAX(实际开工实际完成时间) AS 实际开工实际完成时间,
         MAX(竣工备案计划完成时间) AS 竣工备案计划完成时间,
-        MAX(竣工备案实际完成时间) AS 竣工备案实际完成时间
+        MAX(case when gc.isCompare = '是' then 竣工备案实际完成时间 else null end ) AS 竣工备案实际完成时间
     FROM jd_PlanTaskExecuteObjectForReport WITH(NOLOCK)
-    WHERE 定位报告计划完成时间 IS NOT NULL
-    GROUP BY projguid
+    LEFT JOIN (
+        SELECT projguid,
+            NodeNum,
+            TaskStateNum,
+            CASE 
+                WHEN ISNULL(NodeNum,0) = ISNULL(TaskStateNum,0) THEN '是' 
+                ELSE '否' 
+            END AS isCompare
+        FROM (
+            SELECT jpe.projguid,
+                COUNT(1) AS NodeNum,
+                SUM(CASE 
+                    WHEN enumTask.EnumerationName IN ('按期完成','延期完成') THEN 1 
+                    ELSE 0 
+                END) AS TaskStateNum
+            FROM jd_ProjectPlanTaskExecute jpte
+            left JOIN jd_EnumerationDictionary enumTask   ON enumTask.EnumerationType = '工作状态枚举' AND enumTask.EnumerationValue = jpte.TaskState
+            inner  join jd_ProjectPlanExecute jpe on jpe.ID =jpte.PlanID
+            where    jpte.TaskName like '%竣工备案%'
+            GROUP BY jpe.projguid
+        ) jppt 
+    ) gc ON gc.projguid = jd_PlanTaskExecuteObjectForReport.ProjGUID
+    -- WHERE 定位报告计划完成时间 IS NOT NULL
+    GROUP BY jd_PlanTaskExecuteObjectForReport.projguid,gc.isCompare
 ) jd  ON jd.projguid = p.ProjGUID
 -- 考核版-目标成本
 LEFT JOIN (
@@ -444,8 +466,7 @@ left join (
                 end ) AS  yzzjYljAmount , -- 总预留金
             sum(case when ht.是否已转总价合同 =1 then  ISNULL(yfs.ylj_yfs,0) else 0 end ) AS  yzzjYljAmount_Yfs,-- 已发生预留金
             sum(case when ht.jsState='结算' then  0 else 
-                case when ht.是否已转总价合同 =1 then  ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) else 0 end  - 
-                case when ht.是否已转总价合同 =1 then  ISNULL(yfs.ylj_yfs,0) else 0 end
+                case when ht.是否已转总价合同 =1 then  ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) else 0 end  - case when ht.是否已转总价合同 =1 then  ISNULL(yfs.ylj_yfs,0) else 0 end
              end)  AS  yzzjdfsljAmount,  -- 待发生预留金 
             -- 单价合同
             count( DISTINCT case when isnull(ht.bgxs,'')<>'总价包干' then  ht.ContractGUID end  ) as  djHtCfAmountCount, -- 单价合同份数

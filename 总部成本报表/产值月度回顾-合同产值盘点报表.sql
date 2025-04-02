@@ -35,13 +35,11 @@ SELECT
         a.Sgdwysbyfk AS [施工单位已申报应付款],
         a.Jfysdcz AS [甲方已审定产值],
         a.Jfysdyfk AS [甲方已审定应付款]
-FROM    cb_OutputValueMonthReview ovr
-        INNER JOIN dbo.cb_OutputValueReviewDetail b ON ovr.OutputValueMonthReviewGUID = b.OutputValueMonthReviewGUID
-        INNER JOIN dbo.cb_OutputValueReviewBld a ON b.OutputValueReviewDetailGUID = a.OutputValueReviewDetailGUID
-        INNER JOIN p_Project p
-            ON p.ProjGUID = ovr.ProjGUID
-        INNER JOIN myBusinessUnit bu
-            ON bu.BUGUID = p.BUGUID
+FROM    cb_OutputValueMonthReview ovr WITH(NOLOCK)
+        INNER JOIN dbo.cb_OutputValueReviewDetail b WITH(NOLOCK) ON ovr.OutputValueMonthReviewGUID = b.OutputValueMonthReviewGUID
+        INNER JOIN dbo.cb_OutputValueReviewBld a WITH(NOLOCK) ON b.OutputValueReviewDetailGUID = a.OutputValueReviewDetailGUID
+        INNER JOIN p_Project p WITH(NOLOCK) ON p.ProjGUID = ovr.ProjGUID
+        INNER JOIN myBusinessUnit bu  WITH(NOLOCK) ON bu.BUGUID = p.BUGUID
 --WHERE   b.OutputValueMonthReviewGUID = 'd9aff95d-7eae-453b-a9d1-f70e89d0e336'
 where p.projguid in ( @var_projguid )
 and  FORMAT(ovr.ReviewDate, 'MM') in (@var_month)

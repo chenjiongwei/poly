@@ -1,13 +1,21 @@
+USE [MyCost_Erp352]
+GO
+/****** Object:  StoredProcedure [dbo].[usp_rpt_cb_CostStructureReport_Detail]    Script Date: 2025/4/1 16:32:20 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
 -- 各分期成本结构穿透明细表
 -- exec usp_rpt_cb_CostStructureReport_Detail '264ABDB2-FCA3-E711-80BA-E61F13C57837'
-alter proc [dbo].[usp_rpt_cb_CostStructureReport_Detail]
+ALTER proc [dbo].[usp_rpt_cb_CostStructureReport_Detail]
 (
    -- @var_buguid varchar(max) ,  -- 公司guid
     @var_projguid varchar(max) =null  -- 项目guid
 )
 as
 begin
-SELECT 
+   -- 查询合同信息
+   SELECT 
         c.ContractGUID
         ,c.ContractCode
         ,c.ContractName
@@ -37,11 +45,9 @@ SELECT
                 MasterContractGUID,
                 count(1) as 补充合同数,
                 --计划方式=总价包干，且所有补充合同未关联暂转固单据且补充合同【是否施工图结算】字段为'否'
-                sum( case when  isnull(IsConstructionBalance ,0) = 0 
-                and  ZzgHTBalanceGUID  is null then 1 else 0 end ) as 未关联暂转固单据且未施工图结算的补充合同数,
+                sum( case when  isnull(IsConstructionBalance ,0) = 0  and  ZzgHTBalanceGUID  is null then 1 else 0 end ) as 未关联暂转固单据且未施工图结算的补充合同数,
                 -- 计划方式=总价包干，且任意一个补充合同有关联暂转固单据或任意一个补充合同【是否施工图结算】字段为'是'
-                sum(  case when  isnull(IsConstructionBalance ,0) = 1 
-                or  ZzgHTBalanceGUID  is not null then 1 else 0 end ) as 有关联暂转固单据或施工图结算的补充合同数
+                sum(  case when  isnull(IsConstructionBalance ,0) = 1 or  ZzgHTBalanceGUID  is not null then 1 else 0 end ) as 有关联暂转固单据或施工图结算的补充合同数
                 from  cb_Contract fscon WITH(NOLOCK)
                 where  HtProperty ='补充合同' 
                 group by MasterContractGUID
@@ -158,8 +164,8 @@ SELECT
             -- AND p.buguid in ( SELECT [Value] FROM dbo.fn_Split1(@var_buguid, ',') ) 
 	GROUP BY d.ExecutingBudgetGUID
 
--- 查询预算明细
- SELECT 
+    -- 查询预算明细结果
+     SELECT 
             bu.buguid,
             bu.buname as [公司名称],
             a.ProjectGUID,
