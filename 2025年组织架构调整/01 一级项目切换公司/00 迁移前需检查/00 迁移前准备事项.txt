@@ -17,3 +17,35 @@ left join cb_HybPack t1 on t1.HybTemplateGUID in (
  where t.HybTemplateGUID in (
 '44A08AE9-C316-4B26-AE9A-CBA2269EAF0E'  --原公司的合约包模板
 ) and t1.HybTemplateGUID is null
+
+
+组织架构调整涉及到的子公司操作工作项：
+1、人员/岗位调整：需将人员调整到合并后的公司司，并且将人员添加到合并后的公司岗位；
+2、合并后公司流程定义调整：对于合并后涉及到审批流程节点调整的，需提前调整审批的步骤定义，包含合并后的公司岗位；
+3、在途流程跟催：在途流程跟进审批完成，拉群跟对接管理员在群里进行跟催，截止迁移未审批完成将作废流程；
+4、其他关联系统的数据同步迁移：云和+、广联达、筑龙、契约锁；
+
+
+淮海——》江苏公司 迁移下周三晚上
+流程模版的迁移，最好能够前台批量导出导入；
+投管系统——公司信息管理的法人公司所属平台公司调整；
+明确无项目合同的迁移方式；
+供应商的供方等级清理掉，等迁移后第二天筑龙进行自动同步；
+
+
+
+-- 查询最近数据库有没有新增表
+
+SELECT sys.objects.name 表名 ,
+       sys.columns.name  字段名称,
+       sys.types.name 数据类型,
+       sys.columns.max_length 长度,
+	   sys.objects.create_date 创建日期
+FROM   sys.objects
+       LEFT JOIN sys.columns ON sys.objects.object_id = sys.columns.object_id
+       LEFT JOIN sys.types ON sys.types.system_type_id = sys.columns.system_type_id
+WHERE --sys.columns.name = 'buguid' AND
+       sys.objects.type = 'U'
+      --  AND sys.objects.name LIKE 'dw_%'
+	  and datediff(yy,sys.objects.create_date,getdate()) =0
+          ORDER BY sys.objects.name,sys.columns.column_id

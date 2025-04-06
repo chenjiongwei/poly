@@ -1,4 +1,4 @@
-USE [ERP25_test]
+USE [erp25]
 GO
 
 /****** Object:  StoredProcedure [dbo].[usp_s_ProjectMove]    Script Date: 2024/6/13 18:36:30 ******/
@@ -6,6 +6,7 @@ SET ANSI_NULLS ON;
 GO
 
 SET QUOTED_IDENTIFIER ON;
+
 
 /*2025年组织架构调整影响的表更新
 -- s_BizParamAdjustApplyProduct	业务参数申请产品类型
@@ -18,7 +19,7 @@ SET QUOTED_IDENTIFIER ON;
 */
 GO
 
-ALTER PROC [dbo].[usp_s_ProjectMove](@OldBUName VARCHAR(MAX) ,
+alter PROC [dbo].[usp_s_ProjectMove](@OldBUName VARCHAR(MAX) ,
                                      @TopProjGUID VARCHAR(MAX) ,    --一级项目GUID
                                      @NewBUName VARCHAR(MAX))
 AS 
@@ -53,7 +54,7 @@ AS
     DISABLE TRIGGER ALL ON dbo.myBusinessUnit;
 GO
 
-USE MyCost_Erp352_ceshi;
+USE MyCost_Erp352;
 GO
 DISABLE TRIGGER ALL ON dbo.myBusinessUnit;
 GO
@@ -73,7 +74,7 @@ GO
     ALTER TABLE dbo.p_room ENABLE TRIGGER ALL;
     ALTER TABLE dbo.myBusinessUnit ENABLE TRIGGER ALL;
 
-    USE MyCost_Erp352_ceshi;
+    USE MyCost_Erp352;
     ALTER TABLE dbo.myBusinessUnit ENABLE TRIGGER ALL;
 
     USE CRE_ERP_202_SYZL;
@@ -141,13 +142,13 @@ GO
             b.CompanyGUID = @NewBUGUID ,
             b.NamePath = REPLACE(b.NamePath, @OldBUName, @NewBUName)
         FROM    #Pro a
-                INNER JOIN ERP25_test.dbo.myBusinessUnit b ON b.ProjGUID = a.ProjGUID
+                INNER JOIN erp25.dbo.myBusinessUnit b ON b.ProjGUID = a.ProjGUID
         WHERE   1 = 1 AND   b.CompanyGUID <> @NewBUGUID;
 
         ALTER TABLE myBusinessUnit ENABLE TRIGGER ALL;
 
         --erp352
-        ALTER TABLE MyCost_Erp352_ceshi.dbo.myBusinessUnit DISABLE TRIGGER ALL;
+        ALTER TABLE MyCost_Erp352.dbo.myBusinessUnit DISABLE TRIGGER ALL;
 
         UPDATE  b
         SET b.BUCode = REPLACE(b.BUCode, a.BUCODE, @NewBUCODE) ,
@@ -156,10 +157,10 @@ GO
             b.CompanyGUID = @NewBUGUID ,
             b.NamePath = REPLACE(b.NamePath, @OldBUName, @NewBUName)
         FROM    #Pro a
-                INNER JOIN MyCost_Erp352_ceshi.dbo.myBusinessUnit b ON b.ProjGUID = a.ProjGUID
+                INNER JOIN MyCost_Erp352.dbo.myBusinessUnit b ON b.ProjGUID = a.ProjGUID
         WHERE   1 = 1 AND   b.CompanyGUID <> @NewBUGUID;
 
-        ALTER TABLE MyCost_Erp352_ceshi.dbo.myBusinessUnit ENABLE TRIGGER ALL;
+        ALTER TABLE MyCost_Erp352.dbo.myBusinessUnit ENABLE TRIGGER ALL;
 
         --zulin   
         ALTER TABLE CRE_ERP_202_SYZL.dbo.myBusinessUnit DISABLE TRIGGER ALL;
@@ -180,14 +181,14 @@ GO
         --erp25
         UPDATE  a
         SET a.BUGUID = p.BUGUID
-        FROM    ERP25_test.dbo.myStationObject a
+        FROM    erp25.dbo.myStationObject a
                 INNER JOIN #Pro p ON a.ObjectGUID = p.ProjGUID AND a.TableName = '项目'
         WHERE   1 = 1 AND   a.BUGUID <> p.BUGUID;
 
         --erp352        
         UPDATE  a
         SET a.BUGUID = p.BUGUID
-        FROM    MyCost_Erp352_ceshi.dbo.myStationObject a
+        FROM    MyCost_Erp352.dbo.myStationObject a
                 INNER JOIN #Pro p ON a.ObjectGUID = p.ProjGUID AND a.TableName = '项目'
         WHERE   1 = 1 AND   a.BUGUID <> p.BUGUID;
 
@@ -708,7 +709,7 @@ GO
         UPDATE  b
         SET b.OrgCompanyGUID = p.BUGUID
         FROM    dbo.p_Project p
-                INNER JOIN MyCost_Erp352_ceshi.dbo.md_Project2OrgCompany b ON b.ProjGUID = p.ProjGUID
+                INNER JOIN MyCost_Erp352.dbo.md_Project2OrgCompany b ON b.ProjGUID = p.ProjGUID
         WHERE   EXISTS (SELECT  1 FROM  #Pro pro WHERE  pro.ProjGUID = p.ProjGUID) AND  p.BUGUID <> b.OrgCompanyGUID;
 
         --20210301add 新增p_PrintTemplate 认购书模板打印表修改

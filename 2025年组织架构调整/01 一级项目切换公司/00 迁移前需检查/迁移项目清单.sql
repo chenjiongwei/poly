@@ -28,6 +28,30 @@ GO
 --需要迁移模板：qytype = 0
 --不需要迁移模板：qytype = 1
 
+
+-- 查询淮海公司项目信息
+SELECT  dc.DevelopmentCompanyName AS 平台公司,
+        mp.ProjName AS 项目名称,
+        mp.SpreadName AS 推广名称,
+        mp.ProjCode AS 项目代码,
+        mp.ProjStatus AS 项目状态,
+        mp.SaleStatus AS 销售状态,
+        city.ParamValue AS 所在城市,
+        '江苏公司' AS 所属城市公司
+FROM    mdm_Project mp
+        INNER JOIN p_DevelopmentCompany dc 
+            ON mp.DevelopmentCompanyGUID = dc.DevelopmentCompanyGUID
+        LEFT JOIN (
+            SELECT  ParamGUID,
+                    ParamCode,
+                    ParamValue
+            FROM    myBizParamOption
+            WHERE   ParamName = 'td_City'
+        ) city 
+            ON city.ParamGUID = mp.CityGUID
+WHERE   dc.DevelopmentCompanyName = '淮海公司' AND mp.Level = 2
+
+
 CREATE TABLE dqy_proj_20240613
 (
     NewDevelopmentCompanyGUID UNIQUEIDENTIFIER, --迁移后平台公司guid
@@ -352,8 +376,9 @@ FROM dqy_proj_20240613;
 
 --- /////////////////2025年1月21日 创建新的组织架构调整待迁移项目清单///////////////////////////------------------------------
 
+
 -- 修改companyjoin表中名称不一致的问题
-use ERP25_test
+use ERP25
 -- 查询公司名称不一致的
 SELECT a.buname,a.buguid,bu.BUName,bu.BUGUID 
 FROM companyjoin a
@@ -367,7 +392,7 @@ FROM companyjoin a
 INNER JOIN mybusinessunit bu ON a.buguid = bu.buguid
 WHERE bu.buname<> a.buname
 
-use MyCost_Erp352_ceshi
+use MyCost_Erp352
 -- 查询公司名称不一致的
 SELECT a.buname,a.buguid,bu.BUName,bu.BUGUID 
 FROM companyjoin a
@@ -431,16 +456,16 @@ SELECT @NewDevelopmentCompanyGUID AS NewDevelopmentCompanyGUID,
                '分期'
        END AS 项目类别,
        1 AS qytype                --  默认为0
-FROM ERP25_test.dbo.mdm_Project pj
+FROM ERP25.dbo.mdm_Project pj
     LEFT JOIN
     (
         SELECT DISTINCT
                ProjGUID,
                ProjCode,
                BUGUID
-        FROM MyCost_Erp352_ceshi.dbo.p_Project p
+        FROM MyCost_Erp352.dbo.p_Project p
     ) p352  ON pj.ProjGUID = p352.ProjGUID
-    INNER JOIN ERP25_test.dbo.companyjoin bu  ON bu.DevelopmentCompanyGUID = pj.DevelopmentCompanyGUID
+    INNER JOIN ERP25.dbo.companyjoin bu  ON bu.DevelopmentCompanyGUID = pj.DevelopmentCompanyGUID
 WHERE pj.Level =3 and  bu.buname = '浙南公司'
 UNION ALL
 -- 一级项目
@@ -461,16 +486,16 @@ SELECT @NewDevelopmentCompanyGUID AS NewDevelopmentCompanyGUID,
                '分期'
        END AS 项目类别,
        1 AS qytype
-FROM ERP25_test.dbo.mdm_Project pj
+FROM ERP25.dbo.mdm_Project pj
     LEFT JOIN
     (
         SELECT DISTINCT
                ProjGUID,
                ProjCode,
                BUGUID
-        FROM MyCost_Erp352_ceshi.dbo.p_Project p
+        FROM MyCost_Erp352.dbo.p_Project p
     ) p352 ON pj.ProjGUID = p352.ProjGUID
-    INNER JOIN ERP25_test.dbo.companyjoin bu  ON bu.DevelopmentCompanyGUID = pj.DevelopmentCompanyGUID
+    INNER JOIN ERP25.dbo.companyjoin bu  ON bu.DevelopmentCompanyGUID = pj.DevelopmentCompanyGUID
 WHERE  pj.Level =2 and  bu.buname = '浙南公司'
 
 --2、齐鲁合并进山东
@@ -504,16 +529,16 @@ SELECT @NewDevelopmentCompanyGUID AS NewDevelopmentCompanyGUID,
                '分期'
        END AS 项目类别,
        1 AS qytype                --  默认为0
-FROM ERP25_test.dbo.mdm_Project pj
+FROM ERP25.dbo.mdm_Project pj
     LEFT JOIN
     (
         SELECT DISTINCT
                ProjGUID,
                ProjCode,
                BUGUID
-        FROM MyCost_Erp352_ceshi.dbo.p_Project p
+        FROM MyCost_Erp352.dbo.p_Project p
     ) p352  ON pj.ProjGUID = p352.ProjGUID
-    INNER JOIN ERP25_test.dbo.companyjoin bu  ON bu.DevelopmentCompanyGUID = pj.DevelopmentCompanyGUID
+    INNER JOIN ERP25.dbo.companyjoin bu  ON bu.DevelopmentCompanyGUID = pj.DevelopmentCompanyGUID
 WHERE pj.Level =3 and  bu.buname = '齐鲁公司'
 UNION ALL
 -- 一级项目
@@ -534,16 +559,16 @@ SELECT @NewDevelopmentCompanyGUID AS NewDevelopmentCompanyGUID,
                '分期'
        END AS 项目类别,
        1 AS qytype
-FROM ERP25_test.dbo.mdm_Project pj
+FROM ERP25.dbo.mdm_Project pj
     LEFT JOIN
     (
         SELECT DISTINCT
                ProjGUID,
                ProjCode,
                BUGUID
-        FROM MyCost_Erp352_ceshi.dbo.p_Project p
+        FROM MyCost_Erp352.dbo.p_Project p
     ) p352 ON pj.ProjGUID = p352.ProjGUID
-    INNER JOIN ERP25_test.dbo.companyjoin bu  ON bu.DevelopmentCompanyGUID = pj.DevelopmentCompanyGUID
+    INNER JOIN ERP25.dbo.companyjoin bu  ON bu.DevelopmentCompanyGUID = pj.DevelopmentCompanyGUID
 WHERE  pj.Level =2 and  bu.buname = '齐鲁公司'
 
 --3、大连合并进辽宁（通辽公司）
@@ -577,16 +602,16 @@ SELECT @NewDevelopmentCompanyGUID AS NewDevelopmentCompanyGUID,
                '分期'
        END AS 项目类别,
        1 AS qytype                --  默认为0
-FROM ERP25_test.dbo.mdm_Project pj
+FROM ERP25.dbo.mdm_Project pj
     LEFT JOIN
     (
         SELECT DISTINCT
                ProjGUID,
                ProjCode,
                BUGUID
-        FROM MyCost_Erp352_ceshi.dbo.p_Project p
+        FROM MyCost_Erp352.dbo.p_Project p
     ) p352  ON pj.ProjGUID = p352.ProjGUID
-    INNER JOIN ERP25_test.dbo.companyjoin bu  ON bu.DevelopmentCompanyGUID = pj.DevelopmentCompanyGUID
+    INNER JOIN ERP25.dbo.companyjoin bu  ON bu.DevelopmentCompanyGUID = pj.DevelopmentCompanyGUID
 WHERE pj.Level =3 and  bu.buname = '大连公司'
 UNION ALL
 -- 一级项目
@@ -607,16 +632,16 @@ SELECT @NewDevelopmentCompanyGUID AS NewDevelopmentCompanyGUID,
                '分期'
        END AS 项目类别,
        1 AS qytype
-FROM ERP25_test.dbo.mdm_Project pj
+FROM ERP25.dbo.mdm_Project pj
     LEFT JOIN
     (
         SELECT DISTINCT
                ProjGUID,
                ProjCode,
                BUGUID
-        FROM MyCost_Erp352_ceshi.dbo.p_Project p
+        FROM MyCost_Erp352.dbo.p_Project p
     ) p352 ON pj.ProjGUID = p352.ProjGUID
-    INNER JOIN ERP25_test.dbo.companyjoin bu  ON bu.DevelopmentCompanyGUID = pj.DevelopmentCompanyGUID
+    INNER JOIN ERP25.dbo.companyjoin bu  ON bu.DevelopmentCompanyGUID = pj.DevelopmentCompanyGUID
 WHERE  pj.Level =2 and  bu.buname = '大连公司'
 
 
@@ -650,16 +675,16 @@ SELECT @NewDevelopmentCompanyGUID AS NewDevelopmentCompanyGUID,
                '分期'
        END AS 项目类别,
        1 AS qytype                --  默认为0
-FROM ERP25_test.dbo.mdm_Project pj
+FROM ERP25.dbo.mdm_Project pj
     LEFT JOIN
     (
         SELECT DISTINCT
                ProjGUID,
                ProjCode,
                BUGUID
-        FROM MyCost_Erp352_ceshi.dbo.p_Project p
+        FROM MyCost_Erp352.dbo.p_Project p
     ) p352  ON pj.ProjGUID = p352.ProjGUID
-    INNER JOIN ERP25_test.dbo.companyjoin bu  ON bu.DevelopmentCompanyGUID = pj.DevelopmentCompanyGUID
+    INNER JOIN ERP25.dbo.companyjoin bu  ON bu.DevelopmentCompanyGUID = pj.DevelopmentCompanyGUID
 WHERE pj.Level =3 and  bu.buname = '淮海公司'
 UNION ALL
 -- 一级项目
@@ -680,22 +705,37 @@ SELECT @NewDevelopmentCompanyGUID AS NewDevelopmentCompanyGUID,
                '分期'
        END AS 项目类别,
        1 AS qytype
-FROM ERP25_test.dbo.mdm_Project pj
+FROM ERP25.dbo.mdm_Project pj
     LEFT JOIN
     (
         SELECT DISTINCT
                ProjGUID,
                ProjCode,
                BUGUID
-        FROM MyCost_Erp352_ceshi.dbo.p_Project p
+        FROM MyCost_Erp352.dbo.p_Project p
     ) p352 ON pj.ProjGUID = p352.ProjGUID
-    INNER JOIN ERP25_test.dbo.companyjoin bu  ON bu.DevelopmentCompanyGUID = pj.DevelopmentCompanyGUID
+    INNER JOIN ERP25.dbo.companyjoin bu  ON bu.DevelopmentCompanyGUID = pj.DevelopmentCompanyGUID
 WHERE  pj.Level =2 and  bu.buname = '淮海公司'
 
 
 -- 查询待迁移项目清单
-SELECT *
-FROM dqy_proj_20250121
-ORDER BY newbuname, projcode352
+SELECT 
+    CASE 
+        WHEN p.level = 3 THEN pp.projname 
+        ELSE p.projname 
+    END AS ParentProjName, 
+    a.*
+FROM 
+     erp25.dbo.dqy_proj_20250121 a
+INNER JOIN 
+    erp25.dbo.mdm_project p ON a.OldProjGuid = p.projguid
+LEFT JOIN 
+    erp25.dbo.mdm_project pp ON pp.projguid = p.ParentProjGUID
+ORDER BY 
+    CASE 
+        WHEN p.level = 3 THEN pp.projname 
+        ELSE p.projname 
+    END, 
+    projcode25;
 
 

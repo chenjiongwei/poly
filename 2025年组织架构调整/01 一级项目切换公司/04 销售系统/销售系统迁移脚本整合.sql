@@ -61,32 +61,35 @@ WHILE @i <= @j
 
 --DROP TABLE #t;
 
-EXEC usp_s_ProjectMove '浙南公司', '6E54378F-CFA1-E711-80BA-E61F13C57837', '浙江公司';
-EXEC usp_s_ProjectMove '浙南公司', 'C7D1C505-65F9-E911-80B8-0A94EF7517DD', '浙江公司';
 
+EXEC usp_s_ProjectMove '淮海公司', '4C2CD96B-15EB-EE11-B3A4-F40270D39969', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', 'DFE1DD0B-043E-E711-80BA-E61F13C57837', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', '6EB03C5C-F24A-E811-80BA-E61F13C57837', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', '7F9EEA25-F24A-E811-80BA-E61F13C57837', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', '4BE2EB2E-A9FA-E711-80BA-E61F13C57837', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', 'A4DBA98F-8E46-EB11-B398-F40270D39969', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', 'E81DECD4-7F46-EB11-B398-F40270D39969', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', 'F58F1AA3-0FFF-EB11-B398-F40270D39969', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', 'CAD9E1A3-0A3A-EB11-B398-F40270D39969', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', 'E95E458C-F339-EB11-B398-F40270D39969', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', 'C0D7AF14-5399-E911-80B7-0A94EF7517DD', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', 'EC64E753-FEFE-EB11-B398-F40270D39969', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', 'B41363DA-92FE-EB11-B398-F40270D39969', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', '07EE07C1-10F4-EB11-B398-F40270D39969', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', 'DFB5066E-4249-E811-80BA-E61F13C57837', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', 'E2B7EB0C-4249-E811-80BA-E61F13C57837', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', '8EBEC7B7-4149-E811-80BA-E61F13C57837', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', 'C50B794A-4149-E811-80BA-E61F13C57837', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', '20F99BDB-DD86-E711-80BA-E61F13C57837', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', '730BAE17-3021-EA11-80B8-0A94EF7517DD', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', 'B4958473-344F-EA11-80B8-0A94EF7517DD', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', '511B340B-831D-EA11-80B8-0A94EF7517DD', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', '1CEDF708-5C1D-EA11-80B8-0A94EF7517DD', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', '2ECA0DD4-2C2B-EB11-B398-F40270D39969', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', 'E79353EE-6991-E711-80BA-E61F13C57837', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', '9B37F481-81E1-ED11-B3A3-F40270D39969', '江苏公司';
+EXEC usp_s_ProjectMove '淮海公司', 'C93FBCC0-083E-E711-80BA-E61F13C57837', '江苏公司';
 
-EXEC usp_s_ProjectMove '浙南公司', '7640ECEE-9071-EE11-B3A4-F40270D39969', '浙江公司';
-EXEC usp_s_ProjectMove '浙南公司', 'CD197585-FA65-EB11-B398-F40270D39969', '浙江公司';
-EXEC usp_s_ProjectMove '浙南公司', '65201843-F956-EB11-B398-F40270D39969', '浙江公司';
-EXEC usp_s_ProjectMove '浙南公司', 'C1C816FC-E748-EB11-B398-F40270D39969', '浙江公司';
-EXEC usp_s_ProjectMove '浙南公司', 'E2E39B24-18D0-EB11-B398-F40270D39969', '浙江公司';
-EXEC usp_s_ProjectMove '浙南公司', '456BA33F-64CE-EB11-B398-F40270D39969', '浙江公司';
-EXEC usp_s_ProjectMove '浙南公司', '11391CFA-18A4-EB11-B398-F40270D39969', '浙江公司';
-EXEC usp_s_ProjectMove '浙南公司', 'EFB3BAAC-81A1-EB11-B398-F40270D39969', '浙江公司';
-EXEC usp_s_ProjectMove '浙南公司', '6DAA9E3C-3B9F-EB11-B398-F40270D39969', '浙江公司';
-EXEC usp_s_ProjectMove '浙南公司', '351C8116-A9F7-EC11-B39C-F40270D39969', '浙江公司';
-EXEC usp_s_ProjectMove '浙南公司', '1D9B8A51-8269-E811-80BF-E61F13C57837', '浙江公司';
-EXEC usp_s_ProjectMove '浙南公司', 'FBFEB86D-6144-E811-80BA-E61F13C57837', '浙江公司';
-EXEC usp_s_ProjectMove '浙南公司', 'F6176ACF-3A2E-E811-80BA-E61F13C57837', '浙江公司';
-EXEC usp_s_ProjectMove '浙南公司', '1B573663-3A2E-E811-80BA-E61F13C57837', '浙江公司';
-EXEC usp_s_ProjectMove '浙南公司', 'D054F9F6-1AF5-E711-80BA-E61F13C57837', '浙江公司';
-EXEC usp_s_ProjectMove '浙南公司', '1B6DB4DE-1AF5-E711-80BA-E61F13C57837', '浙江公司';
-EXEC usp_s_ProjectMove '浙南公司', 'C84ABDBA-1AF5-E711-80BA-E61F13C57837', '浙江公司';
-EXEC usp_s_ProjectMove '浙南公司', '761850FE-CBB1-EA11-80B8-0A94EF7517DD', '浙江公司';
-EXEC usp_s_ProjectMove '浙南公司', 'C0BEC8A0-1FBB-E711-80BA-E61F13C57837', '浙江公司';
-
-EXEC usp_s_ProjectMove '浙南公司', '641BC11F-768E-E911-80B7-0A94EF7517DD', '浙江公司';
-EXEC usp_s_ProjectMove '浙南公司', '93BC73CD-216A-E911-80B7-0A94EF7517DD', '浙江公司';
 
 
 

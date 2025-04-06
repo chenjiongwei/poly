@@ -7,6 +7,17 @@ go
 2、齐鲁合并进山东，
 3、大连合并进辽宁，
 4、淮海合并进江苏
+
+
+2025-04-02 新增调整表
+1、ys_YearBudgetDept_Detail_History 部门年度预算历史明细表
+2、ys_YearBudgetDept_History 部门年度预算历史表
+3、ys_YearPlanAdjustPLSB 公司预算调整批量上报表（暂不处理）
+4、ys_YearPlanAdjustPLSBCompanyYs 公司预算调整批量上报公司预算表（暂不处理）
+5、ys_YearPlanDept2Cost_Working 部门年度预算编制表
+6、ys_YearPlanDept2CostExt 费用科目扩展表
+7、ys_YearPlanProceeding2Cost_Working 部门年度预算编制表
+
 */
 
 BEGIN
@@ -35,7 +46,7 @@ BEGIN
                      sbu.BUGUID
     INTO    #ys_SpecialBusinessUnit
     FROM    dbo.ys_SpecialBusinessUnit sbu
-            INNER JOIN #dqy_proj t ON sbu.projguid = t.oldprojguid;
+    INNER JOIN #dqy_proj t ON sbu.projguid = t.oldprojguid;
 
     --获取目标平台公司-目标公司所有年份的科目清单，若目标平台公司的ys_DeptCost为空，可以在系统基础设置中一键引入生成
     SELECT  DISTINCT dc.DeptCostGUID AS CostGUID ,
@@ -1368,6 +1379,123 @@ BEGIN
     WHERE   a.BUGUID <> b.newbuguid;
 
     PRINT '更新ys_YearPlanLxSet表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+
+
+
+    -- ys_YearBudgetDept_Detail_History 部门年度预算历史明细表
+
+    --备份部门年度预算历史明细表
+    IF OBJECT_ID(N'ys_YearBudgetDept_Detail_History_20250121_cost', N'U') IS NULL
+        SELECT  fdf.*
+        INTO    ys_YearBudgetDept_Detail_History_20250121_cost
+        FROM    dbo.ys_YearBudgetDept_Detail_History fdf
+                INNER JOIN ys_YearBudgetDept_History fd on fdf.HistoryGUID =fd.HistoryGUID and fdf.Year =fd.Year
+                inner join #ys_SpecialBusinessUnit sbu ON fd.BudgetDeptGUID = sbu.DeptGUID
+                INNER JOIN #ys_DeptCostLy dcl ON fdf.DeptCostGUID = dcl.CostGUID and dcl.Year = fdf.Year
+                INNER JOIN #ys_DeptCostMb dcm ON dcm.CostCode = dcl.CostCode AND   dcm.buguid = sbu.buguid AND dcm.Year = dcl.Year
+        where   fdf.BUGUID <> sbu.BUGUID
+
+    -- 修改
+    UPDATE  fdf
+          SET fdf.DeptCostGUID = dcm.CostGUID,
+              fdf.BUGUID = dcm.BUGUID
+    FROM    dbo.ys_YearBudgetDept_Detail_History fdf
+                INNER JOIN ys_YearBudgetDept_History fd on fdf.HistoryGUID =fd.HistoryGUID and fdf.Year =fd.Year
+                inner join #ys_SpecialBusinessUnit sbu ON fd.BudgetDeptGUID = sbu.DeptGUID
+                INNER JOIN #ys_DeptCostLy dcl ON fdf.DeptCostGUID = dcl.CostGUID and dcl.Year = fdf.Year
+                INNER JOIN #ys_DeptCostMb dcm ON dcm.CostCode = dcl.CostCode AND   dcm.buguid = sbu.buguid AND dcm.Year = dcl.Year
+        where   fdf.BUGUID <> sbu.BUGUID
+    PRINT '更新ys_YearBudgetDept_Detail_History表BUGUID和DeptCostGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+
+    -- ys_YearBudgetDept_History 部门年度预算历史表
+    --备份部门年度预算历史表
+    IF OBJECT_ID(N'ys_YearBudgetDept_History_20250121_cost', N'U') IS NULL
+        SELECT  a.*
+        INTO    ys_YearBudgetDept_History_20250121_cost
+        FROM    dbo.ys_YearBudgetDept_History a
+                INNER JOIN #ys_SpecialBusinessUnit bu ON bu.DeptGUID = a.BudgetDeptGUID
+        WHERE   a.buguid <> bu.buguid
+
+    --刷新
+    UPDATE  a
+       SET a.BUGUID = bu.BUGUID
+        FROM    dbo.ys_YearBudgetDept_History a
+                INNER JOIN #ys_SpecialBusinessUnit bu ON bu.DeptGUID = a.BudgetDeptGUID
+        WHERE   a.buguid <> bu.buguid
+
+    PRINT '刷新部门年度预算历史表的BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+
+
+
+    -- ys_YearPlanDept2Cost_Working 部门年度预算编制表
+     --备份部门年度预算编制表
+    IF OBJECT_ID(N'ys_YearPlanDept2Cost_Working_20250121_cost', N'U') IS NULL
+        SELECT  fdf.*
+        INTO    ys_YearPlanDept2Cost_Working_20250121_cost
+        FROM    dbo.ys_YearPlanDept2Cost_Working fdf
+                inner join #ys_SpecialBusinessUnit sbu ON fdf.DeptGUID = sbu.DeptGUID
+                INNER JOIN #ys_DeptCostLy dcl ON fdf.CostGUID = dcl.CostGUID AND   dcl.Year = fdf.Year
+                INNER JOIN #ys_DeptCostMb dcm ON dcm.CostCode = dcl.CostCode AND   dcm.buguid = sbu.buguid AND dcm.Year = dcl.Year
+        where   fdf.BUGUID <> sbu.BUGUID
+
+    -- 修改
+    UPDATE  fdf
+          SET fdf.CostGUID = dcm.CostGUID,
+              fdf.BUGUID = dcm.BUGUID
+        FROM    dbo.ys_YearPlanDept2Cost_Working fdf
+                inner join #ys_SpecialBusinessUnit sbu ON fdf.DeptGUID = sbu.DeptGUID
+                INNER JOIN #ys_DeptCostLy dcl ON fdf.CostGUID = dcl.CostGUID AND   dcl.Year = fdf.Year
+                INNER JOIN #ys_DeptCostMb dcm ON dcm.CostCode = dcl.CostCode AND   dcm.buguid = sbu.buguid AND dcm.Year = dcl.Year
+        where   fdf.BUGUID <> sbu.BUGUID
+
+    PRINT '更新部门年度预算编制表ys_YearPlanDept2Cost_Working表BUGUID和CostGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+
+    -- ys_YearPlanProceeding2Cost_Working 部门年度预算编制表
+    --备份部门年度预算编制表
+    IF OBJECT_ID(N'ys_YearPlanProceeding2Cost_Working_20250121_cost', N'U') IS NULL
+        SELECT  fdf.*
+        INTO    ys_YearPlanProceeding2Cost_Working_20250121_cost
+        FROM    dbo.ys_YearPlanProceeding2Cost_Working fdf
+                inner join #ys_SpecialBusinessUnit sbu ON fdf.DeptGUID = sbu.DeptGUID
+                INNER JOIN #ys_DeptCostLy dcl ON fdf.CostGUID = dcl.CostGUID AND   dcl.Year = fdf.Year
+                INNER JOIN #ys_DeptCostMb dcm ON dcm.CostCode = dcl.CostCode AND   dcm.buguid = sbu.buguid AND dcm.Year = dcl.Year
+        where   fdf.BUGUID <> sbu.BUGUID
+
+    -- 修改
+    UPDATE  fdf
+          SET fdf.CostGUID = dcm.CostGUID,
+              fdf.BUGUID = dcm.BUGUID
+        FROM    dbo.ys_YearPlanProceeding2Cost_Working fdf
+                inner join #ys_SpecialBusinessUnit sbu ON fdf.DeptGUID = sbu.DeptGUID
+                INNER JOIN #ys_DeptCostLy dcl ON fdf.CostGUID = dcl.CostGUID AND   dcl.Year = fdf.Year
+                INNER JOIN #ys_DeptCostMb dcm ON dcm.CostCode = dcl.CostCode AND   dcm.buguid = sbu.buguid AND dcm.Year = dcl.Year
+        where   fdf.BUGUID <> sbu.BUGUID
+        
+    PRINT '更新部门年度预算编制表ys_YearPlanProceeding2Cost_Working表BUGUID和CostGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+
+    -- ys_YearPlanDept2CostExt 费用科目扩展表
+    --备份费用科目扩展表
+    IF OBJECT_ID(N'ys_YearPlanDept2CostExt_20250121_cost', N'U') IS NULL
+        SELECT  fdf.*
+        INTO    ys_YearPlanDept2CostExt_20250121_cost
+        FROM    dbo.ys_YearPlanDept2CostExt fdf
+                inner join #ys_SpecialBusinessUnit sbu ON fdf.DeptGUID = sbu.DeptGUID
+                INNER JOIN #ys_DeptCostLy dcl ON fdf.CostGUID = dcl.CostGUID AND   dcl.Year = fdf.Year
+                INNER JOIN #ys_DeptCostMb dcm ON dcm.CostCode = dcl.CostCode AND   dcm.buguid = sbu.buguid AND dcm.Year = dcl.Year
+        where   fdf.BUGUID <> sbu.BUGUID
+
+    -- 修改
+    UPDATE  fdf
+          SET fdf.CostGUID = dcm.CostGUID,
+              fdf.BUGUID = dcm.BUGUID
+        FROM    dbo.ys_YearPlanDept2CostExt fdf
+                inner join #ys_SpecialBusinessUnit sbu ON fdf.DeptGUID = sbu.DeptGUID
+                INNER JOIN #ys_DeptCostLy dcl ON fdf.CostGUID = dcl.CostGUID AND   dcl.Year = fdf.Year
+                INNER JOIN #ys_DeptCostMb dcm ON dcm.CostCode = dcl.CostCode AND   dcm.buguid = sbu.buguid AND dcm.Year = dcl.Year
+        where   fdf.BUGUID <> sbu.BUGUID
+        
+    PRINT '更新费用科目扩展表ys_YearPlanDept2CostExt表BUGUID和CostGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+
 
     --/////////////////////////  2025年组织架构调整 新增表 结束 ////////////////////////////////--------------
     DROP TABLE #BizGUID ,
