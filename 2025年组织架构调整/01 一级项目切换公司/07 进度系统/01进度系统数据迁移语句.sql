@@ -60,7 +60,7 @@ jd_ProjectSpecialPlanTemplate
 
 
 
-USE MyCost_Erp352_ceshi
+USE MyCost_Erp352
 GO
 /*
 -- 2025年组织架构调整，4家平台公司的项目及业务数据合并处理
@@ -139,9 +139,9 @@ BEGIN
 		   FROM   #tempPlan
            
 	PRINT 'jd_ProjectPlanTemplate';
-	IF OBJECT_ID(N'jd_ProjectPlanTemplate_bak_20250121', N'U') IS NULL
+	IF OBJECT_ID(N'jd_ProjectPlanTemplate_bak_20250406', N'U') IS NULL
                 SELECT  a.*
-                INTO    dbo.jd_ProjectPlanTemplate_bak_20250121
+                INTO    dbo.jd_ProjectPlanTemplate_bak_20250406
                 FROM    dbo.jd_ProjectPlanTemplate a;
 
             --复制一份模板到新公司
@@ -169,9 +169,9 @@ BEGIN
             ----先刷关联了计划模板的模板ID
             PRINT 'jd_ProjectPlanTemplateTask';
 
-            IF OBJECT_ID(N'jd_ProjectPlanTemplateTask_bak_20250121', N'U') IS NULL
+            IF OBJECT_ID(N'jd_ProjectPlanTemplateTask_bak_20250406', N'U') IS NULL
                 SELECT  a.*
-                INTO    dbo.jd_ProjectPlanTemplateTask_bak_20250121
+                INTO    dbo.jd_ProjectPlanTemplateTask_bak_20250406
                 FROM    dbo.jd_ProjectPlanTemplateTask a
                         INNER JOIN #temp b ON a.ProjectPlanTemplateID = b.oldId;
 
@@ -214,9 +214,9 @@ BEGIN
             PRINT '插入jd_ProjectPlanTemplateTask表' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
             PRINT 'jd_ProjectPlanExecute';
 
-            IF OBJECT_ID(N'jd_ProjectPlanExecute_bak_20250121', N'U') IS NULL
+            IF OBJECT_ID(N'jd_ProjectPlanExecute_bak_20250406', N'U') IS NULL
                 SELECT  a.*
-                INTO    dbo.jd_ProjectPlanExecute_bak_20250121
+                INTO    dbo.jd_ProjectPlanExecute_bak_20250406
                 FROM    dbo.jd_ProjectPlanExecute a
                         INNER JOIN #temp b ON a.TemplatePlanID = b.oldId
                         INNER JOIN #p p ON p.ProjGUID = a.ProjGUID
@@ -232,9 +232,9 @@ BEGIN
             PRINT '修改jd_ProjectPlanExecute表' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
             PRINT 'jd_ProjectPlanCompile';
 
-            IF OBJECT_ID(N'jd_ProjectPlanCompile_bak_20250121', N'U') IS NULL
+            IF OBJECT_ID(N'jd_ProjectPlanCompile_bak_20250406', N'U') IS NULL
                 SELECT  a.*
-                INTO    dbo.jd_ProjectPlanCompile_bak_20250121
+                INTO    dbo.jd_ProjectPlanCompile_bak_20250406
                 FROM    dbo.jd_ProjectPlanCompile a
                         INNER JOIN #temp b ON a.TemplatePlanID = b.oldId
                         INNER JOIN #p p ON p.ProjGUID = a.ProjGUID
@@ -291,9 +291,9 @@ BEGIN
         BEGIN
             PRINT 'jd_ProjectPlanTemplate';
 
-            IF OBJECT_ID(N'jd_ProjectPlanTemplate_bak_20250121', N'U') IS NULL
+            IF OBJECT_ID(N'jd_ProjectPlanTemplate_bak_20250406', N'U') IS NULL
                 SELECT  a.*
-                INTO    dbo.jd_ProjectPlanTemplate_bak_20250121
+                INTO    dbo.jd_ProjectPlanTemplate_bak_20250406
                 FROM    jd_ProjectPlanTemplate a
                         INNER JOIN #p b ON b.OldBuguid = a.BUGUID
                 WHERE   a.BUGUID <> b.BUGUID;
@@ -308,9 +308,9 @@ BEGIN
     --里程碑数据转移 
     PRINT 'jd_ProjectPlanCompile';
 
-    IF OBJECT_ID(N'jd_ProjectPlanCompile_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'jd_ProjectPlanCompile_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_ProjectPlanCompile_bak_20250121
+        INTO    dbo.jd_ProjectPlanCompile_bak_20250406
         FROM    jd_ProjectPlanCompile a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -324,9 +324,9 @@ BEGIN
     --计划历史表 
     PRINT 'jd_ProjectPlanExecuteHistory';
 
-    IF OBJECT_ID(N'jd_ProjectPlanExecuteHistory_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'jd_ProjectPlanExecuteHistory_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_ProjectPlanExecuteHistory_bak_20250121
+        INTO    dbo.jd_ProjectPlanExecuteHistory_bak_20250406
         FROM    jd_ProjectPlanExecuteHistory a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -339,9 +339,9 @@ BEGIN
 
     PRINT 'jd_ProjectPlanExecute_del';
 
-    IF OBJECT_ID(N'jd_ProjectPlanExecute_del_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'jd_ProjectPlanExecute_del_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_ProjectPlanExecute_del_bak_20250121
+        INTO    dbo.jd_ProjectPlanExecute_del_bak_20250406
         FROM    jd_ProjectPlanExecute_del a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -354,9 +354,9 @@ BEGIN
 
     PRINT 'jd_ProjectPlanExecutePhoto';
 
-    IF OBJECT_ID(N'jd_ProjectPlanExecutePhoto_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'jd_ProjectPlanExecutePhoto_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_ProjectPlanExecutePhoto_bak_20250121
+        INTO    dbo.jd_ProjectPlanExecutePhoto_bak_20250406
         FROM    jd_ProjectPlanExecutePhoto a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -369,9 +369,9 @@ BEGIN
 
     PRINT 'jd_WorkDay';
 
-    IF OBJECT_ID(N'jd_WorkDay_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'jd_WorkDay_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_WorkDay_bak_20250121
+        INTO    dbo.jd_WorkDay_bak_20250406
         FROM    jd_WorkDay a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -384,9 +384,9 @@ BEGIN
 
     PRINT 'jd_ProjectPlanExecute';
 
-    IF OBJECT_ID(N'jd_ProjectPlanExecute_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'jd_ProjectPlanExecute_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_ProjectPlanExecute_bak_20250121
+        INTO    dbo.jd_ProjectPlanExecute_bak_20250406
         FROM    jd_ProjectPlanExecute a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -399,9 +399,9 @@ BEGIN
 
     PRINT '计划工作日执行表jd_WorkDayExecute';
 
-    IF OBJECT_ID(N'jd_WorkDayExecute_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'jd_WorkDayExecute_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_WorkDayExecute_bak_20250121
+        INTO    dbo.jd_WorkDayExecute_bak_20250406
         FROM    jd_WorkDayExecute a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -414,9 +414,9 @@ BEGIN
 
     PRINT '计划汇报临时表jd_PlanTaskExecuteObjectForReportTemp';
 
-    IF OBJECT_ID(N'jd_PlanTaskExecuteObjectForReportTemp_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'jd_PlanTaskExecuteObjectForReportTemp_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_PlanTaskExecuteObjectForReportTemp_bak_20250121
+        INTO    dbo.jd_PlanTaskExecuteObjectForReportTemp_bak_20250406
         FROM    jd_PlanTaskExecuteObjectForReportTemp a
                 INNER JOIN #p b ON b.ProjGUID = a.projguid
         WHERE   a.buguid <> b.BUGUID;
@@ -429,9 +429,9 @@ BEGIN
 
     PRINT '里程碑节点计划执行历史表jd_ProjectKeyNodePlanExecuteHistory';
 
-    IF OBJECT_ID(N'jd_ProjectKeyNodePlanExecuteHistory_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'jd_ProjectKeyNodePlanExecuteHistory_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_ProjectKeyNodePlanExecuteHistory_bak_20250121
+        INTO    dbo.jd_ProjectKeyNodePlanExecuteHistory_bak_20250406
         FROM    jd_ProjectKeyNodePlanExecuteHistory a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -444,9 +444,9 @@ BEGIN
 
     PRINT '节点计划执行历史表jd_WorkDayExecuteHistory';
 
-    IF OBJECT_ID(N'jd_WorkDayExecuteHistory_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'jd_WorkDayExecuteHistory_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_WorkDayExecuteHistory_bak_20250121
+        INTO    dbo.jd_WorkDayExecuteHistory_bak_20250406
         FROM    jd_WorkDayExecuteHistory a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -459,9 +459,9 @@ BEGIN
 
     PRINT '里程碑节点执行表删除表jd_ProjectKeyNodePlanExecute_del';
 
-    IF OBJECT_ID(N'jd_ProjectKeyNodePlanExecute_del_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'jd_ProjectKeyNodePlanExecute_del_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_ProjectKeyNodePlanExecute_del_bak_20250121
+        INTO    dbo.jd_ProjectKeyNodePlanExecute_del_bak_20250406
         FROM    jd_ProjectKeyNodePlanExecute_del a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -474,9 +474,9 @@ BEGIN
 
     PRINT '计划执行汇报表jd_PlanTaskExecuteObjectForReport';
 
-    IF OBJECT_ID(N'jd_PlanTaskExecuteObjectForReport_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'jd_PlanTaskExecuteObjectForReport_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_PlanTaskExecuteObjectForReport_bak_20250121
+        INTO    dbo.jd_PlanTaskExecuteObjectForReport_bak_20250406
         FROM    jd_PlanTaskExecuteObjectForReport a
                 INNER JOIN #p b ON b.ProjGUID = a.projguid
         WHERE   a.buguid <> b.BUGUID;
@@ -489,9 +489,9 @@ BEGIN
 
     PRINT '里程碑节点执行表jd_ProjectKeyNodePlanExecute';
 
-    IF OBJECT_ID(N'jd_ProjectKeyNodePlanExecute_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'jd_ProjectKeyNodePlanExecute_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_ProjectKeyNodePlanExecute_bak_20250121
+        INTO    dbo.jd_ProjectKeyNodePlanExecute_bak_20250406
         FROM    jd_ProjectKeyNodePlanExecute a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -504,9 +504,9 @@ BEGIN
 
     PRINT '里程碑节点编制表jd_ProjectKeyNodePlanCompile';
 
-    IF OBJECT_ID(N'jd_ProjectKeyNodePlanCompile_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'jd_ProjectKeyNodePlanCompile_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_ProjectKeyNodePlanCompile_bak_20250121
+        INTO    dbo.jd_ProjectKeyNodePlanCompile_bak_20250406
         FROM    jd_ProjectKeyNodePlanCompile a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -519,9 +519,9 @@ BEGIN
  
     PRINT '组团待办接收人设置表 jd_GroupTaskReceiverSet';
 
-    IF OBJECT_ID(N'jd_GroupTaskReceiverSet_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'jd_GroupTaskReceiverSet_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_GroupTaskReceiverSet_bak_20250121
+        INTO    dbo.jd_GroupTaskReceiverSet_bak_20250406
         FROM    jd_GroupTaskReceiverSet a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -534,9 +534,9 @@ BEGIN
     
     PRINT 'jd_ProjectKeyNodePlanCompile_PreData';
 
-    IF OBJECT_ID(N'jd_ProjectKeyNodePlanCompile_PreData_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'jd_ProjectKeyNodePlanCompile_PreData_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    dbo.jd_ProjectKeyNodePlanCompile_PreData_bak_20250121
+        INTO    dbo.jd_ProjectKeyNodePlanCompile_PreData_bak_20250406
         FROM    jd_ProjectKeyNodePlanCompile_PreData a
                 INNER JOIN #p b ON b.ProjGUID = a.ProjGUID
         WHERE   a.BUGUID <> b.BUGUID;

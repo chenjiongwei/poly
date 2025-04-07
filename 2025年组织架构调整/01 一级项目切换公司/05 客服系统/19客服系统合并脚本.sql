@@ -1,4 +1,4 @@
-USE ERP25_test
+USE ERP25
 GO
 /*
 -- 2025年组织架构调整，4家平台公司的项目及业务数据合并处理
@@ -102,7 +102,7 @@ BEGIN
 
     IF OBJECT_ID(N'k_AcceptBU_bak20250121', N'U') IS NULL
         SELECT a.*
-        INTO k_AcceptBU_bak20250121
+        INTO k_AcceptBU_bak20250406
         FROM k_AcceptBU a
             INNER JOIN k_Receive b
                 ON a.ReceiveGUID = b.ReceiveGUID
@@ -124,9 +124,9 @@ BEGIN
     ----任务实体
     PRINT '任务实体k_Task';
 
-    IF OBJECT_ID(N'k_Task_bak20250121', N'U') IS NULL
+    IF OBJECT_ID(N'k_Task_bak20250406', N'U') IS NULL
         SELECT a.*
-        INTO k_Task_bak20250121
+        INTO k_Task_bak20250406
         FROM k_Task a
             INNER JOIN #dqy_proj p
                 ON p.OldProjGuid = a.ProjGUID
@@ -144,9 +144,9 @@ BEGIN
     ----受理表
     PRINT '受理表k_Receive';
 
-    IF OBJECT_ID(N'k_Receive_bak20250121', N'U') IS NULL
+    IF OBJECT_ID(N'k_Receive_bak20250406', N'U') IS NULL
         SELECT a.*
-        INTO k_Receive_bak20250121
+        INTO k_Receive_bak20250406
         FROM k_Receive a
             INNER JOIN #dqy_proj p
                 ON p.OldProjGuid = a.ProjGUID
@@ -162,9 +162,9 @@ BEGIN
     PRINT '受理表k_Receive' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --投诉专题表k_Complaint --没有数据
-    IF OBJECT_ID(N'k_Complaint_bak20250121', N'U') IS NULL
+    IF OBJECT_ID(N'k_Complaint_bak20250406', N'U') IS NULL
         SELECT a.*
-        INTO k_Complaint_bak20250121
+        INTO k_Complaint_bak20250406
         FROM k_Complaint a
             INNER JOIN #dqy_proj p
                 ON p.OldProjGuid = a.ProjGUID
@@ -180,9 +180,9 @@ BEGIN
     PRINT '投诉专题表k_Complaint' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --赔付记录实体k_Pay --没有数据
-    IF OBJECT_ID(N'k_Pay_bak20250121', N'U') IS NULL
+    IF OBJECT_ID(N'k_Pay_bak20250406', N'U') IS NULL
         SELECT a.*
-        INTO k_Pay_bak20250121
+        INTO k_Pay_bak20250406
         FROM k_Pay a
             INNER JOIN #dqy_proj p
                 ON p.OldProjGuid = a.ProjGUID
@@ -198,9 +198,9 @@ BEGIN
     PRINT '赔付记录实体k_Pay' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     -- /////////////////////////////// 2025年组织架构调整新增处理表 开始 /////////////////////////////////////////////
-    IF OBJECT_ID(N'k_CooperativeProjectDelivery_bak20250121', N'U') IS NULL
+    IF OBJECT_ID(N'k_CooperativeProjectDelivery_bak20250406', N'U') IS NULL
         SELECT a.*
-        INTO k_CooperativeProjectDelivery_bak20250121
+        INTO k_CooperativeProjectDelivery_bak20250406
         FROM k_CooperativeProjectDelivery a
             INNER JOIN #dqy_proj p
                 ON p.OldProjGuid = a.ProjGUID
@@ -215,9 +215,9 @@ BEGIN
 
     PRINT '正式交付记录主表 k_CooperativeProjectDelivery' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-    IF OBJECT_ID(N'k_GreatComplaint_bak20250121', N'U') IS NULL
+    IF OBJECT_ID(N'k_GreatComplaint_bak20250406', N'U') IS NULL
         SELECT a.*
-        INTO k_GreatComplaint_bak20250121
+        INTO k_GreatComplaint_bak20250406
         FROM k_GreatComplaint a
             INNER JOIN #dqy_proj p
                 ON p.OldProjGuid = a.ProjGUID
@@ -232,9 +232,9 @@ BEGIN
 
     PRINT '重大投诉表 k_GreatComplaint' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-    IF OBJECT_ID(N'k_HZXMJFLR_bak20250121', N'U') IS NULL
+    IF OBJECT_ID(N'k_HZXMJFLR_bak20250406', N'U') IS NULL
         SELECT a.*
-        INTO k_HZXMJFLR_bak20250121
+        INTO k_HZXMJFLR_bak20250406
         FROM k_HZXMJFLR a
             INNER JOIN #dqy_proj p
                 ON p.OldProjGuid = a.ProjGUID
@@ -250,9 +250,9 @@ BEGIN
     PRINT '合作项目交付录入表 k_HZXMJFLR' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
 
-    IF OBJECT_ID(N'k_Receivedellog_bak20250121', N'U') IS NULL
+    IF OBJECT_ID(N'k_Receivedellog_bak20250406', N'U') IS NULL
         SELECT a.*
-        INTO k_Receivedellog_bak20250121
+        INTO k_Receivedellog_bak20250406
         FROM k_Receivedellog a
             INNER JOIN #dqy_proj p
                 ON p.OldProjGuid = a.ProjGUID
@@ -267,9 +267,9 @@ BEGIN
 
     PRINT 'k_Receivedellog' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-    IF OBJECT_ID(N'k_taskdellog_bak20250121', N'U') IS NULL
+    IF OBJECT_ID(N'k_taskdellog_bak20250406', N'U') IS NULL
         SELECT a.*
-        INTO k_taskdellog_bak20250121
+        INTO k_taskdellog_bak20250406
         FROM k_taskdellog a
             INNER JOIN #dqy_proj p
                 ON p.OldProjGuid = a.ProjGUID

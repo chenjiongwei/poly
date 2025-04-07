@@ -2,7 +2,7 @@ USE CRE_ERP_202_SYZL
 GO
 
 
-/*注意:要替换 MyCost_Erp352_ceshi 以及数据库连接地址库名!!!!!!!
+/*注意:要替换 MyCost_Erp352 以及数据库连接地址库名!!!!!!!
 -- 2025年组织架构调整，4家平台公司的项目及业务数据合并处理
 1、浙南合并进浙江，
 2、齐鲁合并进山东，
@@ -62,7 +62,7 @@ BEGIN
               bu.BUCode AS BUCodeold, -- 老公司编码
               bu1.BUCode AS BUCodeNew -- 新公司编码
        INTO   #dqy_proj
-       FROM   MyCost_Erp352_ceshi.dbo.dqy_proj_20250121 t
+       FROM   MyCost_Erp352.dbo.dqy_proj_20250121 t
               INNER JOIN myBusinessUnit bu ON t.OldBuguid = bu.BUGUID
               INNER JOIN myBusinessUnit bu1 ON bu1.BUGUID = t.NewBuguid;
 
@@ -81,10 +81,10 @@ BEGIN
        -- SELECT @var_newbucode = BUCode FROM dbo.myBusinessUnit WHERE BUGUID = @var_newbuguid;
 
        --公共数据表
-       IF OBJECT_ID(N'p_room_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'p_room_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT r.*
-              INTO   p_room_bak_20250121
+              INTO   p_room_bak_20250406
               FROM   dbo.p_room r
                      INNER JOIN #dqy_proj t ON r.projguid = t.OldProjGuid
               -- WHERE  r.buguid <> t.newbuguid;
@@ -99,10 +99,10 @@ BEGIN
 
        PRINT '修改公共数据表p_room' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-       IF OBJECT_ID(N'p_RoomAdjustHistoryMx_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'p_RoomAdjustHistoryMx_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   p_RoomAdjustHistoryMx_bak_20250121
+              INTO   p_RoomAdjustHistoryMx_bak_20250406
               FROM   dbo.p_RoomAdjustHistoryMx a
                      INNER JOIN dbo.p_room b ON a.RoomGUID = b.RoomGUID
                      INNER JOIN dbo.p_Project p ON p.ProjGUID = b.ProjGUID
@@ -118,10 +118,10 @@ BEGIN
 
        PRINT '修改公共数据表p_RoomAdjustHistoryMx' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-       IF OBJECT_ID(N'p_Project_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'p_Project_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   p_Project_bak_20250121
+              INTO   p_Project_bak_20250406
               FROM   dbo.p_Project a
               WHERE  a.ProjGUID IN (SELECT oldprojguid FROM #dqy_proj);
        END;
@@ -135,10 +135,10 @@ BEGIN
 
        PRINT '修改公共数据表p_Project' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-       IF OBJECT_ID(N'p_Building_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'p_Building_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   p_Building_bak_20250121
+              INTO   p_Building_bak_20250406
               FROM   p_Building a
               WHERE  a.ProjGUID IN (SELECT oldprojguid FROM #dqy_proj);
        END;
@@ -152,10 +152,10 @@ BEGIN
        PRINT '修改公共数据表p_Building' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
        --  租赁业务表 修改  
-       IF OBJECT_ID(N'y_RentAlterApply_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'y_RentAlterApply_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   y_RentAlterApply_bak_20250121
+              INTO   y_RentAlterApply_bak_20250406
               FROM   y_RentAlterApply a
               WHERE  BUGUID = @var_oldbuguid and projguid in  ( SELECT oldprojguid FROM #dqy_proj )
        END;
@@ -166,10 +166,10 @@ BEGIN
        
        PRINT '修改y_RentAlterApply表' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-       IF OBJECT_ID(N'y_IncomeMonthDetail_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'y_IncomeMonthDetail_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   y_IncomeMonthDetail_bak_20250121
+              INTO   y_IncomeMonthDetail_bak_20250406
               FROM   y_IncomeMonthDetail a
               WHERE  BUGUID = @var_oldbuguid and projguid in  ( SELECT oldprojguid FROM #dqy_proj )
        END;
@@ -180,10 +180,10 @@ BEGIN
 
        PRINT '修改y_IncomeMonthDetail表' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-       IF OBJECT_ID(N'y_IncomeMonthDetailTemp_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'y_IncomeMonthDetailTemp_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   y_IncomeMonthDetailTemp_bak_20250121
+              INTO   y_IncomeMonthDetailTemp_bak_20250406
               FROM   y_IncomeMonthDetailTemp a
               WHERE  BUGUID = @var_oldbuguid and projguid in  ( SELECT oldprojguid FROM #dqy_proj )
        END;
@@ -194,10 +194,10 @@ BEGIN
 
        PRINT '修改y_IncomeMonthDetailTemp表' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-       IF OBJECT_ID(N'y_IncomeMonthDetailTqjyTemp_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'y_IncomeMonthDetailTqjyTemp_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   y_IncomeMonthDetailTqjyTemp_bak_20250121
+              INTO   y_IncomeMonthDetailTqjyTemp_bak_20250406
               FROM   y_IncomeMonthDetailTqjyTemp a
               WHERE  BUGUID = @var_oldbuguid and projguid in  ( SELECT oldprojguid FROM #dqy_proj )
        END;
@@ -208,10 +208,10 @@ BEGIN
 
        PRINT '修改y_IncomeMonthDetailTqjyTemp表' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-       IF OBJECT_ID(N'y_Invoice_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'y_Invoice_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   y_Invoice_bak_20250121
+              INTO   y_Invoice_bak_20250406
               FROM   y_Invoice a
               WHERE  BuGUID = @var_oldbuguid 
        END;
@@ -222,10 +222,10 @@ BEGIN
 
        PRINT '修改y_Invoice表' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-       IF OBJECT_ID(N'y_Agency2Unit_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'y_Agency2Unit_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   y_Agency2Unit_bak_20250121
+              INTO   y_Agency2Unit_bak_20250406
               FROM   y_Agency2Unit a
               WHERE  BUGUID = @var_oldbuguid;
        END;
@@ -236,10 +236,10 @@ BEGIN
 
        PRINT '修改y_Agency2Unit表' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-       IF OBJECT_ID(N'y_RentContract_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'y_RentContract_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   y_RentContract_bak_20250121
+              INTO   y_RentContract_bak_20250406
               FROM   y_RentContract a
               WHERE  BUGUID = @var_oldbuguid and projguid in  ( SELECT oldprojguid FROM #dqy_proj )
        END;
@@ -250,10 +250,10 @@ BEGIN
 
        PRINT '修改y_RentContract表' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-       IF OBJECT_ID(N'y_RentOrder_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'y_RentOrder_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   y_RentOrder_bak_20250121
+              INTO   y_RentOrder_bak_20250406
               FROM   y_RentOrder a
               WHERE  BUGUID = @var_oldbuguid and projguid in  ( SELECT oldprojguid FROM #dqy_proj )
        END;
@@ -264,10 +264,10 @@ BEGIN
 
        PRINT '修改y_RentOrder表' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-       IF OBJECT_ID(N'y_RzBankCode_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'y_RzBankCode_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   y_RzBankCode_bak_20250121
+              INTO   y_RzBankCode_bak_20250406
               FROM   y_RzBankCode a
               WHERE  BUGUID = @var_oldbuguid;
        END;
@@ -278,10 +278,10 @@ BEGIN
 
        PRINT '修改y_RzBankCode表' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-       /* IF OBJECT_ID(N'y_CodeFormat_bak_20250121', N'U') IS NULL
+       /* IF OBJECT_ID(N'y_CodeFormat_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   y_CodeFormat_bak_20250121
+              INTO   y_CodeFormat_bak_20250406
               FROM   y_CodeFormat a
               WHERE  BUGUID = @var_oldbuguid;
        END;
@@ -292,10 +292,10 @@ BEGIN
 
        PRINT '修改y_CodeFormat表' + CONVERT(NVARCHAR(20), @@ROWCOUNT); */
 
-       IF OBJECT_ID(N'y_FeeAdjustApply_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'y_FeeAdjustApply_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   y_FeeAdjustApply_bak_20250121
+              INTO   y_FeeAdjustApply_bak_20250406
               FROM   y_FeeAdjustApply a
               WHERE  BUGUID = @var_oldbuguid and projguid in  ( SELECT oldprojguid FROM #dqy_proj )
        END;
@@ -306,10 +306,10 @@ BEGIN
 
        PRINT '修改y_FeeAdjustApply表' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-       IF OBJECT_ID(N'y_FeeAdjustDetailIncome_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'y_FeeAdjustDetailIncome_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   y_FeeAdjustDetailIncome_bak_20250121
+              INTO   y_FeeAdjustDetailIncome_bak_20250406
               FROM   y_FeeAdjustDetailIncome a
               inner join   y_FeeAdjustApply b on a.applyguid =b.applyguid 
               WHERE  a.BUGUID = @var_oldbuguid and b.projguid in  ( SELECT oldprojguid FROM #dqy_proj )
@@ -323,10 +323,10 @@ BEGIN
 
        PRINT '修改y_FeeAdjustDetailIncome表' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-       IF OBJECT_ID(N'y_CstAttach_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'y_CstAttach_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   y_CstAttach_bak_20250121
+              INTO   y_CstAttach_bak_20250406
               FROM   y_CstAttach a
               WHERE  BUGUID = @var_oldbuguid and   projguid in  ( SELECT oldprojguid FROM #dqy_proj )
        END;
@@ -337,10 +337,10 @@ BEGIN
 
        PRINT '修改y_CstAttach表' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-       /*IF OBJECT_ID(N'y_YqGetZjLevel_bak_20250121', N'U') IS NULL
+       /*IF OBJECT_ID(N'y_YqGetZjLevel_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   y_YqGetZjLevel_bak_20250121
+              INTO   y_YqGetZjLevel_bak_20250406
               FROM   y_YqGetZjLevel a
               WHERE  BUGUID = @var_oldbuguid;
        END;
@@ -351,10 +351,10 @@ BEGIN
 
        PRINT '修改y_YqGetZjLevel表' + CONVERT(NVARCHAR(20), @@ROWCOUNT); */
 
-       IF OBJECT_ID(N'y_Discuss_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'y_Discuss_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   y_Discuss_bak_20250121
+              INTO   y_Discuss_bak_20250406
               FROM   y_Discuss a
               WHERE  BUGUID = @var_oldbuguid and  projguid in  ( SELECT oldprojguid FROM #dqy_proj )
        END;
@@ -367,10 +367,10 @@ BEGIN
 
        
 
-       IF OBJECT_ID(N'y_DiscussFollow_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'y_DiscussFollow_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   y_DiscussFollow_bak_20250121
+              INTO   y_DiscussFollow_bak_20250406
               FROM   y_DiscussFollow a
               WHERE  BUGUID = @var_oldbuguid and  projguid in  ( SELECT oldprojguid FROM #dqy_proj )
        END;
@@ -381,10 +381,10 @@ BEGIN
 
        PRINT '修改y_DiscussFollow表' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-       IF OBJECT_ID(N'y_ZlzcEdition_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'y_ZlzcEdition_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   y_ZlzcEdition_bak_20250121
+              INTO   y_ZlzcEdition_bak_20250406
               FROM   y_ZlzcEdition a 
               WHERE  BUGUID = @var_oldbuguid and  projguid in  ( SELECT oldprojguid FROM #dqy_proj )
        END;
@@ -395,10 +395,10 @@ BEGIN
 
        PRINT '修改y_ZlzcEdition表' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-       IF OBJECT_ID(N'y_SfParameter_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'y_SfParameter_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   y_SfParameter_bak_20250121
+              INTO   y_SfParameter_bak_20250406
               FROM   y_SfParameter a
               WHERE  BUGUID = @var_oldbuguid and  projguid in  ( SELECT oldprojguid FROM #dqy_proj )
 
@@ -411,10 +411,10 @@ BEGIN
 
        PRINT '修改y_SfParameter表' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-       IF OBJECT_ID(N'y_ContractType2Process_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'y_ContractType2Process_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   y_ContractType2Process_bak_20250121
+              INTO   y_ContractType2Process_bak_20250406
               FROM   y_ContractType2Process a
               WHERE  BUGUID = @var_oldbuguid;
        END;
@@ -425,10 +425,10 @@ BEGIN
 
        PRINT '修改y_ContractType2Process表' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-       IF OBJECT_ID(N'y_QuoteTakingSchemeSet_bak_20250121', N'U') IS NULL
+       IF OBJECT_ID(N'y_QuoteTakingSchemeSet_bak_20250406', N'U') IS NULL
        BEGIN
               SELECT a.*
-              INTO   y_QuoteTakingSchemeSet_bak_20250121
+              INTO   y_QuoteTakingSchemeSet_bak_20250406
               FROM   y_QuoteTakingSchemeSet a
               WHERE  BUGUID = @var_oldbuguid and  projguid in  ( SELECT oldprojguid FROM #dqy_proj )
        END;

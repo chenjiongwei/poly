@@ -70,15 +70,15 @@ BEGIN
             t.*
     INTO    #dqy_proj
     FROM    -- [172.16.4.129].MyCost_Erp352_ceshi.dbo.dqy_proj_20250121 t
-            MyCost_Erp352_ceshi.dbo.dqy_proj_20250121 t
+            MyCost_Erp352.dbo.dqy_proj_20250121 t
             INNER JOIN dbo.p_Project p ON t.OldProjGuid = p.p_projectId
             INNER JOIN dbo.myBusinessUnit bu ON t.NewBuguid = bu.BUGUID
             INNER JOIN dbo.myBusinessUnit old ON old.BUGUID = t.OldBuguid;
 
     --处理项目库项目p_Project,注意正式环境需要替换到编码信息
-    IF OBJECT_ID(N'p_Project_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'p_Project_bak_20250406', N'U') IS NULL
         SELECT  p.*
-        INTO    p_Project_bak_20250121
+        INTO    p_Project_bak_20250406
         FROM    dbo.p_Project p
                 INNER JOIN #dqy_proj t ON p.p_projectId = t.OldProjGuid;
 
@@ -154,9 +154,9 @@ BEGIN
 	*/
 
     --cl_ClCompany2ServiceProject材料公司（组织公司）服务项目关系表
-    IF OBJECT_ID(N'cl_ClCompany2ServiceProject_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'cl_ClCompany2ServiceProject_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    cl_ClCompany2ServiceProject_bak_20250121
+        INTO    cl_ClCompany2ServiceProject_bak_20250406
         FROM    cl_ClCompany2ServiceProject a
                 INNER JOIN cl_ServiceProject b ON b.ServiceProjectGUID = a.ServiceProjectGUID
                 INNER JOIN #dqy_proj pj ON pj.HierarchyCode = b.HierarchyCode;
@@ -174,9 +174,9 @@ BEGIN
     PRINT '材料公司（组织公司）服务项目关系表cl_ClCompany2ServiceProject' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --cl_ServiceProject服务项目
-    IF OBJECT_ID(N'cl_ServiceProject_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'cl_ServiceProject_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    cl_ServiceProject_bak_20250121
+        INTO    cl_ServiceProject_bak_20250406
         FROM    cl_ServiceProject a
                 INNER JOIN #dqy_proj b ON b.HierarchyCode = a.HierarchyCode
                 INNER JOIN dbo.p_Project p ON p.p_projectId = b.OldProjGuid;
@@ -194,9 +194,9 @@ BEGIN
     --====================================================================================================================
     --处理业务数据
     --材料申请表
-    IF OBJECT_ID(N'cl_Apply_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'cl_Apply_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    cl_Apply_bak_20250121
+        INTO    cl_Apply_bak_20250406
         FROM    cl_Apply a
                 INNER JOIN dbo.p_Project p ON a.ProjGUID = p.p_projectId
         WHERE   a.ProjGUID IN(SELECT    OldProjGuid FROM    #dqy_proj);
@@ -210,9 +210,9 @@ BEGIN
     PRINT '材料申请表cl_Apply' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --订单表
-    IF OBJECT_ID(N'cl_Order_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'cl_Order_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    cl_Order_bak_20250121
+        INTO    cl_Order_bak_20250406
         FROM    cl_Order a
                 INNER JOIN dbo.p_Project p ON a.ProjGUID = p.p_projectId
         WHERE   a.ProjGUID IN(SELECT    OldProjGuid FROM    #dqy_proj);
@@ -226,9 +226,9 @@ BEGIN
     PRINT '订单表cl_Order' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --验收单
-    IF OBJECT_ID(N'cl_Recipient_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'cl_Recipient_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    cl_Recipient_bak_20250121
+        INTO    cl_Recipient_bak_20250406
         FROM    cl_Recipient a
                 INNER JOIN dbo.p_Project p ON a.ProjGUID = p.p_projectId
         WHERE   a.ProjGUID IN(SELECT    OldProjGuid FROM    #dqy_proj);
@@ -242,9 +242,9 @@ BEGIN
     PRINT '验收单cl_Recipient' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --退货单
-    IF OBJECT_ID(N'x_cl_ReturnOrder_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'x_cl_ReturnOrder_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    x_cl_ReturnOrder_bak_20250121
+        INTO    x_cl_ReturnOrder_bak_20250406
         FROM    x_cl_ReturnOrder a
                 INNER JOIN dbo.p_Project p ON a.x_ProjGUID = p.p_projectId
         WHERE   a.x_ProjGUID IN(SELECT  OldProjGuid FROM    #dqy_proj);
@@ -255,12 +255,12 @@ BEGIN
             INNER JOIN dbo.p_Project p ON a.x_ProjGUID = p.p_projectId
     WHERE   a.x_ProjGUID IN(SELECT  OldProjGuid FROM    #dqy_proj);
 
-    PRINT '退货单x_cl_ReturnOrder';
+    PRINT '退货单x_cl_ReturnOrder' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --材料合同表
-    IF OBJECT_ID(N'cl_Contract_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'cl_Contract_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    cl_Contract_bak_20250121
+        INTO    cl_Contract_bak_20250406
         FROM    cl_Contract a
                 INNER JOIN dbo.p_Project p ON a.ProjGUID = p.p_projectId
         WHERE   a.ProjGUID IN(SELECT    OldProjGuid FROM    #dqy_proj);
@@ -274,9 +274,9 @@ BEGIN
     PRINT '材料合同表cl_Contract' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --实际用料计划表
-    IF OBJECT_ID(N'cl_ProductRequirement_bak_20250121', N'U') IS NULL
+    IF OBJECT_ID(N'cl_ProductRequirement_bak_20250406', N'U') IS NULL
         SELECT  a.*
-        INTO    cl_ProductRequirement_bak_20250121
+        INTO    cl_ProductRequirement_bak_20250406
         FROM    cl_ProductRequirement a
                 INNER JOIN dbo.p_Project p ON a.ProjGUID = p.p_projectId
         WHERE   a.ProjGUID IN(SELECT    OldProjGuid FROM    #dqy_proj);

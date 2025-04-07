@@ -1,4 +1,4 @@
-USE MyCost_Erp352_ceshi
+USE MyCost_Erp352
 GO
 /*
 -- 2025年组织架构调整，4家平台公司的项目及业务数据合并处理
@@ -31,9 +31,9 @@ AS
              WHERE  ApplySys LIKE '%0201%') t;
 
         --开始刷新项目所属公司GUID和项目编码
-        IF OBJECT_ID(N'cg_DocArchive_bak_20250121', N'U') IS NULL
+        IF OBJECT_ID(N'cg_DocArchive_bak_20250406', N'U') IS NULL
             SELECT  a.*
-            INTO    dbo.cg_DocArchive_bak_20250121
+            INTO    dbo.cg_DocArchive_bak_20250406
             FROM    cg_DocArchive a
                     INNER JOIN #proj p ON a.ProjGUID = p.ProjGUID
             WHERE   a.ProjCode <> p.ProjCode;
@@ -47,9 +47,9 @@ AS
 
         PRINT '文档归档表:cg_DocArchive' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        IF OBJECT_ID(N'cg_CgApply_bak_20250121', N'U') IS NULL
+        IF OBJECT_ID(N'cg_CgApply_bak_20250406', N'U') IS NULL
             SELECT  a.*
-            INTO    dbo.cg_CgApply_bak_20250121
+            INTO    dbo.cg_CgApply_bak_20250406
             FROM    cg_CgApply a
                     INNER JOIN #proj p ON a.ProjGUID = p.ProjGUID
             WHERE   a.ProjCode <> p.ProjCode;
@@ -63,9 +63,9 @@ AS
 
         PRINT '采购申请表:cg_CgApply' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        IF OBJECT_ID(N'cg_CgPlan_bak_20250121', N'U') IS NULL
+        IF OBJECT_ID(N'cg_CgPlan_bak_20250406', N'U') IS NULL
             SELECT  a.*
-            INTO    dbo.cg_CgPlan_bak_20250121
+            INTO    dbo.cg_CgPlan_bak_20250406
             FROM    cg_CgPlan a
                     INNER JOIN #proj p ON CHARINDEX(CONVERT(VARCHAR(50), p.ProjGUID), a.ProjectGUIDList) <> 0;
 
@@ -77,9 +77,9 @@ AS
 
         PRINT '采购计划表:cg_CgPlan' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        IF OBJECT_ID(N'cg_CgSolution_bak_20250121', N'U') IS NULL
+        IF OBJECT_ID(N'cg_CgSolution_bak_20250406', N'U') IS NULL
             SELECT  a.*
-            INTO    dbo.cg_CgSolution_bak_20250121
+            INTO    dbo.cg_CgSolution_bak_20250406
             FROM    cg_CgSolution a
                     INNER JOIN #proj p ON CHARINDEX(CONVERT(VARCHAR(50), p.ProjGUID), a.ProjGUIDList) <> 0;
 
@@ -91,9 +91,9 @@ AS
 
         PRINT '采购方案表:cg_CgSolution' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        IF OBJECT_ID(N'cg_CgSolutionLinkedPlan_bak_20250121', N'U') IS NULL
+        IF OBJECT_ID(N'cg_CgSolutionLinkedPlan_bak_20250406', N'U') IS NULL
             SELECT  a.*
-            INTO    dbo.cg_CgSolutionLinkedPlan_bak_20250121
+            INTO    dbo.cg_CgSolutionLinkedPlan_bak_20250406
             FROM    cg_CgSolutionLinkedPlan a
                     INNER JOIN #proj p ON a.ProjGUID = p.ProjGUID
             WHERE   a.ProjCode <> p.ProjCode;
@@ -106,9 +106,9 @@ AS
 
         PRINT '采购方案关联计划表:cg_CgSolutionLinkedPlan' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        IF OBJECT_ID(N'cg_PG2Contract_bak_20250121', N'U') IS NULL
+        IF OBJECT_ID(N'cg_PG2Contract_bak_20250406', N'U') IS NULL
             SELECT  a.*
-            INTO    dbo.cg_PG2Contract_bak_20250121
+            INTO    dbo.cg_PG2Contract_bak_20250406
             FROM    cg_PG2Contract a
                     INNER JOIN #proj p ON CHARINDEX(CONVERT(VARCHAR(50), p.ProjGUID), a.ProjGUIDList) <> 0;
 
@@ -120,9 +120,9 @@ AS
 
         PRINT '履约评估合同设置表:cg_PG2Contract' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        IF OBJECT_ID(N'cg_PGPlan2Contract_bak_20250121', N'U') IS NULL
+        IF OBJECT_ID(N'cg_PGPlan2Contract_bak_20250406', N'U') IS NULL
             SELECT  a.*
-            INTO    dbo.cg_PGPlan2Contract_bak_20250121
+            INTO    dbo.cg_PGPlan2Contract_bak_20250406
             FROM    cg_PGPlan2Contract a
                     INNER JOIN #proj p ON CHARINDEX(ProjCode, a.ProjCodeList) <> 0;
 
@@ -134,9 +134,9 @@ AS
 
         PRINT '履约评估计划合同表:cg_PGPlan2Contract' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        IF OBJECT_ID(N'cg_PGPlan_bak_20250121', N'U') IS NULL
+        IF OBJECT_ID(N'cg_PGPlan_bak_20250406', N'U') IS NULL
             SELECT  a.*
-            INTO    dbo.cg_PGPlan_bak_20250121
+            INTO    dbo.cg_PGPlan_bak_20250406
             FROM    cg_PGPlan a
                     INNER JOIN #proj p ON CHARINDEX(CONVERT(VARCHAR(50), p.ProjGUID), a.ProjGUIDList) <> 0
             WHERE   a.BUGUID <> p.BUGUID;
@@ -149,9 +149,9 @@ AS
 
         PRINT '履约评估计划表:cg_PGPlan' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        IF OBJECT_ID(N'Cg_CgPlanSp_bak_20250121', N'U') IS NULL
+        IF OBJECT_ID(N'Cg_CgPlanSp_bak_20250406', N'U') IS NULL
             SELECT  a.*
-            INTO    dbo.Cg_CgPlanSp_bak_20250121
+            INTO    dbo.Cg_CgPlanSp_bak_20250406
             FROM    Cg_CgPlanSp a
                     INNER JOIN dbo.#proj p ON a.ProjGUID = p.ProjGUID
             WHERE   a.BUGUID <> p.BUGUID;
@@ -164,9 +164,9 @@ AS
 
         PRINT '采购计划审批表:Cg_CgPlanSp' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        IF OBJECT_ID(N'Cg_CgPlan_OriginSp_bak_20250121', N'U') IS NULL
+        IF OBJECT_ID(N'Cg_CgPlan_OriginSp_bak_20250406', N'U') IS NULL
             SELECT  a.*
-            INTO    dbo.Cg_CgPlan_OriginSp_bak_20250121
+            INTO    dbo.Cg_CgPlan_OriginSp_bak_20250406
             FROM    Cg_CgPlan_OriginSp a
                     INNER JOIN dbo.#proj p ON a.ProjGUID = p.ProjGUID
             WHERE   a.BUGUID <> p.BUGUID;
@@ -179,9 +179,9 @@ AS
 
         PRINT '整体采购计划审批表:Cg_CgPlan_OriginSp' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        IF OBJECT_ID(N'cg_cgplan_origin_bak_20250121', N'U') IS NULL
+        IF OBJECT_ID(N'cg_cgplan_origin_bak_20250406', N'U') IS NULL
             SELECT  a.*
-            INTO    dbo.cg_cgplan_origin_bak_20250121
+            INTO    dbo.cg_cgplan_origin_bak_20250406
             FROM    Cg_CgPlan_Origin a
                     INNER JOIN #proj p ON a.ProjGUID = p.ProjGUID
             WHERE   a.BUGUID <> p.BUGUID;
@@ -194,9 +194,9 @@ AS
 
         PRINT '整体采购计划表:cg_cgplan_origin' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        IF OBJECT_ID(N'cg_PGProjReceipt_bak_20250121', N'U') IS NULL
+        IF OBJECT_ID(N'cg_PGProjReceipt_bak_20250406', N'U') IS NULL
             SELECT  a.*
-            INTO    dbo.cg_PGProjReceipt_bak_20250121
+            INTO    dbo.cg_PGProjReceipt_bak_20250406
             FROM    cg_PGProjReceipt a
                     INNER JOIN dbo.#proj p ON a.ProjGUID = p.ProjGUID
             WHERE   a.ProjCode <> p.ProjCode;
@@ -209,9 +209,9 @@ AS
 
         PRINT '项目进退场单据表:cg_PGProjReceipt' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-        IF OBJECT_ID(N'cg_Contract2CgProc_bak_20250121', N'U') IS NULL
+        IF OBJECT_ID(N'cg_Contract2CgProc_bak_20250406', N'U') IS NULL
             SELECT  a.*
-            INTO    dbo.cg_Contract2CgProc_bak_20250121
+            INTO    dbo.cg_Contract2CgProc_bak_20250406
             FROM    cg_Contract2CgProc a
                     INNER JOIN cg_CgSolution b ON a.CgSolutionGUID = b.CgSolutionGUID
                     INNER JOIN #proj p ON CHARINDEX(CONVERT(VARCHAR(50), p.ProjGUID), b.ProjGUIDList) <> 0
@@ -260,9 +260,9 @@ AS
 
         PRINT '工作流实例迁移:myWorkflowProcessEntity' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
      */
-        IF OBJECT_ID(N'myWorkflowProcessEntity_bak_20250121', N'U') IS NULL
+        IF OBJECT_ID(N'myWorkflowProcessEntity_bak_20250406', N'U') IS NULL
             SELECT  w.*
-            INTO    dbo.myWorkflowProcessEntity_bak_20250121
+            INTO    dbo.myWorkflowProcessEntity_bak_20250406
             FROM    cg_cgsolution a
                     INNER JOIN dbo.myWorkflowProcessEntity w ON w.BusinessGUID = a.CgSolutionGUID
                     INNER JOIN #proj p ON CHARINDEX(CONVERT(VARCHAR(50), p.ProjGUID), a.ProjGUIDList) <> 0
@@ -285,6 +285,8 @@ AS
                 INNER JOIN dbo.myWorkflowProcessEntity w ON w.BusinessGUID = a.CgSolutionGUID
                 LEFT JOIN dbo.myBusinessUnit bu ON bu.BUGUID = a.BUGUID
         WHERE   a.BUGUID <> w.BUGUID AND w.ProcessStatus = 2;
+
+        PRINT '工作流实例迁移:myWorkflowProcessEntity' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
         -- AND a.buguid IN(SELECT buguid FROM #proj) 
 

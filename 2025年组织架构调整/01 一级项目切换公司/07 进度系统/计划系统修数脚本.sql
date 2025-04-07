@@ -1,70 +1,106 @@
 --计划系统修数
 
 --jd_ProjectPlanTemplate
-select * into jd_ProjectPlanTemplate_20220225 from jd_ProjectPlanTemplate
+-- 备份jd_ProjectPlanTemplate表
+SELECT * INTO jd_ProjectPlanTemplate_20220225 FROM jd_ProjectPlanTemplate
 
-select *
-into delete_jd_ProjectPlanTemplate
- from (
-select *,row_number()over( partition by name,code order by id) rn from jd_ProjectPlanTemplate where buguid in (
-select newbuguid from dqy_proj_20220124
-)) t where t.rn>1
+-- 删除重复的jd_ProjectPlanTemplate记录
+SELECT *
+INTO delete_jd_ProjectPlanTemplate
+FROM (
+    SELECT *, 
+    ROW_NUMBER() OVER (PARTITION BY name, code ORDER BY id) AS rn
+    FROM jd_ProjectPlanTemplate
+    WHERE buguid IN (
+        SELECT newbuguid FROM dqy_proj_20250121
+    )
+) t
+WHERE t.rn > 1
 
-delete from jd_ProjectPlanTemplate where id in (
-select id from (
-select *,row_number()over( partition by name,code order by id) rn from jd_ProjectPlanTemplate where buguid in (
-select newbuguid from dqy_proj_20220124
-)) t where t.rn>1);
+-- 从jd_ProjectPlanTemplate表中删除重复记录
+DELETE FROM jd_ProjectPlanTemplate
+WHERE id IN (
+    SELECT id
+    FROM (
+        SELECT *, 
+        ROW_NUMBER() OVER (PARTITION BY name, code ORDER BY id) AS rn
+        FROM jd_ProjectPlanTemplate
+        WHERE buguid IN (
+            SELECT newbuguid FROM dqy_proj_20250121
+        )
+    ) t
+    WHERE t.rn > 1
+);
 
 --jd_ProjectPlanTemplateTask
-
- select * 
- into jd_ProjectPlanTemplateTask_delete
- from jd_ProjectPlanTemplateTask where ProjectPlanTemplateID in (
-select id from delete_jd_ProjectPlanTemplate
+-- 删除与已删除的jd_ProjectPlanTemplate记录关联的jd_ProjectPlanTemplateTask记录
+SELECT * 
+INTO jd_ProjectPlanTemplateTask_delete
+FROM jd_ProjectPlanTemplateTask
+WHERE ProjectPlanTemplateID IN (
+    SELECT id FROM delete_jd_ProjectPlanTemplate
 )
 
+-- 从jd_ProjectPlanTemplateTask表中删除与已删除的jd_ProjectPlanTemplate记录关联的记录
 delete from jd_ProjectPlanTemplateTask where ProjectPlanTemplateID in (
 select id from delete_jd_ProjectPlanTemplate
 )
 
 --jd_ProjectPlanExecute
-
-select distinct a.id from jd_ProjectPlanExecute a
-inner join jd_ProjectPlanExecute_bak_20220223 b on a.id = b.id 
-where a.TemplatePlanID <> b.TemplatePlanID
-
-
-select * into jd_ProjectPlanExecute_20220225 from jd_ProjectPlanExecute
+-- 查找jd_ProjectPlanExecute表中TemplatePlanID与备份表jd_ProjectPlanExecute_bak_20220223不匹配的记录
+SELECT DISTINCT a.id
+FROM jd_ProjectPlanExecute a
+INNER JOIN jd_ProjectPlanExecute_bak_20220223 b ON a.id = b.id
+WHERE a.TemplatePlanID <> b.TemplatePlanID
 
 
-update jd set jd.TemplatePlanID = ne.id from jd_ProjectPlanExecute jd
-inner join delete_jd_ProjectPlanTemplate t on jd.TemplatePlanID = t.id
-inner join jd_ProjectPlanTemplate ne on ne.name = t.name and ne.buguid = jd.buguid
-where jd.id in (
-select distinct a.id from jd_ProjectPlanExecute a
-inner join jd_ProjectPlanExecute_bak_20220223 b on a.id = b.id 
-where a.TemplatePlanID <> b.TemplatePlanID
-) 
+-- 备份jd_ProjectPlanExecute表
+SELECT * INTO jd_ProjectPlanExecute_20220225 FROM jd_ProjectPlanExecute
+
+
+-- 更新jd_ProjectPlanExecute表中的TemplatePlanID为新的jd_ProjectPlanTemplate记录的ID
+UPDATE jd_ProjectPlanExecute
+SET TemplatePlanID = ne.id
+FROM jd_ProjectPlanExecute jd
+INNER JOIN delete_jd_ProjectPlanTemplate t ON jd.TemplatePlanID = t.id
+INNER JOIN jd_ProjectPlanTemplate ne ON ne.name = t.name AND ne.buguid = jd.buguid
+WHERE jd.id IN (
+    SELECT DISTINCT a.id
+    FROM jd_ProjectPlanExecute a
+    INNER JOIN jd_ProjectPlanExecute_bak_20220223 b ON a.id = b.id
+    WHERE a.TemplatePlanID <> b.TemplatePlanID
+)
 
 --jd_DeptExaminePeriod
+-- 备份jd_DeptExaminePeriod表
+SELECT * INTO jd_DeptExaminePeriod_20220225 FROM jd_DeptExaminePeriod
 
+-- 删除重复的jd_DeptExaminePeriod记录
+SELECT *
+INTO delete_jd_DeptExaminePeriod
+FROM (
+    SELECT *, 
+           ROW_NUMBER() OVER (PARTITION BY buguid, day ORDER BY id) AS rn
+    FROM jd_DeptExaminePeriod
+    WHERE buguid IN (
+        SELECT newbuguid FROM dqy_proj_20250121
+    )
+) t
+WHERE t.rn > 1
 
-
-
-select * into jd_DeptExaminePeriod_20220225 from jd_DeptExaminePeriod
-
-select *
-into delete_jd_DeptExaminePeriod
- from (
-select *,row_number()over( partition by buguid,day order by id) rn from jd_DeptExaminePeriod where buguid in (
-select newbuguid from dqy_proj_20220124
-)) t where t.rn>1
-
+-- 显示jd_DeptExaminePeriod表中的所有记录
 select * from jd_DeptExaminePeriod
 
-delete from jd_DeptExaminePeriod where id in (
-select id from (
-select *,row_number()over( partition by buguid,day order by id) rn from jd_DeptExaminePeriod  where buguid in (
-select newbuguid from dqy_proj_20220124
-)) t where t.rn>1);
+-- 从jd_DeptExaminePeriod表中删除重复记录
+DELETE FROM jd_DeptExaminePeriod
+WHERE id IN (
+    SELECT id
+    FROM (
+        SELECT *, ROW_NUMBER() OVER (PARTITION BY buguid, day ORDER BY id) AS rn
+        FROM jd_DeptExaminePeriod
+        WHERE buguid IN (
+            SELECT newbuguid FROM dqy_proj_20250121
+        )
+    ) t
+    WHERE t.rn > 1
+);

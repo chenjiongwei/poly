@@ -1,4 +1,4 @@
-use MyCost_Erp352_ceshi
+use MyCost_Erp352
 go 
 
 /*
@@ -26,9 +26,9 @@ BEGIN
 
     --1、调整费用部门所属公司
     --备份
-    IF OBJECT_ID(N'ys_SpecialBusinessUnit_bak20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_SpecialBusinessUnit_bak20250406_cost', N'U') IS NULL
         SELECT  *
-        INTO    ys_SpecialBusinessUnit_bak20250121_cost
+        INTO    ys_SpecialBusinessUnit_bak20250406_cost
         FROM    ys_SpecialBusinessUnit;
 
     UPDATE  a
@@ -91,7 +91,7 @@ BEGIN
     --备份要刷科目的预呈批的分摊明细
     IF OBJECT_ID(N'fy_Apply_FtDetail_20250121_cost', N'U') IS NULL
         SELECT  cfp.*
-        INTO    fy_Apply_FtDetail_20250121_cost
+        INTO    fy_Apply_FtDetail_20250406_cost
         FROM    dbo.fy_Apply_FtDetail cfp
                 INNER JOIN #ys_SpecialBusinessUnit sbu ON sbu.DeptGUID = cfp.DeptGUID
                 INNER JOIN #ys_DeptCostMb dc ON dc.CostCode = cfp.CostCode AND dc.Year = sbu.Year AND  sbu.buguid = dc.buguid;
@@ -107,9 +107,9 @@ BEGIN
     PRINT '刷预呈批的科目分摊明细：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份申请单分摊明细在分摊周期上的分摊信息
-    IF OBJECT_ID(N'fy_Apply_FtDetail_Period_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_Apply_FtDetail_Period_20250406_cost', N'U') IS NULL
         SELECT  cfp.*
-        INTO    fy_Apply_FtDetail_Period_20250121_cost
+        INTO    fy_Apply_FtDetail_Period_20250406_cost
         FROM    dbo.fy_Apply_FtDetail_Period cfp
                 INNER JOIN #ys_SpecialBusinessUnit sbu ON sbu.DeptGUID = cfp.DeptGUID
                 INNER JOIN #ys_DeptCostMb dc ON dc.CostCode = cfp.CostCode AND sbu.buguid = dc.buguid AND  dc.Year = sbu.Year;
@@ -125,9 +125,9 @@ BEGIN
 
     ----------------------------------------------------------------------------------
     --备份费用预算使用明细表
-    IF OBJECT_ID(N'cb_DeptCostUseDtl_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'cb_DeptCostUseDtl_20250406_cost', N'U') IS NULL
         SELECT  dcud.*
-        INTO    cb_DeptCostUseDtl_20250121_cost
+        INTO    cb_DeptCostUseDtl_20250406_cost
         FROM    dbo.cb_DeptCostUseDtl dcud
                 INNER JOIN #ys_DeptCostLy dcl ON dcl.CostGUID = dcud.CostGUID
                 INNER JOIN #ys_SpecialBusinessUnit sbu ON sbu.DeptGUID = dcud.DeptGUID
@@ -146,9 +146,9 @@ BEGIN
     ----------------------------------------------------------------------------------
 
     --备份变更主表所属BUGUID
-    IF OBJECT_ID(N'cb_HTAlter_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'cb_HTAlter_20250406_cost', N'U') IS NULL
         SELECT  hta.*
-        INTO    cb_HTAlter_20250121_cost
+        INTO    cb_HTAlter_20250406_cost
         FROM    dbo.cb_HTAlter hta
                 INNER JOIN #cb_Contract c ON hta.ContractGUID = c.ContractGUID
                 INNER JOIN cb_contractproj pr ON c.ContractGUID = pr.ContractGUID
@@ -172,9 +172,9 @@ BEGIN
     FROM    dbo.cb_HTAlter hta
     WHERE   1 = 1 AND   hta.ContractGUID IN(SELECT  c.ContractGUID FROM #cb_Contract c WHERE 1 = 1);
 
-    IF OBJECT_ID(N'fy_HtAlter_FtDetail_Period_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_HtAlter_FtDetail_Period_20250406_cost', N'U') IS NULL
         SELECT  hafp.*
-        INTO    fy_HtAlter_FtDetail_Period_20250121_cost
+        INTO    fy_HtAlter_FtDetail_Period_20250406_cost
         FROM    fy_HtAlter_FtDetail_Period hafp
                 INNER JOIN #ys_SpecialBusinessUnit sbu ON sbu.DeptGUID = hafp.DeptGUID
                 INNER JOIN #ys_DeptCostLy dcl ON dcl.CostGUID = hafp.CostGUID
@@ -199,9 +199,9 @@ BEGIN
     WHERE   htb.ContractGUID IN(SELECT  c.ContractGUID FROM #cb_Contract c);
 
     --备份目标公司下合同关联的结算的明细表数据
-    IF OBJECT_ID(N'fy_HTBalance_FtDetail_Period_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_HTBalance_FtDetail_Period_20250406_cost', N'U') IS NULL
         SELECT  htbfp.*
-        INTO    fy_HTBalance_FtDetail_Period_20250121_cost
+        INTO    fy_HTBalance_FtDetail_Period_20250406_cost
         FROM    dbo.fy_HTBalance_FtDetail_Period htbfp
                 INNER JOIN #ys_SpecialBusinessUnit sbu ON sbu.DeptGUID = htbfp.DeptGUID
                 INNER JOIN #ys_DeptCostLy dcl ON dcl.CostGUID = htbfp.CostGUID
@@ -238,9 +238,9 @@ BEGIN
          FROM   #cb_Contract c) AS cc;
 
     --备份跨年结转主表所属BUGUID
-    IF OBJECT_ID(N'fy_YearCarryOver_ydgs_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_YearCarryOver_ydgs_20250406_cost', N'U') IS NULL
         SELECT  yco.*
-        INTO    fy_YearCarryOver_ydgs_20250121_cost
+        INTO    fy_YearCarryOver_ydgs_20250406_cost
         FROM    dbo.fy_YearCarryOver yco
                 INNER JOIN fy_YearCarryOverFtDetail dtl ON yco.YearCarryOverGUID = dtl.YearCarryOverGUID
                 INNER JOIN #ys_SpecialBusinessUnit bu ON bu.DeptGUID = dtl.DeptGUID
@@ -263,9 +263,9 @@ BEGIN
     WHERE   yco.BizGUID IN(SELECT   b.BizGUID FROM  #BizGUID b WHERE 1 = 1);
 
     --备份目标公司预呈批、合同、变更、结算关联的结转主表下的明细表数据
-    IF OBJECT_ID(N'fy_YearCarryOverFtDetail_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_YearCarryOverFtDetail_20250406_cost', N'U') IS NULL
         SELECT  ycofd.*
-        INTO    fy_YearCarryOverFtDetail_20250121_cost
+        INTO    fy_YearCarryOverFtDetail_20250406_cost
         FROM    dbo.fy_YearCarryOverFtDetail ycofd
                 INNER JOIN #ys_SpecialBusinessUnit bu ON bu.DeptGUID = ycofd.DeptGUID
                 INNER JOIN #ys_DeptCostMb dcm ON dcm.CostCode = ycofd.CostCode AND dcm.Year = ycofd.FtYear AND dcm.buguid = bu.buguid
@@ -282,9 +282,9 @@ BEGIN
     PRINT '刷目标公司预呈批、合同、变更、结算关联的结转主表下的明细表数据科目GUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份费用使用事实表
-    IF OBJECT_ID(N'ys_fy_FactDeptFeeUsed_bu_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_fy_FactDeptFeeUsed_bu_20250406_cost', N'U') IS NULL
         SELECT  fdfu.*
-        INTO    ys_fy_FactDeptFeeUsed_bu_20250121_cost
+        INTO    ys_fy_FactDeptFeeUsed_bu_20250406_cost
         FROM    dbo.ys_fy_FactDeptFeeUsed fdfu
         WHERE   fdfu.DeptGUID IN(SELECT DISTINCT sbu.DeptGUID FROM  #ys_SpecialBusinessUnit sbu);
 
@@ -297,9 +297,9 @@ BEGIN
     PRINT '更新费用使用事实表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份更新费用使用事实表科目GUID
-    IF OBJECT_ID(N'ys_fy_FactDeptFeeUsed_cost_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_fy_FactDeptFeeUsed_cost_20250406_cost', N'U') IS NULL
         SELECT  fdfu.*
-        INTO    ys_fy_FactDeptFeeUsed_cost_20250121_cost
+        INTO    ys_fy_FactDeptFeeUsed_cost_20250406_cost
         FROM    dbo.ys_fy_FactDeptFeeUsed fdfu
                 INNER JOIN #ys_SpecialBusinessUnit bu ON bu.DeptGUID = fdfu.DeptGUID
                 INNER JOIN #ys_DeptCostLy dcl ON dcl.CostGUID = fdfu.CostGUID
@@ -316,9 +316,9 @@ BEGIN
     PRINT '更新费用使用事实表科目GUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份费用事项使用事实表
-    IF OBJECT_ID(N'ys_fy_FactProceedingFeeUsed_bu_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_fy_FactProceedingFeeUsed_bu_20250406_cost', N'U') IS NULL
         SELECT  fdfu.*
-        INTO    ys_fy_FactProceedingFeeUsed_bu_20250121_cost
+        INTO    ys_fy_FactProceedingFeeUsed_bu_20250406_cost
         FROM    dbo.ys_fy_FactProceedingFeeUsed fdfu
         WHERE   fdfu.DeptGUID IN(SELECT DISTINCT sbu.DeptGUID FROM  #ys_SpecialBusinessUnit sbu);
 
@@ -331,9 +331,9 @@ BEGIN
     PRINT '更新费用事项使用事实表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份更新事项费用使用事实表科目GUID
-    IF OBJECT_ID(N'ys_fy_FactProceedingFeeUsed_cost_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_fy_FactProceedingFeeUsed_cost_20250406_cost', N'U') IS NULL
         SELECT  fdfu.*
-        INTO    ys_fy_FactProceedingFeeUsed_cost_20250121_cost
+        INTO    ys_fy_FactProceedingFeeUsed_cost_20250406_cost
         FROM    dbo.ys_fy_FactProceedingFeeUsed fdfu
                 INNER JOIN #ys_SpecialBusinessUnit bu ON bu.DeptGUID = fdfu.DeptGUID
                 INNER JOIN #ys_DeptCostLy dcl ON dcl.CostGUID = fdfu.CostGUID
@@ -350,9 +350,9 @@ BEGIN
     PRINT '更新费用事项使用事实表科目GUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份公司部门费用事实表
-    IF OBJECT_ID(N'ys_FactDepartmentFee_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_FactDepartmentFee_20250406_cost', N'U') IS NULL
         SELECT  fdf.*
-        INTO    ys_FactDepartmentFee_20250121_cost
+        INTO    ys_FactDepartmentFee_20250406_cost
         FROM    dbo.ys_FactDepartmentFee fdf
                 INNER JOIN #ys_SpecialBusinessUnit sbu ON fdf.SpecialUnitGUID = sbu.DeptGUID
                 INNER JOIN #ys_DeptCostLy dcl ON fdf.DeptCostGUID = dcl.CostGUID
@@ -369,9 +369,9 @@ BEGIN
     PRINT '更新公司部门费用事实表科目GUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份公司部门费用事实表
-    IF OBJECT_ID(N'ys_FactProceedingFee_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_FactProceedingFee_20250406_cost', N'U') IS NULL
         SELECT  fdf.*
-        INTO    ys_FactProceedingFee_20250121_cost
+        INTO    ys_FactProceedingFee_20250406_cost
         FROM    dbo.ys_FactProceedingFee fdf
                 INNER JOIN #ys_SpecialBusinessUnit sbu ON fdf.SpecialUnitGUID = sbu.DeptGUID
                 INNER JOIN #ys_DeptCostLy dcl ON fdf.DeptCostGUID = dcl.CostGUID
@@ -388,9 +388,9 @@ BEGIN
     PRINT '更新部门费用事实明细表科目GUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份业务费用分摊历史分摊表
-    IF OBJECT_ID(N'fy_FtDetail_His_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_FtDetail_His_20250406_cost', N'U') IS NULL
         SELECT  fdf.*
-        INTO    fy_FtDetail_His_20250121_cost
+        INTO    fy_FtDetail_His_20250406_cost
         FROM    dbo.fy_FtDetail_His fdf
                 INNER JOIN #ys_SpecialBusinessUnit sbu ON sbu.DeptGUID = fdf.DeptGUID
                 INNER JOIN #ys_DeptCostLy dcl ON fdf.CostGUID = dcl.CostGUID
@@ -407,9 +407,9 @@ BEGIN
     PRINT '更新业务费用分摊历史分摊表科目GUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份业务费用分摊历史分摊明细表
-    IF OBJECT_ID(N'fy_FtDetail_Period_His_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_FtDetail_Period_His_20250406_cost', N'U') IS NULL
         SELECT  fdf.*
-        INTO    fy_FtDetail_Period_His_20250121_cost
+        INTO    fy_FtDetail_Period_His_20250406_cost
         FROM    dbo.fy_FtDetail_Period_His fdf
                 INNER JOIN #ys_SpecialBusinessUnit sbu ON sbu.DeptGUID = fdf.DeptGUID
                 INNER JOIN #ys_DeptCostLy dcl ON fdf.CostGUID = dcl.CostGUID
@@ -426,9 +426,9 @@ BEGIN
     PRINT '更新业务费用分摊历史分摊明细表科目GUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份fy_DeptCostCfDtl表
-    IF OBJECT_ID(N'fy_DeptCostCfDtl_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_DeptCostCfDtl_20250406_cost', N'U') IS NULL
         SELECT  dccd.*
-        INTO    fy_DeptCostCfDtl_20250121_cost
+        INTO    fy_DeptCostCfDtl_20250406_cost
         FROM    dbo.fy_DeptCostCfDtl dccd
                 INNER JOIN #ys_SpecialBusinessUnit sbu ON sbu.DeptGUID = dccd.DeptGUID
                 INNER JOIN #ys_DeptCostLy dcl ON dcl.CostGUID = dccd.CostGUID
@@ -445,9 +445,9 @@ BEGIN
     PRINT '更新fy_DeptCostCfDtl表科目GUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份fy_DeptCostCfRule表
-    IF OBJECT_ID(N'fy_DeptCostCfRule_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_DeptCostCfRule_20250406_cost', N'U') IS NULL
         SELECT  dccd.*
-        INTO    fy_DeptCostCfRule_20250121_cost
+        INTO    fy_DeptCostCfRule_20250406_cost
         FROM    dbo.fy_DeptCostCfRule dccd
                 INNER JOIN #ys_SpecialBusinessUnit sbu ON sbu.DeptGUID = dccd.DeptGUID
                 INNER JOIN #ys_DeptCostLy dcl ON dcl.CostGUID = dccd.CostGUID
@@ -464,9 +464,9 @@ BEGIN
     PRINT '更新fy_DeptCostCfRule表科目GUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_CfPayDeptCost表
-    IF OBJECT_ID(N'ys_CfPayDeptCost_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_CfPayDeptCost_20250406_cost', N'U') IS NULL
         SELECT  dccd.*
-        INTO    ys_CfPayDeptCost_20250121_cost
+        INTO    ys_CfPayDeptCost_20250406_cost
         FROM    dbo.ys_CfPayDeptCost dccd
                 INNER JOIN #ys_SpecialBusinessUnit sbu ON sbu.DeptGUID = dccd.DeptGUID
                 INNER JOIN #ys_DeptCostLy dcl ON dcl.CostGUID = dccd.CostGUID
@@ -483,9 +483,9 @@ BEGIN
     PRINT '更新ys_CfPayDeptCost表科目GUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_Dept2DeptAdjustDtl表
-    IF OBJECT_ID(N'ys_Dept2DeptAdjustDtl_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_Dept2DeptAdjustDtl_20250406_cost', N'U') IS NULL
         SELECT  dccd.*
-        INTO    ys_Dept2DeptAdjustDtl_20250121_cost
+        INTO    ys_Dept2DeptAdjustDtl_20250406_cost
         FROM    dbo.ys_Dept2DeptAdjustDtl dccd
                 INNER JOIN #ys_SpecialBusinessUnit sbu ON sbu.DeptGUID = dccd.DeptGUID
                 INNER JOIN #ys_DeptCostLy dcl ON dcl.CostGUID = dccd.CostGUID
@@ -502,9 +502,9 @@ BEGIN
     PRINT '更新ys_Dept2DeptAdjustDtl表科目GUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_Dept2DeptAdjust表
-    IF OBJECT_ID(N'ys_Dept2DeptAdjust_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_Dept2DeptAdjust_20250406_cost', N'U') IS NULL
         SELECT  d2da.*
-        INTO    ys_Dept2DeptAdjust_20250121_cost
+        INTO    ys_Dept2DeptAdjust_20250406_cost
         FROM    dbo.ys_Dept2DeptAdjust d2da
                 INNER JOIN dbo.ys_Dept2DeptAdjustDtl d2dad ON d2dad.Dept2DeptAdjustGUID = d2da.Dept2DeptAdjustGUID
         WHERE   d2dad.DeptGUID IN(SELECT    DISTINCT   sbu.DeptGUID FROM    #ys_SpecialBusinessUnit sbu);
@@ -519,9 +519,9 @@ BEGIN
     PRINT '更新ys_Dept2DeptAdjust表公司GUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_fy_DimProceedingToCost表
-    IF OBJECT_ID(N'ys_fy_DimProceedingToCost_cost_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_fy_DimProceedingToCost_cost_20250406_cost', N'U') IS NULL
         SELECT  dccd.*
-        INTO    ys_fy_DimProceedingToCost_cost_20250121_cost
+        INTO    ys_fy_DimProceedingToCost_cost_20250406_cost
         FROM    dbo.ys_fy_DimProceedingToCost dccd
                 INNER JOIN #ys_SpecialBusinessUnit sbu ON sbu.DeptGUID = dccd.DeptGUID
                 INNER JOIN #ys_DeptCostLy dcl ON dcl.CostGUID = dccd.CostGUID
@@ -538,9 +538,9 @@ BEGIN
     PRINT '更新ys_fy_DimProceedingToCost表科目GUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_fy_DimProceedingToCost表
-    IF OBJECT_ID(N'ys_fy_DimProceedingToCost_bu_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_fy_DimProceedingToCost_bu_20250406_cost', N'U') IS NULL
         SELECT  *
-        INTO    ys_fy_DimProceedingToCost_bu_20250121_cost
+        INTO    ys_fy_DimProceedingToCost_bu_20250406_cost
         FROM    dbo.ys_fy_DimProceedingToCost dptc
         WHERE   dptc.DeptGUID IN(SELECT DISTINCT sbu.DeptGUID FROM  #ys_SpecialBusinessUnit sbu);
 
@@ -553,9 +553,9 @@ BEGIN
     PRINT '更新ys_fy_DimProceedingToCost表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_fy_DimProceeding表
-    IF OBJECT_ID(N'ys_fy_DimProceeding_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_fy_DimProceeding_20250406_cost', N'U') IS NULL
         SELECT  dptc.*
-        INTO    ys_fy_DimProceeding_20250121_cost
+        INTO    ys_fy_DimProceeding_20250406_cost
         FROM    dbo.ys_fy_DimProceeding dptc
                 INNER JOIN ys_fy_DimProceedingToCost b ON b.ProceedingGUID = dptc.ProceedingGUID
         WHERE   dptc.BUGUID <> b.BUGUID;
@@ -570,9 +570,9 @@ BEGIN
     PRINT '更新ys_fy_DimProceeding表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_fy_FactDeptPeopleNum表
-    IF OBJECT_ID(N'ys_fy_FactDeptPeopleNum_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_fy_FactDeptPeopleNum_20250406_cost', N'U') IS NULL
         SELECT  *
-        INTO    ys_fy_FactDeptPeopleNum_20250121_cost
+        INTO    ys_fy_FactDeptPeopleNum_20250406_cost
         FROM    dbo.ys_fy_FactDeptPeopleNum dptc
         WHERE   dptc.DeptGUID IN(SELECT DISTINCT sbu.DeptGUID FROM  #ys_SpecialBusinessUnit sbu);
 
@@ -585,9 +585,9 @@ BEGIN
     PRINT '更新ys_fy_FactDeptPeopleNum表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_fy_SaleFactDeptFeeUsed表
-    IF OBJECT_ID(N'ys_fy_SaleFactDeptFeeUsed_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_fy_SaleFactDeptFeeUsed_20250406_cost', N'U') IS NULL
         SELECT  dccd.*
-        INTO    ys_fy_SaleFactDeptFeeUsed_20250121_cost
+        INTO    ys_fy_SaleFactDeptFeeUsed_20250406_cost
         FROM    dbo.ys_fy_SaleFactDeptFeeUsed dccd
                 INNER JOIN #ys_SpecialBusinessUnit sbu ON sbu.DeptGUID = dccd.DeptGUID
                 INNER JOIN #ys_DeptCostLy dcl ON dcl.CostGUID = dccd.CostGUID
@@ -604,9 +604,9 @@ BEGIN
     PRINT '更新ys_fy_SaleFactDeptFeeUsed表科目GUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_fy_SaleMonthPlan_FyysDetail表
-    IF OBJECT_ID(N'ys_fy_SaleMonthPlan_FyysDetail_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_fy_SaleMonthPlan_FyysDetail_20250406_cost', N'U') IS NULL
         SELECT  smpfd.*
-        INTO    ys_fy_SaleMonthPlan_FyysDetail_20250121_cost
+        INTO    ys_fy_SaleMonthPlan_FyysDetail_20250406_cost
         FROM    dbo.ys_fy_SaleMonthPlan_FyysDetail smpfd
                 INNER JOIN dbo.ys_fy_SaleMonthPlan smp ON smpfd.PlanGUID = smp.GUID
                 INNER JOIN #ys_SpecialBusinessUnit sbu ON sbu.DeptGUID = smp.DeptGUID
@@ -625,9 +625,9 @@ BEGIN
     PRINT '更新ys_fy_SaleMonthPlan_FyysDetail表科目GUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_fy_SaleMonthPlanHistory_FyysDetail表
-    IF OBJECT_ID(N'ys_fy_SaleMonthPlanHistory_FyysDetail_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_fy_SaleMonthPlanHistory_FyysDetail_20250406_cost', N'U') IS NULL
         SELECT  smpfd.*
-        INTO    ys_fy_SaleMonthPlanHistory_FyysDetail_20250121_cost
+        INTO    ys_fy_SaleMonthPlanHistory_FyysDetail_20250406_cost
         FROM    dbo.ys_fy_SaleMonthPlanHistory_FyysDetail smpfd
                 INNER JOIN dbo.ys_fy_SaleMonthPlan smp ON smpfd.PlanGUID = smp.GUID
                 INNER JOIN #ys_SpecialBusinessUnit sbu ON sbu.DeptGUID = smp.DeptGUID
@@ -646,9 +646,9 @@ BEGIN
     PRINT '更新ys_fy_SaleMonthPlanHistory_FyysDetail表科目GUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_R3FactCompanyCostExecute表
-    IF OBJECT_ID(N'ys_R3FactCompanyCostExecute_cost_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_R3FactCompanyCostExecute_cost_20250406_cost', N'U') IS NULL
         SELECT  dccd.*
-        INTO    ys_R3FactCompanyCostExecute_cost_20250121_cost
+        INTO    ys_R3FactCompanyCostExecute_cost_20250406_cost
         FROM    dbo.ys_R3FactCompanyCostExecute dccd
                 INNER JOIN #ys_SpecialBusinessUnit sbu ON sbu.DeptGUID = dccd.DeptGUID
                 INNER JOIN #ys_DeptCostLy dcl ON dcl.CostGUID = dccd.DeptCostGUID
@@ -665,9 +665,9 @@ BEGIN
     PRINT '更新ys_R3FactCompanyCostExecute表科目GUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_R3FactCompanyCostExecute表
-    IF OBJECT_ID(N'ys_R3FactCompanyCostExecute_bu_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_R3FactCompanyCostExecute_bu_20250406_cost', N'U') IS NULL
         SELECT  *
-        INTO    ys_R3FactCompanyCostExecute_bu_20250121_cost
+        INTO    ys_R3FactCompanyCostExecute_bu_20250406_cost
         FROM    dbo.ys_R3FactCompanyCostExecute dptc
         WHERE   dptc.DeptGUID IN(SELECT DISTINCT sbu.DeptGUID FROM  #ys_SpecialBusinessUnit sbu);
 
@@ -680,9 +680,9 @@ BEGIN
     PRINT '更新ys_R3FactCompanyCostExecute表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_PublishYearBudgetDept表
-    IF OBJECT_ID(N'ys_PublishYearBudgetDept_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_PublishYearBudgetDept_20250406_cost', N'U') IS NULL
         SELECT  dptc.*
-        INTO    ys_PublishYearBudgetDept_20250121_cost
+        INTO    ys_PublishYearBudgetDept_20250406_cost
         FROM    dbo.ys_PublishYearBudgetDept dptc
                 INNER JOIN #ys_SpecialBusinessUnit bu ON bu.DeptGUID = dptc.BudgetDeptGUID;
 
@@ -695,9 +695,9 @@ BEGIN
     PRINT '更新ys_PublishYearBudgetDept表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_R3DimDepartment表
-    IF OBJECT_ID(N'ys_R3DimDepartment_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_R3DimDepartment_20250406_cost', N'U') IS NULL
         SELECT  *
-        INTO    ys_R3DimDepartment_20250121_cost
+        INTO    ys_R3DimDepartment_20250406_cost
         FROM    dbo.ys_R3DimDepartment dptc
         WHERE   dptc.SpecialUnitGUID IN(SELECT  DISTINCT sbu.DeptGUID FROM  #ys_SpecialBusinessUnit sbu);
 
@@ -710,9 +710,9 @@ BEGIN
     PRINT '更新ys_R3DimDepartment表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_DeptCost2ContractUseDtl表
-    IF OBJECT_ID(N'ys_DeptCost2ContractUseDtl_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_DeptCost2ContractUseDtl_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_DeptCost2ContractUseDtl_20250121_cost
+        INTO    ys_DeptCost2ContractUseDtl_20250406_cost
         FROM    ys_DeptCost2ContractUseDtl a
                 INNER JOIN #ys_SpecialBusinessUnit b ON a.DeptGUID = b.DeptGUID;
 
@@ -727,9 +727,9 @@ BEGIN
     PRINT '更新ys_DeptCost2ContractUseDtl表CostGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份fy_Contract_FtDetail_Period表
-    IF OBJECT_ID(N'fy_Contract_FtDetail_Period_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_Contract_FtDetail_Period_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    fy_Contract_FtDetail_Period_20250121_cost
+        INTO    fy_Contract_FtDetail_Period_20250406_cost
         FROM    fy_Contract_FtDetail_Period a
                 INNER JOIN #ys_SpecialBusinessUnit b ON a.DeptGUID = b.DeptGUID
                 INNER JOIN #ys_DeptCostLy d ON d.CostGUID = a.CostGUID
@@ -748,9 +748,9 @@ BEGIN
     PRINT '更新fy_Contract_FtDetail_Period表CostGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_fy_DimDeptToCost表
-    IF OBJECT_ID(N'ys_fy_DimDeptToCost_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_fy_DimDeptToCost_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_fy_DimDeptToCost_20250121_cost
+        INTO    ys_fy_DimDeptToCost_20250406_cost
         FROM    ys_fy_DimDeptToCost a
                 INNER JOIN #ys_SpecialBusinessUnit b ON a.DeptGUID = b.DeptGUID
                 INNER JOIN #ys_DeptCostLy d ON a.CostGUID = d.CostGUID
@@ -772,9 +772,9 @@ BEGIN
     PRINT '更新ys_fy_DimDeptToCost表CostGUID、BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_CostPlanAdjust表
-    IF OBJECT_ID(N'ys_CostPlanAdjust_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_CostPlanAdjust_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_CostPlanAdjust_20250121_cost
+        INTO    ys_CostPlanAdjust_20250406_cost
         FROM    ys_CostPlanAdjust a
                 INNER JOIN #mbProj b ON a.ProjCode = b.OldProjCode;
 
@@ -788,9 +788,9 @@ BEGIN
     PRINT '更新ys_CostPlanAdjust表ProjCode：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     ---修改ys_YearPlanProceeding2Cost表
-    IF OBJECT_ID(N'ys_YearPlanProceeding2Cost_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_YearPlanProceeding2Cost_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_YearPlanProceeding2Cost_20250121_cost
+        INTO    ys_YearPlanProceeding2Cost_20250406_cost
         FROM    ys_YearPlanProceeding2Cost a
                 INNER JOIN #ys_SpecialBusinessUnit b ON a.DeptGUID = b.DeptGUID
                 INNER JOIN #ys_DeptCostLy d ON a.CostGUID = d.CostGUID
@@ -810,9 +810,9 @@ BEGIN
     PRINT '更新ys_YearPlanProceeding2Cost表BUGUID、CostGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_YearPlanDept2Cost表
-    IF OBJECT_ID(N'ys_YearPlanDept2Cost_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_YearPlanDept2Cost_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_YearPlanDept2Cost_20250121_cost
+        INTO    ys_YearPlanDept2Cost_20250406_cost
         FROM    ys_YearPlanDept2Cost a
                 INNER JOIN #ys_SpecialBusinessUnit b ON a.DeptGUID = b.DeptGUID
                 INNER JOIN #ys_DeptCostLy d ON a.CostGUID = d.CostGUID
@@ -832,9 +832,9 @@ BEGIN
     PRINT '更新ys_YearPlanDept2Cost表BUGUID、CostGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份fy_DeptCostCfRule表
-    IF OBJECT_ID(N'fy_DeptCostCfRule_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_DeptCostCfRule_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    fy_DeptCostCfRule_20250121_cost
+        INTO    fy_DeptCostCfRule_20250406_cost
         FROM    fy_DeptCostCfRule a
                 INNER JOIN #ys_SpecialBusinessUnit b ON a.DeptGUID = b.DeptGUID;
 
@@ -860,9 +860,9 @@ BEGIN
     PRINT '更新fy_DeptCostCfRule表CostGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份fy_Proj_FeeTargetTotal表
-    IF OBJECT_ID(N'fy_Proj_FeeTargetTotal_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_Proj_FeeTargetTotal_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    fy_Proj_FeeTargetTotal_20250121_cost
+        INTO    fy_Proj_FeeTargetTotal_20250406_cost
         FROM    dbo.fy_Proj_FeeTargetTotal a
                 INNER JOIN #mbProj p ON a.ProjGUID = p.ProjGUID
         WHERE   a.BUGUID <> p.BUGUID;
@@ -877,9 +877,9 @@ BEGIN
     PRINT '更新fy_Proj_FeeTargetTotal表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份fy_DimDept表
-    IF OBJECT_ID(N'fy_DimDept_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_DimDept_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    fy_DimDept_20250121_cost
+        INTO    fy_DimDept_20250406_cost
         FROM    fy_DimDept a
                 INNER JOIN #ys_SpecialBusinessUnit b ON a.DeptGUID = b.DeptGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -894,9 +894,9 @@ BEGIN
     PRINT '更新fy_DimDept表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份fy_HtAlter_FtDetail_Period表
-    IF OBJECT_ID(N'fy_HtAlter_FtDetail_Period_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_HtAlter_FtDetail_Period_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    fy_HtAlter_FtDetail_Period_20250121_cost
+        INTO    fy_HtAlter_FtDetail_Period_20250406_cost
         FROM    fy_HtAlter_FtDetail_Period a
                 INNER JOIN #ys_SpecialBusinessUnit b ON a.DeptGUID = b.DeptGUID
                 INNER JOIN #ys_DeptCostLy d ON a.CostGUID = d.CostGUID
@@ -915,9 +915,9 @@ BEGIN
     PRINT '更新fy_HtAlter_FtDetail_Period表CostGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份cb_DeptCostUseDtl表
-    IF OBJECT_ID(N'cb_DeptCostUseDtl_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'cb_DeptCostUseDtl_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    cb_DeptCostUseDtl_20250121_cost
+        INTO    cb_DeptCostUseDtl_20250406_cost
         FROM    cb_DeptCostUseDtl a
                 INNER JOIN #ys_SpecialBusinessUnit b ON a.DeptGUID = b.DeptGUID
                 INNER JOIN #ys_DeptCostLy d ON a.CostGUID = d.CostGUID
@@ -936,9 +936,9 @@ BEGIN
     PRINT '更新cb_DeptCostUseDtl表CostGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_DeptPeopleNum表
-    IF OBJECT_ID(N'ys_DeptPeopleNum_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_DeptPeopleNum_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_DeptPeopleNum_20250121_cost
+        INTO    ys_DeptPeopleNum_20250406_cost
         FROM    ys_DeptPeopleNum a
                 INNER JOIN #ys_SpecialBusinessUnit b ON a.DeptGUID = b.DeptGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -953,9 +953,9 @@ BEGIN
     PRINT '更新ys_DeptPeopleNum表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_DynamicCostReview表
-    IF OBJECT_ID(N'ys_DynamicCostReview_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_DynamicCostReview_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_DynamicCostReview_20250121_cost
+        INTO    ys_DynamicCostReview_20250406_cost
         FROM    ys_DynamicCostReview a
                 INNER JOIN #ys_SpecialBusinessUnit b ON a.DeptGUID = b.DeptGUID
         WHERE   a.BUGUID <> b.BUGUID;
@@ -970,9 +970,9 @@ BEGIN
     PRINT '更新ys_DynamicCostReview表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_FileTypeControlDetail表
-    IF OBJECT_ID(N'ys_FileTypeControlDetail_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_FileTypeControlDetail_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_FileTypeControlDetail_20250121_cost
+        INTO    ys_FileTypeControlDetail_20250406_cost
         FROM    ys_FileTypeControlDetail a
                 INNER JOIN ys_ContractTypeFile b ON a.FileTypeControlDetailGUID = b.FileTypeControlDetailGUID
                 INNER JOIN dbo.cb_Contract sc ON b.ContractGUID = sc.ContractGUID
@@ -989,9 +989,9 @@ BEGIN
     PRINT '更新ys_FileTypeControlDetail表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_FileTypeControl表
-    IF OBJECT_ID(N'ys_FileTypeControl_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_FileTypeControl_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_FileTypeControl_20250121_cost
+        INTO    ys_FileTypeControl_20250406_cost
         FROM    ys_FileTypeControl a
                 INNER JOIN ys_FileTypeControlDetail b ON a.FileTypeControlGUID = b.FileTypeControlGUID
         WHERE   b.BUGUID <> a.BUGUID;
@@ -1006,9 +1006,9 @@ BEGIN
     PRINT '更新ys_FileTypeControl表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_fy_DimCost表
-    IF OBJECT_ID(N'ys_fy_DimCost_bu_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_fy_DimCost_bu_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_fy_DimCost_bu_20250121_cost
+        INTO    ys_fy_DimCost_bu_20250406_cost
         FROM    ys_fy_DimCost a
                 INNER JOIN ys_fy_DimDeptToCost B ON a.CostGUID = B.CostGUID AND a.BUGUID = B.BUGUID
                 INNER JOIN #ys_SpecialBusinessUnit C ON B.DeptGUID = C.DeptGUID
@@ -1024,9 +1024,9 @@ BEGIN
 
     PRINT '更新ys_fy_DimCost表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-    IF OBJECT_ID(N'ys_fy_DimCost_cost_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_fy_DimCost_cost_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_fy_DimCost_cost_20250121_cost
+        INTO    ys_fy_DimCost_cost_20250406_cost
         FROM    ys_fy_DimCost a
                 INNER JOIN ys_fy_DimDeptToCost b ON a.CostGUID = b.CostGUID
                 INNER JOIN #ys_DeptCostLy ly ON a.CostGUID = ly.CostGUID
@@ -1045,9 +1045,9 @@ BEGIN
     PRINT '更新ys_fy_DimCost表COST：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_fy_DimDeptToCost表
-    IF OBJECT_ID(N'ys_fy_DimDeptToCost_bu_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_fy_DimDeptToCost_bu_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_fy_DimDeptToCost_bu_20250121_cost
+        INTO    ys_fy_DimDeptToCost_bu_20250406_cost
         FROM    ys_fy_DimDeptToCost a
                 INNER JOIN #ys_SpecialBusinessUnit C ON a.DeptGUID = C.DeptGUID
         WHERE   a.BUGUID <> C.BUGUID;
@@ -1061,9 +1061,9 @@ BEGIN
 
     PRINT '更新ys_fy_DimDeptToCost表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
-    IF OBJECT_ID(N'ys_fy_DimDeptToCost_cost_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_fy_DimDeptToCost_cost_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_fy_DimDeptToCost_cost_20250121_cost
+        INTO    ys_fy_DimDeptToCost_cost_20250406_cost
         FROM    ys_fy_DimDeptToCost a
                 INNER JOIN #ys_SpecialBusinessUnit C ON a.DeptGUID = C.DeptGUID
                 INNER JOIN #ys_DeptCostLy ly ON a.CostGUID = ly.CostGUID
@@ -1080,9 +1080,9 @@ BEGIN
     PRINT '更新ys_fy_DimDeptToCost表COST：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_OverAllPlan表
-    IF OBJECT_ID(N'ys_OverAllPlan_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_OverAllPlan_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_OverAllPlan_20250121_cost
+        INTO    ys_OverAllPlan_20250406_cost
         FROM    ys_OverAllPlan a
                 INNER JOIN ys_SpecialBusinessUnit b ON a.ProjGUID = b.ProjGUID
                 INNER JOIN #ys_SpecialBusinessUnit C ON b.SpecialUnitGUID = C.DeptGUID;
@@ -1097,9 +1097,9 @@ BEGIN
     PRINT '更新ys_OverAllPlan表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_OverAllPlanHistory表
-    IF OBJECT_ID(N'ys_OverAllPlanHistory_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_OverAllPlanHistory_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_OverAllPlanHistory_20250121_cost
+        INTO    ys_OverAllPlanHistory_20250406_cost
         FROM    ys_OverAllPlanHistory a
                 INNER JOIN ys_SpecialBusinessUnit b ON a.ProjGUID = b.ProjGUID
                 INNER JOIN #ys_SpecialBusinessUnit C ON b.SpecialUnitGUID = C.DeptGUID;
@@ -1114,9 +1114,9 @@ BEGIN
     PRINT '更新ys_OverAllPlanHistory表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_OverAllPlanRateSet表
-    IF OBJECT_ID(N'ys_OverAllPlanRateSet_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_OverAllPlanRateSet_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_OverAllPlanRateSet_20250121_cost
+        INTO    ys_OverAllPlanRateSet_20250406_cost
         FROM    ys_OverAllPlanRateSet a
                 INNER JOIN ys_SpecialBusinessUnit b ON a.ProjGUID = b.ProjGUID
                 INNER JOIN #ys_SpecialBusinessUnit C ON b.SpecialUnitGUID = C.DeptGUID;
@@ -1131,9 +1131,9 @@ BEGIN
     PRINT '更新ys_OverAllPlanRateSet表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_OverAllPlanWork表
-    IF OBJECT_ID(N'ys_OverAllPlanWork_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_OverAllPlanWork_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_OverAllPlanWork_20250121_cost
+        INTO    ys_OverAllPlanWork_20250406_cost
         FROM    ys_OverAllPlanWork a
                 INNER JOIN ys_SpecialBusinessUnit b ON a.ProjGUID = b.ProjGUID
                 INNER JOIN #ys_SpecialBusinessUnit C ON b.SpecialUnitGUID = C.DeptGUID;
@@ -1148,9 +1148,9 @@ BEGIN
     PRINT '更新ys_OverAllPlanWork表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_Proceeding表
-    IF OBJECT_ID(N'ys_Proceeding_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_Proceeding_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_Proceeding_20250121_cost
+        INTO    ys_Proceeding_20250406_cost
         FROM    ys_Proceeding a
                 INNER JOIN #ys_SpecialBusinessUnit b ON a.DeptGUID = b.DeptGUID;
 
@@ -1163,9 +1163,9 @@ BEGIN
     PRINT '更新ys_Proceeding表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_YearPlanDept2Cost_IndexYear表
-    IF OBJECT_ID(N'ys_YearPlanDept2Cost_IndexYear_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_YearPlanDept2Cost_IndexYear_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_YearPlanDept2Cost_IndexYear_20250121_cost
+        INTO    ys_YearPlanDept2Cost_IndexYear_20250406_cost
         FROM    ys_YearPlanDept2Cost_IndexYear a
                 INNER JOIN #ys_SpecialBusinessUnit b ON a.DeptGUID = b.DeptGUID;
 
@@ -1178,9 +1178,9 @@ BEGIN
     PRINT '更新ys_YearPlanDept2Cost_IndexYear表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份ys_YearPlanPLSB表
-    IF OBJECT_ID(N'ys_YearPlanPLSB_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_YearPlanPLSB_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_YearPlanPLSB_20250121_cost
+        INTO    ys_YearPlanPLSB_20250406_cost
         FROM    ys_YearPlanPLSB a
                 INNER JOIN ys_YearPlanPLSBDtl B ON a.YearPlanPLSBGUID = B.YearPlanPLSBGUID
                 INNER JOIN ys_SpecialBusinessUnit C ON C.SpecialUnitGUID = B.SpecialUnitGUID
@@ -1197,9 +1197,9 @@ BEGIN
     PRINT '更新ys_YearPlanDept2Cost_IndexYear表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份fy_ExpenseAnalyseInfoSF表
-    IF OBJECT_ID(N'fy_ExpenseAnalyseInfoSF_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_ExpenseAnalyseInfoSF_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    fy_ExpenseAnalyseInfoSF_20250121_cost
+        INTO    fy_ExpenseAnalyseInfoSF_20250406_cost
         FROM    fy_ExpenseAnalyseInfoSF a
                 INNER JOIN #ys_SpecialBusinessUnit b ON a.DeptGUID = b.DeptGUID
                 INNER JOIN #ys_DeptCostLy ly ON a.CostGUID = ly.CostGUID
@@ -1217,9 +1217,9 @@ BEGIN
     PRINT '更新fy_ExpenseAnalyseInfoSF表BUGUID&CostGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份fy_ExpenseAnalyseInfoYFS表
-    IF OBJECT_ID(N'fy_ExpenseAnalyseInfoYFS_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_ExpenseAnalyseInfoYFS_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    fy_ExpenseAnalyseInfoYFS_20250121_cost
+        INTO    fy_ExpenseAnalyseInfoYFS_20250406_cost
         FROM    fy_ExpenseAnalyseInfoYFS a
                 INNER JOIN #ys_SpecialBusinessUnit b ON a.DeptGUID = b.DeptGUID
                 INNER JOIN #ys_DeptCostLy ly ON a.CostGUID = ly.CostGUID
@@ -1237,9 +1237,9 @@ BEGIN
     PRINT '更新fy_ExpenseAnalyseInfoYFS表BUGUID&CostGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份fy_FeeTarget_Bu2ProjDtl表
-    IF OBJECT_ID(N'fy_FeeTarget_Bu2ProjDtl_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_FeeTarget_Bu2ProjDtl_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    fy_FeeTarget_Bu2ProjDtl_20250121_cost
+        INTO    fy_FeeTarget_Bu2ProjDtl_20250406_cost
         FROM    fy_FeeTarget_Bu2ProjDtl a
                 INNER JOIN ys_SpecialBusinessUnit b ON a.ProjGUID = b.ProjGUID
                 INNER JOIN #ys_SpecialBusinessUnit C ON b.SpecialUnitGUID = C.DeptGUID;
@@ -1254,9 +1254,9 @@ BEGIN
     PRINT '更新fy_FeeTarget_Bu2ProjDtl表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份fy_Proj_FeeTargetTotal表
-    IF OBJECT_ID(N'fy_Proj_FeeTargetTotal_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_Proj_FeeTargetTotal_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    fy_Proj_FeeTargetTotal_20250121_cost
+        INTO    fy_Proj_FeeTargetTotal_20250406_cost
         FROM    fy_Proj_FeeTargetTotal a
                 INNER JOIN ys_SpecialBusinessUnit b ON a.ProjGUID = b.ProjGUID
                 INNER JOIN #ys_SpecialBusinessUnit C ON b.SpecialUnitGUID = C.DeptGUID;
@@ -1271,9 +1271,9 @@ BEGIN
     PRINT '更新fy_Proj_FeeTargetTotal表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份fy_SplitYearDeptMapping表
-    IF OBJECT_ID(N'fy_SplitYearDeptMapping_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_SplitYearDeptMapping_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    fy_SplitYearDeptMapping_20250121_cost
+        INTO    fy_SplitYearDeptMapping_20250406_cost
         FROM    fy_SplitYearDeptMapping a
                 INNER JOIN #ys_SpecialBusinessUnit b ON a.CurrentDeptGUID = b.DeptGUID;
 
@@ -1286,9 +1286,9 @@ BEGIN
     PRINT '更新fy_SplitYearDeptMapping表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份fy_YearCarryOver表
-    IF OBJECT_ID(N'fy_YearCarryOver_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_YearCarryOver_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    fy_YearCarryOver_20250121_cost
+        INTO    fy_YearCarryOver_20250406_cost
         FROM    fy_YearCarryOver a
                 INNER JOIN fy_YearCarryOverFtDetail c ON a.YearCarryOverGUID = c.YearCarryOverGUID
                 INNER JOIN #ys_SpecialBusinessUnit b ON c.DeptGUID = b.DeptGUID;
@@ -1303,9 +1303,9 @@ BEGIN
     PRINT '更新fy_YearCarryOver表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     --备份fy_SplitYearCostMapping表
-    IF OBJECT_ID(N'fy_SplitYearCostMapping_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_SplitYearCostMapping_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    fy_SplitYearCostMapping_20250121_cost
+        INTO    fy_SplitYearCostMapping_20250406_cost
         FROM    fy_SplitYearCostMapping a;
 
     INSERT INTO fy_SplitYearCostMapping
@@ -1323,9 +1323,9 @@ BEGIN
 
     --补充 20220225， 增加预呈批部门数据刷新
     --备份fy_Apply 表
-    IF OBJECT_ID(N'fy_Apply_20250121_dept', N'U') IS NULL
+    IF OBJECT_ID(N'fy_Apply_20250406_dept', N'U') IS NULL
         SELECT  b.*
-        INTO    fy_Apply_20250121_dept
+        INTO    fy_Apply_20250406_dept
         FROM    [dbo].[fy_Apply_FtDetail] a
                 INNER JOIN fy_Apply b ON a.ApplyGUID = b.ApplyGUID
                 INNER JOIN #ys_SpecialBusinessUnit c ON a.DeptGUID = c.DeptGUID;
@@ -1347,9 +1347,9 @@ BEGIN
 
     --/////////////////////////  2025年组织架构调整 新增表 开始 ////////////////////////////////--------------
     --备份批量事项申请单表
-    IF OBJECT_ID(N'fy_ItemApplyBatch_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'fy_ItemApplyBatch_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    fy_ItemApplyBatch_20250121_cost
+        INTO    fy_ItemApplyBatch_20250406_cost
         FROM    dbo.fy_ItemApplyBatch a
                 INNER JOIN #ys_SpecialBusinessUnit bu ON bu.DeptGUID = a.DeptGUID
         WHERE   a.buguid <> bu.buguid
@@ -1364,9 +1364,9 @@ BEGIN
     PRINT '刷新批量事项申请单表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
     -- 备份ys_YearPlanLxSet
-    IF OBJECT_ID(N'ys_YearPlanLxSet_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_YearPlanLxSet_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_YearPlanLxSet_20250121_cost
+        INTO    ys_YearPlanLxSet_20250406_cost
         FROM    ys_YearPlanLxSet a
                 INNER JOIN #dqy_proj b ON b.oldprojguid = a.ProjGUID
         WHERE   a.BUGUID <> b.newbuguid;
@@ -1385,9 +1385,9 @@ BEGIN
     -- ys_YearBudgetDept_Detail_History 部门年度预算历史明细表
 
     --备份部门年度预算历史明细表
-    IF OBJECT_ID(N'ys_YearBudgetDept_Detail_History_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_YearBudgetDept_Detail_History_20250406_cost', N'U') IS NULL
         SELECT  fdf.*
-        INTO    ys_YearBudgetDept_Detail_History_20250121_cost
+        INTO    ys_YearBudgetDept_Detail_History_20250406_cost
         FROM    dbo.ys_YearBudgetDept_Detail_History fdf
                 INNER JOIN ys_YearBudgetDept_History fd on fdf.HistoryGUID =fd.HistoryGUID and fdf.Year =fd.Year
                 inner join #ys_SpecialBusinessUnit sbu ON fd.BudgetDeptGUID = sbu.DeptGUID
@@ -1409,9 +1409,9 @@ BEGIN
 
     -- ys_YearBudgetDept_History 部门年度预算历史表
     --备份部门年度预算历史表
-    IF OBJECT_ID(N'ys_YearBudgetDept_History_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_YearBudgetDept_History_20250406_cost', N'U') IS NULL
         SELECT  a.*
-        INTO    ys_YearBudgetDept_History_20250121_cost
+        INTO    ys_YearBudgetDept_History_20250406_cost
         FROM    dbo.ys_YearBudgetDept_History a
                 INNER JOIN #ys_SpecialBusinessUnit bu ON bu.DeptGUID = a.BudgetDeptGUID
         WHERE   a.buguid <> bu.buguid
@@ -1429,9 +1429,9 @@ BEGIN
 
     -- ys_YearPlanDept2Cost_Working 部门年度预算编制表
      --备份部门年度预算编制表
-    IF OBJECT_ID(N'ys_YearPlanDept2Cost_Working_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_YearPlanDept2Cost_Working_20250406_cost', N'U') IS NULL
         SELECT  fdf.*
-        INTO    ys_YearPlanDept2Cost_Working_20250121_cost
+        INTO    ys_YearPlanDept2Cost_Working_20250406_cost
         FROM    dbo.ys_YearPlanDept2Cost_Working fdf
                 inner join #ys_SpecialBusinessUnit sbu ON fdf.DeptGUID = sbu.DeptGUID
                 INNER JOIN #ys_DeptCostLy dcl ON fdf.CostGUID = dcl.CostGUID AND   dcl.Year = fdf.Year
@@ -1452,9 +1452,9 @@ BEGIN
 
     -- ys_YearPlanProceeding2Cost_Working 部门年度预算编制表
     --备份部门年度预算编制表
-    IF OBJECT_ID(N'ys_YearPlanProceeding2Cost_Working_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_YearPlanProceeding2Cost_Working_20250406_cost', N'U') IS NULL
         SELECT  fdf.*
-        INTO    ys_YearPlanProceeding2Cost_Working_20250121_cost
+        INTO    ys_YearPlanProceeding2Cost_Working_20250406_cost
         FROM    dbo.ys_YearPlanProceeding2Cost_Working fdf
                 inner join #ys_SpecialBusinessUnit sbu ON fdf.DeptGUID = sbu.DeptGUID
                 INNER JOIN #ys_DeptCostLy dcl ON fdf.CostGUID = dcl.CostGUID AND   dcl.Year = fdf.Year
@@ -1475,9 +1475,9 @@ BEGIN
 
     -- ys_YearPlanDept2CostExt 费用科目扩展表
     --备份费用科目扩展表
-    IF OBJECT_ID(N'ys_YearPlanDept2CostExt_20250121_cost', N'U') IS NULL
+    IF OBJECT_ID(N'ys_YearPlanDept2CostExt_20250406_cost', N'U') IS NULL
         SELECT  fdf.*
-        INTO    ys_YearPlanDept2CostExt_20250121_cost
+        INTO    ys_YearPlanDept2CostExt_20250406_cost
         FROM    dbo.ys_YearPlanDept2CostExt fdf
                 inner join #ys_SpecialBusinessUnit sbu ON fdf.DeptGUID = sbu.DeptGUID
                 INNER JOIN #ys_DeptCostLy dcl ON fdf.CostGUID = dcl.CostGUID AND   dcl.Year = fdf.Year
