@@ -239,15 +239,17 @@ GO
 	    ,isnull(d.[全年累计签约金额（全口径、单位万元）],a.[全年累计签约金额（全口径、单位万元）]) as [全年累计签约金额（全口径、单位万元）]
 	INTO #TempData
 	from  待返还资金 a
-	left join erp25.dbo.p_DevelopmentCompany b on  case when a.公司 = '东北公司' then '辽宁公司' else a.公司 end = b.DevelopmentCompanyName
-	left join nmap_N_CompanyToTerraceBusiness c2b on b.DevelopmentCompanyGUID = c2b.DevelopmentCompanyGUID
-	left join nmap_N_Company c on c2b.CompanyGUID = c.CompanyGUID
+	inner join erp25.dbo.p_DevelopmentCompany b on  case when a.公司 = '东北公司' then '辽宁公司' else a.公司 end = b.DevelopmentCompanyName
+	inner join nmap_N_CompanyToTerraceBusiness c2b on b.DevelopmentCompanyGUID = c2b.DevelopmentCompanyGUID
+	inner join nmap_N_Company c on c2b.CompanyGUID = c.CompanyGUID
 	-- 查询上一版的数据进行继承
 	left join (
            select  distinct * from  nmap_F_平台公司待返还资金  
 		   where  FILLHISTORYGUID = @FILLHISTORYGUIDLAST and isnull(项目名称,'') <> ''
-	) d on a.[项目名称] = d.[项目名称]
-
+	) d on a.[项目名称] = d.[项目名称] 
+	       and  a.项目代码 =  d.项目代码 
+           and  a.挂图问题类型 =d.[挂图问题类型]
+           and  a.[合同或立项约定的返还节点、金额] =d.[合同或立项约定的返还节点、金额]
 
 
 -- --删除旧数据  

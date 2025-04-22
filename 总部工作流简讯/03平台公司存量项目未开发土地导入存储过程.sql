@@ -116,7 +116,7 @@ GO
     PRINT @ISCURRFILLHISTORY; 
 
     -- 声明变量
-    DECLARE @STRSQL VARCHAR(MAX); 
+  DECLARE @STRSQL VARCHAR(MAX); 
 	DECLARE @COUNTNUM INT;
 
 	-- 若为历史版本，则不刷新
@@ -165,7 +165,7 @@ GO
 
 	-- 刷新组织架构
 	SELECT  
-	  newid() as  [平台公司存量项目未开发土地GUID]
+	     newid() as  [平台公司存量项目未开发土地GUID]
       ,@FILLHISTORYGUID as [FillHistoryGUID]
       ,c.CompanyGUID  as [BusinessGUID]
       ,c.CompanyName as [公司简称]
@@ -224,14 +224,14 @@ GO
       ,isnull(d.[全年累计签约金额（全口径、单位万元）],a.[全年累计签约金额（全口径、单位万元）]) as [全年累计签约金额（全口径、单位万元）]    
 	INTO #TempData
 	from  存量项目未开发土地 a
-	left join erp25.dbo.p_DevelopmentCompany b on  case when a.公司 = '东北公司' then '辽宁公司' else a.公司 end = b.DevelopmentCompanyName
-	left join nmap_N_CompanyToTerraceBusiness c2b on b.DevelopmentCompanyGUID = c2b.DevelopmentCompanyGUID
-	left join nmap_N_Company c on c2b.CompanyGUID = c.CompanyGUID
+	inner join erp25.dbo.p_DevelopmentCompany b on  case when a.公司 = '东北公司' then '辽宁公司' else a.公司 end = b.DevelopmentCompanyName
+	inner join nmap_N_CompanyToTerraceBusiness c2b on b.DevelopmentCompanyGUID = c2b.DevelopmentCompanyGUID
+	inner join nmap_N_Company c on c2b.CompanyGUID = c.CompanyGUID
 	-- 查询上一版的数据进行继承
 	left join (
-           select  distinct * from  nmap_F_平台公司存量项目未开发土地
+       select  distinct * from  nmap_F_平台公司存量项目未开发土地
 		   where  FILLHISTORYGUID = @FILLHISTORYGUIDLAST and isnull(项目名称,'') <> ''
-	) d on a.[项目名称] = d.[项目名称]
+	) d on a.[项目名称] = d.[项目名称] and  a.项目代码 =  d.项目代码
 
 
 -- --删除旧数据  
@@ -244,3 +244,6 @@ GO
 
 	 -- 删除临时表
 	 DROP TABLE #TempData;
+
+
+

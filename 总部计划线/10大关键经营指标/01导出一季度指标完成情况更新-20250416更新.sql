@@ -1,0 +1,1142 @@
+DECLARE @zbdate DATETIME;
+DECLARE @zedate DATETIME;
+DECLARE @newzbdate DATETIME;
+DECLARE @newzedate DATETIME;
+--周日到周六，周日早上导出
+SET @zbdate = '2025-04-13';
+SET @zedate = '2025-04-19';
+SET @newzbdate = '2025-04-13';
+SET @newzedate = '2025-04-19';
+
+---SUM(FactAmount1+ FactAmount2 ) / 100000000 AS '本年已发生费用' 这个地方到3月份要加FactAmount3
+
+-----————————————————获取成交数据
+SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+       0 num,
+       '总签约' 口径,
+       SUM(ISNULL(b.本年签约金额, 0) - ISNULL(c.本年签约金额, 0)) / 10000 本周签约金额,
+       SUM(ISNULL(d.本年签约金额, 0) - ISNULL(e.本年签约金额, 0)) / 10000 新本周签约金额,
+       SUM(ISNULL(d.本月签约金额, 0)) / 10000 本月签约金额,
+       SUM(ISNULL(f.本年签约金额, 0)) / 10000 一季度签约金额,
+       SUM(ISNULL(d.本月签约金额, 0)) / 10000 二季度签约金额,
+       SUM(ISNULL(b.本年签约金额, 0)) / 10000 本年签约金额
+INTO #sumqy
+FROM
+(
+    SELECT projguid,
+           产品类型,
+           首推日期
+    FROM S_08ZYXSQYJB_HHZTSYJ_daily
+    WHERE DATEDIFF(dd, qxdate, @zbdate) = 0
+    UNION
+    SELECT projguid,
+           产品类型,
+           首推日期
+    FROM S_08ZYXSQYJB_HHZTSYJ_daily
+    WHERE DATEDIFF(dd, qxdate, @zedate) = 1
+) a
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily b ON a.projguid = b.projguid
+                                          AND a.产品类型 = b.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(b.首推日期, '')
+                                          AND DATEDIFF(dd, b.qxdate, @zedate) = 0
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily c ON a.projguid = c.projguid
+                                          AND a.产品类型 = c.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(c.首推日期, '')
+                                          AND DATEDIFF(dd, c.qxdate, @zbdate) = 1
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily d ON a.projguid = d.projguid
+                                          AND a.产品类型 = d.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(d.首推日期, '')
+                                          AND DATEDIFF(dd, d.qxdate, @newzedate) = 0
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily e ON a.projguid = e.projguid
+                                          AND a.产品类型 = e.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(e.首推日期, '')
+                                          AND DATEDIFF(dd, e.qxdate, @newzbdate) = 1
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily f ON a.projguid = f.projguid
+                                          AND a.产品类型 = f.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(f.首推日期, '')
+                                          AND DATEDIFF(dd, f.qxdate, '2025-03-31') = 0;
+
+
+
+-----————————————————获取成交数据
+SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+       CASE
+           WHEN a.产品类型 IN ( '住宅', '高级住宅' ) THEN
+                CASE
+                    WHEN a.projguid = '7125EDA8-FCC1-E711-80BA-E61F13C57837' THEN
+                         '2'
+                    WHEN a.projguid IN ( '7125EDA8-FCC1-E711-80BA-E61F13C57831',
+                                         '7125EDA8-FCC1-E711-80BA-E61F13C57831', '7125EDA8-FCC1-E711-80BA-E61F13C57831'
+                                       ) THEN
+                         '3'
+                    WHEN a.projguid = '00730596-95A9-EB11-B398-F40270D39969' THEN
+                         '4'
+                    ELSE '1'
+                END
+           WHEN a.产品类型 = '商业' THEN
+                '5'
+           WHEN a.产品类型 = '公寓' THEN
+                '6'
+           WHEN a.产品类型 = '写字楼' THEN
+                '7'
+           WHEN a.产品类型 = '地下室/车库' THEN
+                '8'
+           ELSE '9'
+       END num,
+       CASE
+           WHEN a.产品类型 IN ( '住宅', '高级住宅' ) THEN
+                CASE
+                    WHEN a.projguid = '7125EDA8-FCC1-E711-80BA-E61F13C57837' THEN
+                         '世博③'
+                    WHEN a.projguid IN ( '7125EDA8-FCC1-E711-80BA-E61F13C57831',
+                                         '7125EDA8-FCC1-E711-80BA-E61F13C57831', '7125EDA8-FCC1-E711-80BA-E61F13C57831'
+                                       ) THEN
+                         '广州三项目④'
+                    WHEN a.projguid = '00730596-95A9-EB11-B398-F40270D39969' THEN
+                         '冼村⑤'
+                    ELSE '年初预算住宅②'
+                END
+           WHEN a.产品类型 = '商业' THEN
+                '商业⑥a'
+           WHEN a.产品类型 = '公寓' THEN
+                '公寓⑥b'
+           WHEN a.产品类型 = '写字楼' THEN
+                '写字楼⑥c'
+           WHEN a.产品类型 = '地下室/车库' THEN
+                '车位⑥d'
+           ELSE '其他⑥e'
+       END 口径,
+       SUM(ISNULL(b.本年签约金额, 0) - ISNULL(c.本年签约金额, 0)) / 10000 本周签约金额,  ---临时修改本年签约金额
+       SUM(ISNULL(d.本年签约金额, 0) - ISNULL(e.本年签约金额, 0)) / 10000 新本周签约金额, ---临时修改本年签约金额
+       SUM(ISNULL(d.本月签约金额, 0)) / 10000 本月签约金额,
+       SUM(ISNULL(f.本年签约金额, 0)) / 10000 一季度签约金额,
+       SUM(ISNULL(d.本月签约金额, 0)) / 10000 二季度签约金额,
+       SUM(ISNULL(b.本年签约金额, 0)) / 10000 本年签约金额
+INTO #sumqyfenlei
+FROM
+(
+    SELECT projguid,
+           产品类型,
+           首推日期
+    FROM S_08ZYXSQYJB_HHZTSYJ_daily
+    WHERE DATEDIFF(dd, qxdate, @zbdate) = 0
+    UNION
+    SELECT projguid,
+           产品类型,
+           首推日期
+    FROM S_08ZYXSQYJB_HHZTSYJ_daily
+    WHERE DATEDIFF(dd, qxdate, @zedate) = 1
+) a
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily b ON a.projguid = b.projguid
+                                          AND a.产品类型 = b.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(b.首推日期, '')
+                                          AND DATEDIFF(dd, b.qxdate, @zedate) = 0
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily c ON a.projguid = c.projguid
+                                          AND a.产品类型 = c.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(c.首推日期, '')
+                                          AND DATEDIFF(dd, c.qxdate, @zbdate) = 1
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily d ON a.projguid = d.projguid
+                                          AND a.产品类型 = d.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(d.首推日期, '')
+                                          AND DATEDIFF(dd, d.qxdate, @newzedate) = 0
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily e ON a.projguid = e.projguid
+                                          AND a.产品类型 = e.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(e.首推日期, '')
+                                          AND DATEDIFF(dd, e.qxdate, @newzbdate) = 1
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily f ON a.projguid = f.projguid
+                                          AND a.产品类型 = f.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(f.首推日期, '')
+                                          AND DATEDIFF(dd, f.qxdate, '2025-03-31') = 0
+GROUP BY CASE
+             WHEN a.产品类型 IN ( '住宅', '高级住宅' ) THEN
+                  CASE
+                      WHEN a.projguid = '7125EDA8-FCC1-E711-80BA-E61F13C57837' THEN
+                           '2'
+                      WHEN a.projguid IN ( '7125EDA8-FCC1-E711-80BA-E61F13C57831',
+                                           '7125EDA8-FCC1-E711-80BA-E61F13C57831',
+                                           '7125EDA8-FCC1-E711-80BA-E61F13C57831'
+                                         ) THEN
+                           '3'
+                      WHEN a.projguid = '00730596-95A9-EB11-B398-F40270D39969' THEN
+                           '4'
+                      ELSE '1'
+                  END
+             WHEN a.产品类型 = '商业' THEN
+                  '5'
+             WHEN a.产品类型 = '公寓' THEN
+                  '6'
+             WHEN a.产品类型 = '写字楼' THEN
+                  '7'
+             WHEN a.产品类型 = '地下室/车库' THEN
+                  '8'
+             ELSE '9'
+         END,
+         CASE
+             WHEN a.产品类型 IN ( '住宅', '高级住宅' ) THEN
+                  CASE
+                      WHEN a.projguid = '7125EDA8-FCC1-E711-80BA-E61F13C57837' THEN
+                           '世博③'
+                      WHEN a.projguid IN ( '7125EDA8-FCC1-E711-80BA-E61F13C57831',
+                                           '7125EDA8-FCC1-E711-80BA-E61F13C57831',
+                                           '7125EDA8-FCC1-E711-80BA-E61F13C57831'
+                                         ) THEN
+                           '广州三项目④'
+                      WHEN a.projguid = '00730596-95A9-EB11-B398-F40270D39969' THEN
+                           '冼村⑤'
+                      ELSE '年初预算住宅②'
+                  END
+             WHEN a.产品类型 = '商业' THEN
+                  '商业⑥a'
+             WHEN a.产品类型 = '公寓' THEN
+                  '公寓⑥b'
+             WHEN a.产品类型 = '写字楼' THEN
+                  '写字楼⑥c'
+             WHEN a.产品类型 = '地下室/车库' THEN
+                  '车位⑥d'
+             ELSE '其他⑥e'
+         END;
+
+
+
+-----————————————————获取成交数据
+SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+       10 num,
+       '现有可售资源合计' 口径,
+       SUM(ISNULL(b.本年签约金额, 0) - ISNULL(c.本年签约金额, 0)) / 10000 本周签约金额,  ---临时修改本年签约金额
+       SUM(ISNULL(d.本年签约金额, 0) - ISNULL(e.本年签约金额, 0)) / 10000 新本周签约金额, ---临时修改本年签约金额
+       SUM(ISNULL(d.本月签约金额, 0)) / 10000 本月签约金额,
+       SUM(ISNULL(f.本年签约金额, 0)) / 10000 一季度签约金额,  
+       SUM(ISNULL(d.本月签约金额, 0)) / 10000 二季度签约金额,                       ---临时修改本年签约金额
+       SUM(ISNULL(b.本年签约金额, 0)) / 10000 本年签约金额
+INTO #sumqytotal
+FROM
+(
+    SELECT projguid,
+           产品类型,
+           首推日期
+    FROM S_08ZYXSQYJB_HHZTSYJ_daily
+    WHERE DATEDIFF(dd, qxdate, @zbdate) = 0
+    UNION
+    SELECT projguid,
+           产品类型,
+           首推日期
+    FROM S_08ZYXSQYJB_HHZTSYJ_daily
+    WHERE DATEDIFF(dd, qxdate, @zedate) = 1
+) a
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily b ON a.projguid = b.projguid
+                                          AND a.产品类型 = b.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(b.首推日期, '')
+                                          AND DATEDIFF(dd, b.qxdate, @zedate) = 0
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily c ON a.projguid = c.projguid
+                                          AND a.产品类型 = c.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(c.首推日期, '')
+                                          AND DATEDIFF(dd, c.qxdate, @zbdate) = 1
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily d ON a.projguid = d.projguid
+                                          AND a.产品类型 = d.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(d.首推日期, '')
+                                          AND DATEDIFF(dd, d.qxdate, @newzedate) = 0
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily e ON a.projguid = e.projguid
+                                          AND a.产品类型 = e.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(e.首推日期, '')
+                                          AND DATEDIFF(dd, e.qxdate, @newzbdate) = 1
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily f ON a.projguid = f.projguid
+                                          AND a.产品类型 = f.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(f.首推日期, '')
+                                          AND DATEDIFF(dd, f.qxdate, '2025-03-31') = 0;
+
+-----———————————————— 
+SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+       11 num,
+       '当年获取当年签约⑧' 口径,
+       SUM(ISNULL(b.本年签约金额, 0) - ISNULL(c.本年签约金额, 0)) / 10000 本周签约金额,  ---临时修改本年签约金额
+       SUM(ISNULL(d.本年签约金额, 0) - ISNULL(e.本年签约金额, 0)) / 10000 新本周签约金额, ---临时修改本年签约金额
+       SUM(ISNULL(d.本月签约金额, 0)) / 10000 本月签约金额,
+       SUM(ISNULL(f.本月签约金额, 0)) / 10000 一季度签约金额,
+       SUM(ISNULL(d.本月签约金额, 0)) / 10000 二季度签约金额,
+       SUM(ISNULL(b.本年签约金额, 0)) / 10000 本年签约金额
+INTO #sumqydnhuoqu
+FROM
+(
+    SELECT projguid,
+           产品类型,
+           首推日期
+    FROM S_08ZYXSQYJB_HHZTSYJ_daily
+    WHERE DATEDIFF(dd, qxdate, @zbdate) = 0
+    UNION
+    SELECT projguid,
+           产品类型,
+           首推日期
+    FROM S_08ZYXSQYJB_HHZTSYJ_daily
+    WHERE DATEDIFF(dd, qxdate, @zedate) = 1
+) a
+LEFT JOIN mdm_project mp ON a.projguid = mp.projguid
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily b ON a.projguid = b.projguid
+                                          AND a.产品类型 = b.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(b.首推日期, '')
+                                          AND DATEDIFF(dd, b.qxdate, @zedate) = 0
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily c ON a.projguid = c.projguid
+                                          AND a.产品类型 = c.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(c.首推日期, '')
+                                          AND DATEDIFF(dd, c.qxdate, @zbdate) = 1
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily d ON a.projguid = d.projguid
+                                          AND a.产品类型 = d.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(d.首推日期, '')
+                                          AND DATEDIFF(dd, d.qxdate, @newzedate) = 0
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily e ON a.projguid = e.projguid
+                                          AND a.产品类型 = e.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(e.首推日期, '')
+                                          AND DATEDIFF(dd, e.qxdate, @newzbdate) = 1
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily f ON a.projguid = f.projguid
+                                          AND a.产品类型 = f.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(f.首推日期, '')
+                                          AND DATEDIFF(dd, f.qxdate, '2025-03-31') = 0
+WHERE YEAR(mp.AcquisitionDate) = 2025;
+
+
+-----———————————————— 
+SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+       12 num,
+       'BC赛道盘活转化⑨' 口径,
+       SUM(0) / 10000 本周签约金额,
+       SUM(0) / 10000 新本周签约金额,
+       SUM(0) / 10000 本月签约金额,
+       SUM(0) / 10000 一季度签约金额,
+       SUM(0) / 10000 二季度签约金额,
+       SUM(0) / 10000 本年签约金额
+INTO #sumqybczhuanhua
+FROM
+(
+    SELECT projguid,
+           产品类型,
+           首推日期
+    FROM S_08ZYXSQYJB_HHZTSYJ_daily
+    WHERE DATEDIFF(dd, qxdate, @zbdate) = 0
+    UNION
+    SELECT projguid,
+           产品类型,
+           首推日期
+    FROM S_08ZYXSQYJB_HHZTSYJ_daily
+    WHERE DATEDIFF(dd, qxdate, @zedate) = 1
+) a
+LEFT JOIN mdm_project mp ON a.projguid = mp.projguid
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily b ON a.projguid = b.projguid
+                                          AND a.产品类型 = b.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(b.首推日期, '')
+                                          AND DATEDIFF(dd, b.qxdate, @zedate) = 0
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily c ON a.projguid = c.projguid
+                                          AND a.产品类型 = c.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(c.首推日期, '')
+                                          AND DATEDIFF(dd, c.qxdate, @zbdate) = 1
+LEFT JOIN S_08ZYXSQYJB_HHZTSYJ_daily d ON a.projguid = d.projguid
+                                          AND a.产品类型 = d.产品类型
+                                          AND ISNULL(a.首推日期, '') = ISNULL(d.首推日期, '')
+                                          AND DATEDIFF(dd, d.qxdate, @newzedate) = 0
+WHERE YEAR(mp.AcquisitionDate) = 2025;
+
+
+
+--本日销售毛利率
+SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+       13 num,
+       '全年签约净利率' 口径,
+       CASE
+           WHEN ISNULL(a.本年签约金额不含税, 0) - ISNULL(b.本年签约金额不含税, 0) > 0 THEN
+       (ISNULL(a.本年净利润签约, 0) - ISNULL(b.本年净利润签约, 0)) / (ISNULL(a.本年签约金额不含税, 0) - ISNULL(b.本年签约金额不含税, 0))
+           ELSE 0
+       END 本周签约金额,
+       CASE
+           WHEN ISNULL(c.本年签约金额不含税, 0) - ISNULL(d.本年签约金额不含税, 0) > 0 THEN
+       (ISNULL(c.本年净利润签约, 0) - ISNULL(d.本年净利润签约, 0)) / (ISNULL(c.本年签约金额不含税, 0) - ISNULL(d.本年签约金额不含税, 0))
+           ELSE 0
+       END 新本周签约金额,
+       CASE
+           WHEN ISNULL(c.本月签约金额不含税, 0) > 0 THEN
+                ISNULL(c.本月净利润签约, 0) / ISNULL(c.本月签约金额不含税, 0)
+           ELSE 0
+       END 本月签约金额,
+       CASE
+           WHEN ISNULL(e.本年签约金额不含税, 0) > 0 THEN
+                ISNULL(e.本年净利润签约, 0) / ISNULL(e.本年签约金额不含税, 0)
+           ELSE 0
+       END 一季度签约金额,
+       CASE
+           WHEN ISNULL(c.本月签约金额不含税, 0) > 0 THEN
+                ISNULL(c.本月净利润签约, 0) / ISNULL(c.本月签约金额不含税, 0)
+           ELSE 0
+       END 二季度签约金额,
+       CASE
+           WHEN ISNULL(a.本年签约金额不含税, 0) > 0 THEN
+                ISNULL(a.本年净利润签约, 0) / ISNULL(a.本年签约金额不含税, 0)
+           ELSE 0
+       END 本年销净率
+INTO #sumxjl
+FROM
+(
+    SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+           SUM(本月签约金额不含税) 本月签约金额不含税,
+           SUM(本月净利润签约) 本月净利润签约,
+           SUM(本年签约金额不含税) 本年签约金额不含税,
+           SUM(本年净利润签约) 本年净利润签约
+    FROM s_M002项目级毛利净利汇总表New
+    WHERE DATEDIFF(DAY, qxdate, @zedate) = 0
+) a
+LEFT JOIN
+(
+    SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+           SUM(本月签约金额不含税) 本月签约金额不含税,
+           SUM(本月净利润签约) 本月净利润签约,
+           SUM(本年签约金额不含税) 本年签约金额不含税,
+           SUM(本年净利润签约) 本年净利润签约
+    FROM s_M002项目级毛利净利汇总表New
+    WHERE DATEDIFF(DAY, qxdate, @zbdate) = 1
+) b ON a.buguid = b.buguid
+LEFT JOIN
+(
+    SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+           SUM(本月签约金额不含税) 本月签约金额不含税,
+           SUM(本月净利润签约) 本月净利润签约,
+           SUM(本年签约金额不含税) 本年签约金额不含税,
+           SUM(本年净利润签约) 本年净利润签约
+    FROM s_M002项目级毛利净利汇总表New
+    WHERE DATEDIFF(DAY, qxdate, @newzedate) = 0
+) c ON a.buguid = c.buguid
+LEFT JOIN
+(
+    SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+           SUM(本月签约金额不含税) 本月签约金额不含税,
+           SUM(本月净利润签约) 本月净利润签约,
+           SUM(本年签约金额不含税) 本年签约金额不含税,
+           SUM(本年净利润签约) 本年净利润签约
+    FROM s_M002项目级毛利净利汇总表New
+    WHERE DATEDIFF(DAY, qxdate, @newzbdate) = 1
+) d ON a.buguid = d.buguid
+LEFT JOIN 
+(
+    SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+           SUM(本月签约金额不含税) 本月签约金额不含税,
+           SUM(本月净利润签约) 本月净利润签约,
+           SUM(本年签约金额不含税) 本年签约金额不含税,
+           SUM(本年净利润签约) 本年净利润签约
+    FROM s_M002项目级毛利净利汇总表New
+    WHERE DATEDIFF(DAY, qxdate, '2025-03-31') = 0
+) e ON a.buguid = e.buguid;
+
+
+--————————————————————————————营销费用————————————————————————————————
+
+--年度预算&年度发生（费用签约）已筛公司、预算范围			
+SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+       SUM(FactAmount1 + FactAmount2 + FactAmount3 ) / 100000000 AS '一季度已发生费用',
+       SUM(FactAmount4) / 100000000 AS '二季度已发生费用',
+       SUM(FactAmount1 + FactAmount2 + FactAmount3 +FactAmount4) / 100000000 AS '本年已发生费用'
+--SUM(FactAmount1 + FactAmount2 + FactAmount3 + FactAmount4 + FactAmount5 + FactAmount6 + FactAmount7
+--    + FactAmount8 + FactAmount9 + FactAmount10 + FactAmount11 + FactAmount12
+--   ) / 100000000 AS '本年已发生费用'
+INTO #fy
+FROM MyCost_Erp352.dbo.ys_YearPlanDept2Cost a
+     INNER JOIN MyCost_Erp352.dbo.ys_DeptCost b ON b.DeptCostGUID = a.costguid
+                                                   AND a.YEAR = b.YEAR
+     INNER JOIN MyCost_Erp352.dbo.ys_SpecialBusinessUnit u ON a.DeptGUID = u.SpecialUnitGUID
+     INNER JOIN MyCost_Erp352.dbo.ys_fy_DimCost dim ON dim.costguid = a.costguid
+                                                       AND dim.year = a.year
+                                                       AND dim.IsEndCost = 1
+WHERE a.year = YEAR(GETDATE())
+      AND b.costtype = '营销类';
+
+
+SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+       14 num,
+       '营销费率' 口径,
+       0 本周费率,
+       0 新本周费率,
+       0 本月费率,
+       CASE
+           WHEN q.一季度签约金额 > 0 THEN
+                f.[一季度已发生费用] / q.一季度签约金额
+           ELSE 0
+       END 一季度费率,
+       CASE
+           WHEN q.二季度签约金额 > 0 THEN
+                f.[二季度已发生费用] / q.二季度签约金额
+           ELSE 0
+       END 二季度费率,
+       CASE
+           WHEN q.本年签约金额 > 0 THEN
+                f.[本年已发生费用] / q.本年签约金额
+           ELSE 0
+       END 本年费率
+INTO #sumfeiyong
+FROM mybusinessunit bu
+     LEFT JOIN #fy f ON bu.buguid = f.buguid
+     LEFT JOIN #sumqy q ON bu.buguid = q.buguid
+WHERE bu.buguid = '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23';
+
+
+
+--取本周新开工的项目
+SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+       15 num,
+       '期初在建面积' 口径,
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, 实际开工实际完成时间, @zbdate) > 0 THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 - SUM(   CASE
+                                 WHEN DATEDIFF(dd, 竣工备案实际完成时间, @zbdate) > 0 THEN
+                                      计划组团建筑面积
+                                 ELSE 0
+                             END
+                         ) / 10000 本周,
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, 实际开工实际完成时间, @newzbdate) > 0 THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 - SUM(   CASE
+                                 WHEN DATEDIFF(dd, 竣工备案实际完成时间, @newzbdate) > 0 THEN
+                                      计划组团建筑面积
+                                 ELSE 0
+                             END
+                         ) / 10000 新本周,
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, 实际开工实际完成时间, '2025-04-01') > 0 THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 - SUM(   CASE
+                                 WHEN DATEDIFF(dd, 竣工备案实际完成时间, '2025-04-01') > 0 THEN
+                                      计划组团建筑面积
+                                 ELSE 0
+                             END
+                         ) / 10000 本月,
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, 实际开工实际完成时间, '2025-01-01') > 0  THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 - SUM(   CASE
+                                 WHEN DATEDIFF(dd, 竣工备案实际完成时间, '2025-01-01') > 0 THEN
+                                      计划组团建筑面积
+                                 ELSE 0
+                             END
+                         ) / 10000 一季度,
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, 实际开工实际完成时间, '2025-04-01') > 0  THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 - SUM(   CASE
+                                 WHEN DATEDIFF(dd, 竣工备案实际完成时间, '2025-04-01') > 0 THEN
+                                      计划组团建筑面积
+                                 ELSE 0
+                             END
+                         ) / 10000 二季度,
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, 实际开工实际完成时间, '2025-01-01') > 0 THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 - SUM(   CASE
+                                 WHEN DATEDIFF(dd, 竣工备案实际完成时间, '2025-01-01') > 0 THEN
+                                      计划组团建筑面积
+                                 ELSE 0
+                             END
+                         ) / 10000 本年
+INTO #sumqichuzaijiankg
+FROM [MyCost_Erp352].[dbo].[jd_PlanTaskExecuteObjectForReport] a
+     LEFT JOIN mdm_project mp ON a.topprojguid = mp.projguid
+WHERE mp.ProjStatus IN ( '正常', '跟进待落实', '正常(拟退出)' )
+      AND mp.ManageModeName NOT IN ( '代建', '代管' );
+
+
+
+
+
+--取本周新开工的项目
+SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+       16 num,
+       '新开工面积' 口径,
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, @zbdate, 实际开工实际完成时间) >= 0
+                       AND DATEDIFF(dd, 实际开工实际完成时间, @zedate) >= 0 THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 本周开工金额,
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, @newzbdate, 实际开工实际完成时间) >= 0
+                       AND DATEDIFF(dd, 实际开工实际完成时间, @newzedate) >= 0 THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 新本周开工金额,
+       SUM(   CASE
+                  WHEN DATEDIFF(mm, 实际开工实际完成时间, @newzedate) = 0 THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 本月开工金额,
+       SUM(   CASE
+                  WHEN DATEDIFF(yy, 实际开工实际完成时间, @zedate) = 0 
+					   AND DATEDIFF(dd, 实际开工实际完成时间, '2025-04-01') > 0  THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 一季度开工金额, --0209修改
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, '2025-04-01', 实际开工实际完成时间) >= 0 
+					   AND DATEDIFF(dd, 实际开工实际完成时间, @zedate) >= 0  THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 二季度开工金额, --0209修改
+       SUM(   CASE
+                  WHEN DATEDIFF(yy, 实际开工实际完成时间, @zedate) = 0 
+					   AND DATEDIFF(dd, 实际开工实际完成时间, @zedate) >= 0  THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 本年开工金额   --0209修改
+INTO #sumxinkg
+FROM [MyCost_Erp352].[dbo].[jd_PlanTaskExecuteObjectForReport] a
+     LEFT JOIN mdm_project mp ON a.topprojguid = mp.projguid
+WHERE mp.ProjStatus IN ( '正常', '跟进待落实', '正常(拟退出)' )
+      AND mp.ManageModeName NOT IN ( '代建', '代管' );
+
+
+--增加新开工：21年及以前、22&23、24年及以后获
+
+
+
+--取本周新开工的项目
+SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+       CASE
+           WHEN YEAR(AcquisitionDate) >= 2024 THEN
+                '16'
+           WHEN YEAR(AcquisitionDate) IN ( '2022', '2023' ) THEN
+                '16'
+           ELSE '16'
+       END num,
+       CASE
+           WHEN YEAR(AcquisitionDate) >= 2024 THEN
+                '新开工面积24年及之后获取'
+           WHEN YEAR(AcquisitionDate) IN ( '2022', '2023' ) THEN
+                '新开工面积22年23年获取'
+           ELSE '新开工面积21年及之前获取'
+       END 口径,
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, @zbdate, 实际开工实际完成时间) >= 0
+                       AND DATEDIFF(dd, 实际开工实际完成时间, @zedate) >= 0 THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 本周开工金额,
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, @newzbdate, 实际开工实际完成时间) >= 0
+                       AND DATEDIFF(dd, 实际开工实际完成时间, @newzedate) >= 0 THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 新本周开工金额,
+       SUM(   CASE
+                  WHEN DATEDIFF(mm, 实际开工实际完成时间, @newzedate) = 0 THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 本月开工金额,
+       SUM(   CASE
+                  WHEN DATEDIFF(yy, 实际开工实际完成时间, @zedate) = 0
+					   AND DATEDIFF(dd, 实际开工实际完成时间, '2025-04-01') > 0 THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 一季度开工金额, --0209修改
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, '2025-04-01', 实际开工实际完成时间) >= 0
+					   AND DATEDIFF(dd, 实际开工实际完成时间, @zedate) >= 0 THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 二季度开工金额, --0209修改
+       SUM(   CASE
+                  WHEN DATEDIFF(yy, 实际开工实际完成时间, @zedate) = 0 
+					   AND DATEDIFF(dd, 实际开工实际完成时间, @zedate) >= 0 THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 本年开工金额   --0209修改
+INTO #sumxinkgchaifen
+FROM [MyCost_Erp352].[dbo].[jd_PlanTaskExecuteObjectForReport] a
+     LEFT JOIN mdm_project mp ON a.topprojguid = mp.projguid
+WHERE mp.ProjStatus IN ( '正常', '跟进待落实', '正常(拟退出)' )
+      AND mp.ManageModeName NOT IN ( '代建', '代管' )
+GROUP BY CASE
+             WHEN YEAR(AcquisitionDate) >= 2024 THEN
+                  '16'
+             WHEN YEAR(AcquisitionDate) IN ( '2022', '2023' ) THEN
+                  '16'
+             ELSE '16'
+         END,
+         CASE
+             WHEN YEAR(AcquisitionDate) >= 2024 THEN
+                  '新开工面积24年及之后获取'
+             WHEN YEAR(AcquisitionDate) IN ( '2022', '2023' ) THEN
+                  '新开工面积22年23年获取'
+             ELSE '新开工面积21年及之前获取'
+         END;
+
+
+--取本周新开工的项目
+SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+       17 num,
+       '地上新开工面积' 口径,
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, @zbdate, 实际开工实际完成时间) >= 0
+                       AND DATEDIFF(dd, 实际开工实际完成时间, @zedate) >= 0 THEN
+                       地上面积
+                  ELSE 0
+              END
+          ) / 10000 本周开工金额,
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, @newzbdate, 实际开工实际完成时间) >= 0
+                       AND DATEDIFF(dd, 实际开工实际完成时间, @newzedate) >= 0 THEN
+                       地上面积
+                  ELSE 0
+              END
+          ) / 10000 新本周开工金额,
+       SUM(   CASE
+                  WHEN DATEDIFF(mm, 实际开工实际完成时间, @newzedate) = 0 THEN
+                       地上面积
+                  ELSE 0
+              END
+          ) / 10000 本月开工金额,
+       SUM(   CASE
+                  WHEN DATEDIFF(yy, 实际开工实际完成时间, @zedate) = 0 
+					   AND DATEDIFF(dd, 实际开工实际完成时间, '2025-04-01') > 0 THEN
+                       地上面积
+                  ELSE 0
+              END
+          ) / 10000 一季度开工金额, --0209修改
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, '2025-04-01', 实际开工实际完成时间) >= 0 
+					   AND DATEDIFF(dd, 实际开工实际完成时间, @zedate) >= 0 THEN
+                       地上面积
+                  ELSE 0
+              END
+          ) / 10000 二季度开工金额, --0209修改
+       SUM(   CASE
+                  WHEN DATEDIFF(yy, 实际开工实际完成时间, @zedate) = 0 
+					   AND DATEDIFF(dd, 实际开工实际完成时间, @zedate) >= 0 THEN
+                       地上面积
+                  ELSE 0
+              END
+          ) / 10000 本年开工金额   --0209修改
+INTO #sumxinkgdishang
+FROM [MyCost_Erp352].[dbo].[jd_PlanTaskExecuteObjectForReport] a
+     LEFT JOIN mdm_project mp ON a.topprojguid = mp.projguid
+WHERE mp.ProjStatus IN ( '正常', '跟进待落实', '正常(拟退出)' )
+      AND mp.ManageModeName NOT IN ( '代建', '代管' );
+
+---新开工拆分
+
+--取本周新开工的项目
+SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+       CASE
+           WHEN YEAR(AcquisitionDate) >= 2024 THEN
+                '17'
+           WHEN YEAR(AcquisitionDate) IN ( '2022', '2023' ) THEN
+                '17'
+           ELSE '17'
+       END num,
+       CASE
+           WHEN YEAR(AcquisitionDate) >= 2024 THEN
+                '地上新开工面积24年及之后获取'
+           WHEN YEAR(AcquisitionDate) IN ( '2022', '2023' ) THEN
+                '地上新开工面积22年23年获取'
+           ELSE '地上新开工面积21年及之前获取'
+       END 口径,
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, @zbdate, 实际开工实际完成时间) >= 0
+                       AND DATEDIFF(dd, 实际开工实际完成时间, @zedate) >= 0 THEN
+                       地上面积
+                  ELSE 0
+              END
+          ) / 10000 本周开工金额,
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, @newzbdate, 实际开工实际完成时间) >= 0
+                       AND DATEDIFF(dd, 实际开工实际完成时间, @newzedate) >= 0 THEN
+                       地上面积
+                  ELSE 0
+              END
+          ) / 10000 新本周开工金额,
+       SUM(   CASE
+                  WHEN DATEDIFF(mm, 实际开工实际完成时间, @newzedate) = 0 THEN
+                       地上面积
+                  ELSE 0
+              END
+          ) / 10000 本月开工金额,
+       SUM(   CASE
+                  WHEN DATEDIFF(yy, 实际开工实际完成时间, @zedate) = 0 
+					   AND DATEDIFF(dd, 实际开工实际完成时间, '2025-04-01') > 0 THEN
+                       地上面积
+                  ELSE 0
+              END
+          ) / 10000 一季度开工金额, --0209修改
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, '2025-04-01', 实际开工实际完成时间) >= 0 
+					   AND DATEDIFF(dd, 实际开工实际完成时间, @zedate) >= 0 THEN
+                       地上面积
+                  ELSE 0
+              END
+          ) / 10000 二季度开工金额, --0209修改
+       SUM(   CASE
+                  WHEN DATEDIFF(yy, 实际开工实际完成时间, @zedate) = 0  
+					   AND DATEDIFF(dd, 实际开工实际完成时间, @zedate) >= 0 THEN
+                       地上面积
+                  ELSE 0
+              END
+          ) / 10000 本年开工金额   --0209修改
+INTO #sumxinkgdishangchaifen
+FROM [MyCost_Erp352].[dbo].[jd_PlanTaskExecuteObjectForReport] a
+     LEFT JOIN mdm_project mp ON a.topprojguid = mp.projguid
+WHERE mp.ProjStatus IN ( '正常', '跟进待落实', '正常(拟退出)' )
+      AND mp.ManageModeName NOT IN ( '代建', '代管' )
+GROUP BY CASE
+             WHEN YEAR(AcquisitionDate) >= 2024 THEN
+                  '17'
+             WHEN YEAR(AcquisitionDate) IN ( '2022', '2023' ) THEN
+                  '17'
+             ELSE '17'
+         END,
+         CASE
+             WHEN YEAR(AcquisitionDate) >= 2024 THEN
+                  '地上新开工面积24年及之后获取'
+             WHEN YEAR(AcquisitionDate) IN ( '2022', '2023' ) THEN
+                  '地上新开工面积22年23年获取'
+             ELSE '地上新开工面积21年及之前获取'
+         END;
+
+
+
+SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+       18 num,
+       '竣工面积' 口径,
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, @zbdate, 竣工备案实际完成时间) >= 0
+                       AND DATEDIFF(dd, 竣工备案实际完成时间, @zedate) >= 0 THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 本周竣工金额,
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, @newzbdate, 竣工备案实际完成时间) >= 0
+                       AND DATEDIFF(dd, 竣工备案实际完成时间, @newzedate) >= 0 THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 新本周竣工金额,
+       SUM(   CASE
+                  WHEN DATEDIFF(mm, 竣工备案实际完成时间, @newzedate) = 0 
+                       AND DATEDIFF(dd, 竣工备案实际完成时间, @newzedate) >= 0 THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 本月竣工金额,
+       SUM(   CASE
+                  WHEN DATEDIFF(yy, 竣工备案实际完成时间, @zedate) = 0 
+					   AND DATEDIFF(dd, 竣工备案实际完成时间, '2025-04-01') > 0THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 一季度竣工金额, --0209修改
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, '2025-04-01', 竣工备案实际完成时间) >= 0 
+					   AND DATEDIFF(dd, 竣工备案实际完成时间, @zedate) >= 0 THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 二季度竣工金额, --0209修改
+       SUM(   CASE
+                  WHEN DATEDIFF(yy, 竣工备案实际完成时间, @zedate) = 0 
+					   AND DATEDIFF(dd, 竣工备案实际完成时间, @zedate) >= 0 THEN
+                       计划组团建筑面积
+                  ELSE 0
+              END
+          ) / 10000 本年竣工金额   --0209修改
+INTO #sumxinjungongbeian
+FROM [MyCost_Erp352].[dbo].[jd_PlanTaskExecuteObjectForReport] a
+     LEFT JOIN mdm_project mp ON a.topprojguid = mp.projguid
+WHERE mp.ProjStatus IN ( '正常', '跟进待落实', '正常(拟退出)' )
+      AND mp.ManageModeName NOT IN ( '代建', '代管' );
+
+
+
+
+
+
+SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+       19 num,
+       '除地价外直投' 口径,
+       '' 本周总投资,
+       '' 新本周总投资,
+       [本月总投资（万元）] 本月总投资,
+       [本年总投资（万元）] 一季度总投资, ---0209临时修改语句
+       [本年总投资（万元）] 二季度总投资, ---0209临时修改语句
+       [本年总投资（万元）] 本年
+INTO #sumcdjwai
+FROM dss.dbo.[nmap_F_各项目投资、结转、回笼、贷款情况月报表] a
+     INNER JOIN
+     (
+         SELECT TOP 1
+                a.FillHistoryGUID
+         FROM dss.dbo.[nmap_F_各项目投资、结转、回笼、贷款情况月报表] a
+              INNER JOIN dss.dbo.nmap_F_FillHistory b ON a.FillHistoryGUID = b.FillHistoryGUID
+         WHERE b.ApproveStatus = '已审核'
+         ORDER BY b.BeginDate DESC
+     ) F ON F.FillHistoryGUID = a.FillHistoryGUID;
+
+
+
+
+----———————————————————————————交付数据———————————————————
+SELECT DISTINCT
+       tradeguid
+INTO #trade
+FROM s_contract a
+     INNER JOIN ep_room r ON a.RoomGUID = r.RoomGUID
+WHERE a.status = '激活'
+      AND YEAR(a.jfdate) = 2025
+      AND r.ProductType IN ( '住宅', '高级住宅' );
+--AND r.ProductType IN ( '住宅', '高级住宅', '公寓', '企业会所', '地下室/车库', '商业', '写字楼' );
+
+
+--取回款
+SELECT r.TradeGUID,
+       SUM(g.Amount) 截止入参回款
+INTO #getin
+FROM s_Getin g
+     INNER JOIN #trade r ON g.SaleGUID = r.TradeGUID
+WHERE g.ItemType IN ( '贷款类房款', '非贷款类房款' )
+      AND g.ItemName NOT IN ( '房款补差款' )
+      AND ISNULL(g.status, '') <> '作废'
+      AND g.GetDate <= GETDATE()
+GROUP BY r.TradeGUID;
+
+--取供款表的情况               --20240417 客户确认与系统及其他交付报表保持一致，不包含补差款 (但是因为齐鲁公司，又要考虑进来)
+SELECT v.TradeGUID,
+       SUM(   CASE
+                  WHEN ItemName LIKE '%补差%' THEN
+                       Amount
+                  ELSE 0
+              END
+          ) bck
+INTO #fee
+FROM s_Fee s
+     INNER JOIN #trade v ON s.TradeGUID = v.TradeGUID
+WHERE s.ItemType = '非贷款类房款'
+GROUP BY v.TradeGUID;
+
+--交易是否款清
+SELECT a.TradeGUID,
+       CASE
+           WHEN ISNULL(g.截止入参回款, 0) >= ISNULL(a.JyTotal, 0) -- + ISNULL(f.bck, 0))      --20240417 客户确认与系统及其他交付报表保持一致，不包含补差款      
+                AND ISNULL(g.截止入参回款, 0) > 0
+                AND ISNULL(f.bck, 0) >= 0 --齐鲁公司很多要退补差款的，如果补差款大于0，则需要收取，则不考虑这个钱，如果补差款小于0，则需要退钱，则要减少这部分钱
+       THEN
+                '是'
+           WHEN ISNULL(g.截止入参回款, 0) >= (ISNULL(a.JyTotal, 0) + ISNULL(f.bck, 0)) --20240417 客户确认与系统及其他交付报表保持一致，不包含补差款      
+                AND ISNULL(g.截止入参回款, 0) > 0
+                AND ISNULL(f.bck, 0) < 0 --齐鲁公司很多要退补差款的，如果补差款大于0，则需要收取，则不考虑这个钱，如果补差款小于0，则需要退钱，则要减少这部分钱
+       THEN
+                '是'
+           ELSE '否'
+       END 是否款清
+INTO #trade_kq
+FROM s_Contract a
+     INNER JOIN #trade t ON a.tradeguid = t.tradeguid
+     LEFT JOIN #getin g ON a.TradeGUID = g.TradeGUID
+     LEFT JOIN #fee f ON f.TradeGUID = a.TradeGUID
+WHERE a.status = '激活';
+
+
+SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+       20 num,
+       '交付套数' 口径,
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, @zbdate, c.jfdate) >= 0
+                       AND DATEDIFF(dd, c.jfdate, @zedate) >= 0 THEN
+                       1
+                  ELSE 0
+              END
+          ) 本周应交付套数,
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, @newzbdate, c.jfdate) >= 0
+                       AND DATEDIFF(dd, c.jfdate, @newzedate) >= 0 THEN
+                       1
+                  ELSE 0
+              END
+          ) 新本周应交付套数,
+       SUM(   CASE
+                  WHEN DATEDIFF(mm, c.jfdate, @newzedate) = 0 THEN
+                       1
+                  ELSE 0
+              END
+          ) 本月应交付套数,
+       SUM(   CASE
+                  WHEN DATEDIFF(yy, c.jfdate, @zedate) = 0
+					   AND DATEDIFF(dd, c.jfdate, '2025-04-01') > 0 THEN
+                       1
+                  ELSE 0
+              END
+          ) 一季度应交付套数,
+       SUM(   CASE
+                  WHEN DATEDIFF(qq, c.jfdate, @newzedate) = 0 THEN
+                       1
+                  ELSE 0
+              END
+          ) 二季度应交付套数,
+       SUM(   CASE
+                  WHEN DATEDIFF(yy, c.jfdate, @zedate) = 0 THEN
+                       1
+                  ELSE 0
+              END
+          ) 本年应交付套数
+INTO #sumjf
+FROM s_contract c
+     LEFT JOIN ep_room r ON c.roomguid = r.roomguid
+     INNER JOIN #trade_kq t ON c.TradeGUID = t.TradeGUID
+WHERE t.是否款清 = '是'
+      AND c.status = '激活';
+
+
+
+SELECT '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23' buguid,
+       21 num,
+       '操盘交付套数' 口径,
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, @zbdate, c.jfdate) >= 0
+                       AND DATEDIFF(dd, c.jfdate, @zedate) >= 0 THEN
+                       1
+                  ELSE 0
+              END
+          ) 本周应交付套数,
+       SUM(   CASE
+                  WHEN DATEDIFF(dd, @newzbdate, c.jfdate) >= 0
+                       AND DATEDIFF(dd, c.jfdate, @newzedate) >= 0 THEN
+                       1
+                  ELSE 0
+              END
+          ) 新本周应交付套数,
+       SUM(   CASE
+                  WHEN DATEDIFF(mm, c.jfdate, @newzedate) = 0 THEN
+                       1
+                  ELSE 0
+              END
+          ) 本月应交付套数,
+       SUM(   CASE
+                  WHEN DATEDIFF(yy, c.jfdate, @zedate) = 0
+					   AND DATEDIFF(dd, c.jfdate, '2025-04-01') > 0THEN
+                       1
+                  ELSE 0
+              END
+          ) 一季度应交付套数,
+       SUM(   CASE
+                  WHEN DATEDIFF(qq, '2025-04-01', c.jfdate) = 0THEN
+                       1
+                  ELSE 0
+              END
+          ) 二季度应交付套数,
+       SUM(   CASE
+                  WHEN DATEDIFF(yy, c.jfdate, @zedate) = 0 THEN
+                       1
+                  ELSE 0
+              END
+          ) 本年应交付套数
+INTO #sumjfcp
+FROM s_contract c
+     LEFT JOIN ep_room r ON c.roomguid = r.roomguid
+     INNER JOIN #trade_kq t ON c.TradeGUID = t.TradeGUID
+     LEFT JOIN p_project p ON c.projguid = p.projguid
+     LEFT JOIN p_project p1 ON p.parentcode = p1.projcode
+                               AND p1.applysys LIKE '%0101%'
+     LEFT JOIN mdm_project mp ON p1.projguid = mp.projguid
+WHERE t.是否款清 = '是'
+      AND c.status = '激活'
+      AND mp.Kgcpf LIKE '%保利%';
+
+
+SELECT *
+FROM
+(
+    SELECT *
+    FROM #sumqy
+    UNION
+    SELECT *
+    FROM #sumqyfenlei
+    UNION
+    SELECT *
+    FROM #sumqybczhuanhua
+    UNION
+    SELECT *
+    FROM #sumqydnhuoqu
+    UNION
+    SELECT *
+    FROM #sumqytotal
+    UNION
+    SELECT *
+    FROM #sumxjl
+    UNION
+    SELECT *
+    FROM #sumqichuzaijiankg
+    UNION
+    SELECT *
+    FROM #sumxinkgdishang
+    UNION
+    SELECT *
+    FROM #sumxinkgdishangchaifen
+    UNION
+    SELECT *
+    FROM #sumxinkg
+    UNION
+    SELECT *
+    FROM #sumxinkgchaifen
+    UNION
+    SELECT *
+    FROM #sumxinjungongbeian
+    UNION
+    SELECT *
+    FROM #sumjf
+    UNION
+    SELECT *
+    FROM #sumfeiyong
+    UNION
+    SELECT *
+    FROM #sumjfcp
+) a
+ORDER BY a.num,
+         口径;
+
+
+
+DROP TABLE #sumcdjwai,
+           #sumqichuzaijiankg,
+           #sumqy,
+           #sumqybczhuanhua,
+           #sumqydnhuoqu,
+           #sumqyfenlei,
+           #sumqytotal,
+           #sumxinjungongbeian,
+           #sumxinkg,
+           #sumxinkgdishang,
+           #sumxinkgchaifen,
+           #sumxinkgdishangchaifen,
+           #sumxjl,
+           #fy,
+           #sumfeiyong,
+           #sumjf,
+           #trade,
+           #trade_kq,
+           #fee,
+           #getin,
+           #sumjfcp;
