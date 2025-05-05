@@ -59,7 +59,7 @@ SELECT @NewDevelopmentCompanyGUID = DevelopmentCompanyGUID,
        @NewBuguid = buguid,
        @NewBuname = buname 
 FROM companyjoin 
-WHERE buname = '长春公司'
+WHERE buname = '辽宁公司'
 
 
 INSERT INTO dqy_proj_20250422

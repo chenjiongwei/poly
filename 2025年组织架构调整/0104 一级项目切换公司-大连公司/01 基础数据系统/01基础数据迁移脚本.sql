@@ -140,11 +140,11 @@ GO
         PRINT '房间使用属性调整方案表:md_RoomPropertyAdjust' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
         -- md_ProjectOperLog 
-        IF OBJECT_ID(N'md_ProjectOperLog_bak_20250424', N'U') IS NULL
-            SELECT  a.*
-            INTO    dbo.md_ProjectOperLog_bak_20250424
-            FROM    dbo.md_ProjectOperLog a
-                    INNER JOIN #dqy_proj B ON a.ProjGUID = B.OldProjGuid;
+        -- IF OBJECT_ID(N'md_ProjectOperLog_bak_20250424', N'U') IS NULL
+        --     SELECT  a.*
+        --     INTO    dbo.md_ProjectOperLog_bak_20250424
+        --     FROM    dbo.md_ProjectOperLog a
+        --             INNER JOIN #dqy_proj B ON a.ProjGUID = B.OldProjGuid;
 
         UPDATE  a
         SET a.DevelopmentCompanyGUID = B.NewDevelopmentCompanyGUID

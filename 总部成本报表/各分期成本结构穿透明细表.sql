@@ -1,6 +1,6 @@
 USE [MyCost_Erp352]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_rpt_cb_CostStructureReport_Detail]    Script Date: 2025/4/1 16:32:20 ******/
+/****** Object:  StoredProcedure [dbo].[usp_rpt_cb_CostStructureReport_Detail]    Script Date: 2025/4/25 19:04:07 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -14,8 +14,7 @@ ALTER proc [dbo].[usp_rpt_cb_CostStructureReport_Detail]
 )
 as
 begin
-   -- 查询合同信息
-   SELECT 
+SELECT 
         c.ContractGUID
         ,c.ContractCode
         ,c.ContractName
@@ -45,9 +44,11 @@ begin
                 MasterContractGUID,
                 count(1) as 补充合同数,
                 --计划方式=总价包干，且所有补充合同未关联暂转固单据且补充合同【是否施工图结算】字段为'否'
-                sum( case when  isnull(IsConstructionBalance ,0) = 0  and  ZzgHTBalanceGUID  is null then 1 else 0 end ) as 未关联暂转固单据且未施工图结算的补充合同数,
+                sum( case when  isnull(IsConstructionBalance ,0) = 0 
+                and  ZzgHTBalanceGUID  is null then 1 else 0 end ) as 未关联暂转固单据且未施工图结算的补充合同数,
                 -- 计划方式=总价包干，且任意一个补充合同有关联暂转固单据或任意一个补充合同【是否施工图结算】字段为'是'
-                sum(  case when  isnull(IsConstructionBalance ,0) = 1 or  ZzgHTBalanceGUID  is not null then 1 else 0 end ) as 有关联暂转固单据或施工图结算的补充合同数
+                sum(  case when  isnull(IsConstructionBalance ,0) = 1 
+                or  ZzgHTBalanceGUID  is not null then 1 else 0 end ) as 有关联暂转固单据或施工图结算的补充合同数
                 from  cb_Contract fscon WITH(NOLOCK)
                 where  HtProperty ='补充合同' 
                 group by MasterContractGUID
@@ -75,7 +76,7 @@ begin
 		  AND g.AlterType='附属合同'
 		  AND ct.ZzgHTBalanceGUID IS NULL
 		  AND g.AlterAmount<0
-            AND ( p.ProjGUID in ( SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ',') ) or @var_projguid is null )
+          AND ( p.ProjGUID in ( SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ',') ) or @var_projguid is null )
             -- AND p.buguid in ( SELECT [Value] FROM dbo.fn_Split1(@var_buguid, ',') ) 
 	GROUP BY	b.ExecutingBudgetGUID
 
@@ -90,7 +91,10 @@ begin
 	INNER JOIN dbo.p_Project p WITH(NOLOCK) ON p.ProjCode=bu.ProjectCode
 	WHERE  ( p.ProjGUID in ( SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ',') ) or @var_projguid is null )
     --  AND p.buguid in ( SELECT [Value] FROM dbo.fn_Split1(@var_buguid, ',') )  
-    and   b.AlterType='附属合同' AND a.ZzgHTBalanceGUID IS NOT NULL 
+    and   b.AlterType='附属合同' 
+    --AND a.ZzgHTBalanceGUID IS NOT NULL 
+    -- 是否施工图结算为'是' 或 有暂转固单据
+    and ( a.ZzgHTBalanceGUID IS NOT NULL  or isnull(IsConstructionBalance,0) =1 )
 
 	--获取合同最新的暂转固合约规划金额 
 	SELECT d.ExecutingBudgetGUID,ISNULL(SUM(c.ZzgAmount),0) AS ZzgAmount
@@ -164,8 +168,8 @@ begin
             -- AND p.buguid in ( SELECT [Value] FROM dbo.fn_Split1(@var_buguid, ',') ) 
 	GROUP BY d.ExecutingBudgetGUID
 
-    -- 查询预算明细结果
-     SELECT 
+-- 查询预算明细
+ SELECT 
             bu.buguid,
             bu.buname as [公司名称],
             a.ProjectGUID,

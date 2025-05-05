@@ -99,6 +99,12 @@ CREATE TABLE [dbo].[nmap_F_平台公司存量项目未开发土地](
 	[剩余权益口径占压金额（单位万元）] [varchar](400) NULL,
 	[剩余并表口径占压金额（单位万元）] [varchar](400) NULL,
 	[全年累计签约金额（全口径、单位万元）] [varchar](400) NULL,
+	[存货] [varchar](400) NULL,
+	[其他应收款] [varchar](400) NULL,
+	[预付账款] [varchar](400) NULL,
+	[长期股权投资] [varchar](400) NULL,
+	[差额] [varchar](400) NULL,
+	[有差额的填写原因] [varchar](400) NULL,
 PRIMARY KEY CLUSTERED 
 (
 	[平台公司存量项目未开发土地GUID] ASC
@@ -213,18 +219,22 @@ GO
       ,isnull(d.[预计本季度工作计划是否按节点达成],a.[预计本季度工作计划是否按节点达成]) as [预计本季度工作计划是否按节点达成]
       ,isnull(d.[未按节点达成事项],a.[未按节点达成事项]) as [未按节点达成事项]
       ,isnull(d.[盘活资金比例（低于应盘活比例百分之70，推送预警）],a.[盘活资金比例_（低于应盘活比例70%，推送预警）]) as [盘活资金比例（低于应盘活比例百分之70，推送预警）]
-
-
       ,isnull(d.[本季度已盘活金额（并表口径、单位万元）],a.[本季度已盘活金额（并表口径、单位万元）]) as [本季度已盘活金额（并表口径、单位万元）] 
       ,isnull(d.[全年累计盘活任务（并表口径、单位万元）],a.[全年累计盘活任务（并表口径、单位万元）]) as [全年累计盘活任务（并表口径、单位万元）] 
       ,isnull(d.[全年累计盘活金额（并表口径、单位万元）],a.[全年累计盘活金额（并表口径、单位万元）]) as [全年累计盘活金额（并表口径、单位万元）] 
       ,isnull(d.[剩余全口径占压金额（单位万元）],a.[剩余全口径占压金额（单位万元）]) as [剩余全口径占压金额（单位万元）]
       ,isnull(d.[剩余权益口径占压金额（单位万元）],a.[剩余权益口径占压金额（单位万元）]) as [剩余权益口径占压金额（单位万元）] 
       ,isnull(d.[剩余并表口径占压金额（单位万元）],a.[剩余并表口径占压金额（单位万元）]) as [剩余并表口径占压金额（单位万元）] 
-      ,isnull(d.[全年累计签约金额（全口径、单位万元）],a.[全年累计签约金额（全口径、单位万元）]) as [全年累计签约金额（全口径、单位万元）]    
+      ,isnull(d.[全年累计签约金额（全口径、单位万元）],a.[全年累计签约金额（全口径、单位万元）]) as [全年累计签约金额（全口径、单位万元）]
+      ,isnull(d.[存货],a.[存货]) as [存货]
+      ,isnull(d.[其他应收款],a.[其他应收款]) as [其他应收款]
+      ,isnull(d.[预付账款],a.[预付账款]) as [预付账款]
+      ,isnull(d.[长期股权投资],a.[长期股权投资]) as [长期股权投资]
+      ,isnull(d.[差额],a.[差额]) as [差额]
+      ,isnull(d.[有差额的填写原因],a.[有差额的填写原因]) as [有差额的填写原因]    
 	INTO #TempData
-	from  存量项目未开发土地 a
-	inner join erp25.dbo.p_DevelopmentCompany b on  case when a.公司 = '东北公司' then '辽宁公司' else a.公司 end = b.DevelopmentCompanyName
+	from  存量项目未开发土地V3 a
+	inner join erp25.dbo.p_DevelopmentCompany b on  a.公司  = b.DevelopmentCompanyName
 	inner join nmap_N_CompanyToTerraceBusiness c2b on b.DevelopmentCompanyGUID = c2b.DevelopmentCompanyGUID
 	inner join nmap_N_Company c on c2b.CompanyGUID = c.CompanyGUID
 	-- 查询上一版的数据进行继承

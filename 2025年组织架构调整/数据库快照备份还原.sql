@@ -20,8 +20,8 @@ USE master
 GO
 --备份ERP352数据库
 CREATE DATABASE MyCost_Erp352_0121_snapshot ON
-( NAME = N'dotnet_crm50sp1', FILENAME = N'F:\data\snapshot0121\MyCost_Erp352_snapshot.mdf' ),
-( NAME = N'dotnet_crm352sp2', FILENAME = N'F:\data\snapshot0121\MyCost_Erp352_0_snapshot.ndf' )
+( NAME = N'dotnet_crm50sp1', FILENAME = N'J:\ERP352\snapshot0121\ERP352\MyCost_Erp352_snapshot.mdf' ),
+( NAME = N'dotnet_crm352sp2', FILENAME = N'J:\ERP352\snapshot0121\ERP352\MyCost_Erp352_0_snapshot.ndf' )
 AS SNAPSHOT OF MyCost_Erp352
 GO
 

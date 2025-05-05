@@ -53,3 +53,35 @@ inner join myBusinessUnit bu on bu.BUGUID = ppsc.BUGUID
 inner join #wq wq on wq.Provider2ServiceCompanyGUID = ppsc.Provider2ServiceCompanyGUID
 inner join #yd yd on wq.Provider2ServiceGUID = yd.Provider2ServiceGUID
 where BUname in ('湾区公司')
+
+-- 4674A41A-81C3-4A20-8B5C-E52319022195 淮海公司
+-- 8A08A706-0273-48BA-A1D4-6AB783024D42	江苏公司
+-- 备份表
+select * into  cg_DocArchive_bak20250429 from  cg_DocArchive where  buguid ='4674A41A-81C3-4A20-8B5C-E52319022195' 
+select * into  cg_CgApply_bak20250429 from  cg_CgApply where  buguid ='4674A41A-81C3-4A20-8B5C-E52319022195'
+select * into  cg_CgPlan_bak20250429 from  cg_CgPlan where  buguid ='4674A41A-81C3-4A20-8B5C-E52319022195'
+select * into  cg_CgSolution_bak20250429 from  cg_CgSolution where  buguid ='4674A41A-81C3-4A20-8B5C-E52319022195'
+select * into  cg_PG2Contract_bak20250429 from  cg_PG2Contract where  buguid ='4674A41A-81C3-4A20-8B5C-E52319022195'
+select * into  cg_PGPlan_bak20250429 from  cg_PGPlan where  buguid ='4674A41A-81C3-4A20-8B5C-E52319022195'
+select * into  Cg_CgPlanSp_bak20250429 from  Cg_CgPlanSp where  buguid ='4674A41A-81C3-4A20-8B5C-E52319022195'
+select * into  Cg_CgPlan_OriginSp_bak20250429 from  Cg_CgPlan_OriginSp where  buguid ='4674A41A-81C3-4A20-8B5C-E52319022195'
+select * into  Cg_CgPlan_Origin_bak20250429 from  Cg_CgPlan_Origin where  buguid ='4674A41A-81C3-4A20-8B5C-E52319022195'
+
+
+-- 更新表
+update  a set a.buguid ='8A08A706-0273-48BA-A1D4-6AB783024D42' from  cg_DocArchive a where  buguid ='4674A41A-81C3-4A20-8B5C-E52319022195' 
+update  a set a.buguid ='8A08A706-0273-48BA-A1D4-6AB783024D42' from  cg_CgApply a where  buguid ='4674A41A-81C3-4A20-8B5C-E52319022195'
+update  a set a.buguid ='8A08A706-0273-48BA-A1D4-6AB783024D42' from  cg_CgPlan a where  buguid ='4674A41A-81C3-4A20-8B5C-E52319022195'
+update  a set a.buguid ='8A08A706-0273-48BA-A1D4-6AB783024D42' from  cg_CgSolution a where  buguid ='4674A41A-81C3-4A20-8B5C-E52319022195'
+update  a set a.buguid ='8A08A706-0273-48BA-A1D4-6AB783024D42' from  cg_PG2Contract a where  buguid ='4674A41A-81C3-4A20-8B5C-E52319022195'
+update  a set a.buguid ='8A08A706-0273-48BA-A1D4-6AB783024D42' from  cg_PGPlan a where  buguid ='4674A41A-81C3-4A20-8B5C-E52319022195'
+update  a set a.buguid ='8A08A706-0273-48BA-A1D4-6AB783024D42' from  Cg_CgPlanSp a where  buguid ='4674A41A-81C3-4A20-8B5C-E52319022195'
+update  a set a.buguid ='8A08A706-0273-48BA-A1D4-6AB783024D42' from  Cg_CgPlan_OriginSp a where  buguid ='4674A41A-81C3-4A20-8B5C-E52319022195'
+update  a set a.buguid ='8A08A706-0273-48BA-A1D4-6AB783024D42' from  Cg_CgPlan_Origin a where  buguid ='4674A41A-81C3-4A20-8B5C-E52319022195'
+
+
+
+
+
+
+

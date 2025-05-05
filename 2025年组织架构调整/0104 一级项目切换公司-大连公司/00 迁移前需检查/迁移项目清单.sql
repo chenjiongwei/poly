@@ -49,7 +49,7 @@ CREATE TABLE dqy_proj_20250424
     qytype INT
 );
 
--- 1、长春合并进辽宁
+-- 1、大连合并进辽宁
 
 DECLARE @NewDevelopmentCompanyGUID UNIQUEIDENTIFIER 
 DECLARE @NewBuguid UNIQUEIDENTIFIER
@@ -59,7 +59,7 @@ SELECT @NewDevelopmentCompanyGUID = DevelopmentCompanyGUID,
        @NewBuguid = buguid,
        @NewBuname = buname 
 FROM companyjoin 
-WHERE buname = '大连公司'
+WHERE buname = '辽宁公司'
 
 
 INSERT INTO dqy_proj_20250424

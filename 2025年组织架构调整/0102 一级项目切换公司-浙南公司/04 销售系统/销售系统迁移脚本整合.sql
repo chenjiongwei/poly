@@ -1,4 +1,4 @@
-USE ERP25_test
+USE ERP25
 GO
 
 /*

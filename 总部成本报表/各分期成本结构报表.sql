@@ -1,6 +1,6 @@
 USE [MyCost_Erp352]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_rpt_cb_CostStructureReport]    Script Date: 2025/4/1 16:31:51 ******/
+/****** Object:  StoredProcedure [dbo].[usp_rpt_cb_CostStructureReport]    Script Date: 2025/4/30 23:08:10 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -9,7 +9,7 @@ GO
  * 各分期成本结构报表
  * 主要功能:查询各分期的成本结构信息,包括基本信息、总成本情况、预留金、产值及支付等
  */
- --exec [usp_rpt_cb_CostStructureReport] 'A8E2ACA1-508E-46F3-B764-8E2114255B4B','264ABDB2-FCA3-E711-80BA-E61F13C57837'
+ --exec [usp_rpt_cb_CostStructureReport] '4A1E877C-A0B2-476D-9F19-B5C426173C38'
 ALTER  proc [dbo].[usp_rpt_cb_CostStructureReport]
 (
     @var_buguid varchar(max) ,  -- 公司guid
@@ -95,7 +95,10 @@ begin
 	INNER JOIN  dbo.cb_BudgetUse bu WITH(NOLOCK) ON bu.RefGUID=b.HTAlterGUID 
 	INNER JOIN dbo.p_Project p WITH(NOLOCK) ON p.ProjCode=bu.ProjectCode
 	WHERE  ( p.ProjGUID in ( SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ',') ) or @var_projguid is null )
-     AND p.buguid in ( SELECT [Value] FROM dbo.fn_Split1(@var_buguid, ',') )  and   b.AlterType='附属合同' AND a.ZzgHTBalanceGUID IS NOT NULL 
+     AND p.buguid in ( SELECT [Value] FROM dbo.fn_Split1(@var_buguid, ',') )  and   b.AlterType='附属合同' 
+     --AND a.ZzgHTBalanceGUID IS NOT NULL 
+     -- 是否施工图结算为'是' 或 有暂转固单据
+     and ( a.ZzgHTBalanceGUID IS NOT NULL  or isnull(IsConstructionBalance,0) =1 )
 
 	--获取合同最新的暂转固合约规划金额 
 	SELECT d.ExecutingBudgetGUID,ISNULL(SUM(c.ZzgAmount),0) AS ZzgAmount
@@ -271,8 +274,10 @@ SELECT
     khtarget.targetcost AS [总成本情况_考核版目标成本],
     ex_target.TargetStageVersion AS [总成本情况_当前执行版目标成本版本名称],
     ex_target.targetcost AS [总成本情况_当前执行版目标成本],
-    ex_target.dtcostNotFxj AS [总成本情况_动态成本],
-    ex_target.ylc AS [总成本情况_余量池],
+    -- ex_target.dtcostNotFxj AS [总成本情况_动态成本],
+    htNewBudget.NewBudget AS [总成本情况_动态成本],
+    -- ex_target.ylc AS [总成本情况_余量池],
+    isnull(ex_target.targetcost,0) -isnull(htNewBudget.NewBudget,0) AS [总成本情况_余量池],
 
     -- 预留金
     htNewBudget.YljAmount AS [预留金_总预留金],
@@ -286,25 +291,31 @@ SELECT
     -- 合同签订情况
     htNewBudget.HtCfAmountCount AS [合同签订情况_已签合同数],
     htNewBudget.HtCfAmount AS [合同签订情况_已签合同金额],
+    htNewBudget.HtCfAmountWJs AS [合同签订情况_未结算的已签合同金额],
     htNewBudget.NotBudgetAmountCount  AS [合同签订情况_未签合同数],
     htNewBudget.NotBudgetAmount AS [合同签订情况_未签合同金额],
 
     -- 结算
-        htNewBudget.JsHtCfAmountCount AS [结算_合同数],
+    htNewBudget.JsHtCfAmountCount AS [结算_合同数],
     htNewBudget.JsHtCfAmount AS [结算_首次签约金额],
     htNewBudget.JsAmount AS [结算_结算金额],
+    htNewBudget.JshtNewBudget AS [结算_已结算最新合约规划金额],
 
     -- 总价合同（首次签约为总价包干）   
+    htNewBudget.zjHtNewBudget AS [总价合同_首次签约为总价包干_最新合约规划金额],
     htNewBudget.zjHtCfAmountCount  AS [总价合同_首次签约为总价包干_合同数],
     htNewBudget.zjHtCfAmount AS [总价合同_首次签约为总价包干_首次签约金额],
+    htNewBudget.zjHtCfAmountWJs AS [总价合同_首次签约为总价包干_未结算的已签合同金额],
     htNewBudget.zjFsBxAmount AS [总价合同_首次签约为总价包干_负数补协_不含暂转固],
     htNewBudget.zjYljAmount AS [总价合同_首次签约为总价包干_总预留金],
     htNewBudget.zjYljAmount_Yfs AS [总价合同_首次签约为总价包干_预留金已发生],
     htNewBudget.zjdfsljAmount AS [总价合同_首次签约为总价包干_预留金待发生],
 
     -- 总价合同（首次签约为单价合同，目前已转总）
+    htNewBudget.yzzjNewBudget AS [总价合同_首次签约为单价合同_目前已转总_最新合约规划金额],
     htNewBudget.yzzjHtCfAmountCount AS [总价合同_首次签约为单价合同_目前已转总_合同数],
     htNewBudget.yzzjHtCfAmount AS [总价合同_首次签约为单价合同_目前已转总_首次签约金额],
+    htNewBudget.yzzjHtCfAmountWJs AS [总价合同_首次签约为单价合同_目前已转总_未结算的已签合同金额],
     htNewBudget.zjZzgAmount AS [总价合同_首次签约为单价合同_目前已转总_暂转固金额],
     htNewBudget.yzzjFsBxAmount AS [总价合同_首次签约为单价合同_目前已转总_负数补协_不含暂转固],
     htNewBudget.yzzjYljAmount AS [总价合同_首次签约为单价合同_目前已转总_总预留金],
@@ -312,8 +323,10 @@ SELECT
     htNewBudget.yzzjdfsljAmount AS [总价合同_首次签约为单价合同_目前已转总_预留金待发生],
 
     -- 单价合同（首次签约为单价合同且未完成转总）
+    htNewBudget.djHtNewBudget AS [单价合同_首次签约为单价合同且未完成转总_最新合约规划金额],
     htNewBudget.djHtCfAmountCount AS [单价合同_首次签约为单价合同且未完成转总_合同数],
     htNewBudget.djHtCfAmount AS [单价合同_首次签约为单价合同且未完成转总_首次签约金额],
+    htNewBudget.djHtCfAmountWJs AS [单价合同_首次签约为单价合同且未完成转总_未结算的已签合同金额],
     htNewBudget.djFsBxAmount AS [单价合同_首次签约为单价合同且未完成转总_负数补协_不含暂转固],
     htNewBudget.djYljAmount AS [单价合同_首次签约为单价合同且未完成转总_总预留金],
     htNewBudget.djYljAmount_Yfs AS [单价合同_首次签约为单价合同且未完成转总_预留金已发生],
@@ -322,6 +335,7 @@ SELECT
     -- 待签约
     htNewBudget.NewBudgetAmountCount AS [待签约_合同数],
     htNewBudget.NewBudgetAmount AS [待签约_合约规划金额],
+    htNewBudget.wqydfsljAmount AS [待签约_待发生预留金],
     htNewBudget.FxjAmount AS [非现金]
 FROM p_project p WITH(NOLOCK) 
 INNER JOIN mybusinessunit bu WITH(NOLOCK)   ON bu.buguid = p.buguid 
@@ -425,11 +439,14 @@ LEFT JOIN (
 left join (
         SELECT 
             a.ProjectGUID,
+            sum(CASE WHEN ht.ExecutingBudgetGUID IS NOT NULL THEN ISNULL(yfs.YfsCost,0) +ISNULL(ylj.YgYeAmount,0) ELSE a.BudgetAmount END)  AS  NewBudget, -- 最近合约规划金额
             sum(CASE WHEN ht.ExecutingBudgetGUID IS  NULL THEN  a.BudgetAmount  END  ) AS  NotBudgetAmount,  -- 未签合同金额
             sum( case when ht.ExecutingBudgetGUID is null then 1 else 0 end ) AS  NotBudgetAmountCount,  -- 未签合同份数
             sum(ISNULL(ht.HtCfAmount,0)) AS HtCfAmount, -- 合同首次签约金额 已签合同金额
+            sum(case when ht.jsState<>'结算' then ISNULL(ht.HtCfAmount,0) else 0 end ) as HtCfAmountWJs, --未结算的已签合同金额
             count(DISTINCT ht.ContractGUID ) AS HtCfAmountCount, -- 合同首次签约金额 已签合同数量
 
+            sum( case when ht.jsState='结算' then CASE WHEN ht.ExecutingBudgetGUID IS NOT NULL THEN ISNULL(yfs.YfsCost,0) +ISNULL(ylj.YgYeAmount,0) ELSE a.BudgetAmount END else 0 end )  as JshtNewBudget, -- 已结算最新合约规划金额
             sum( case when ht.jsState='结算' then ISNULL(yfs.ylj_yfs,0) else ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) end ) AS  YljAmount , -- 总预留金
             sum(ISNULL(yfs.ylj_yfs,0) ) AS  YljAmount_Yfs,-- 已发生预留金
             sum( case when ht.jsState='结算' then 0 else ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) - ISNULL(yfs.ylj_yfs,0) end )  AS  dfsljAmount,  -- 待发生预留金
@@ -440,9 +457,12 @@ left join (
             ELSE ISNULL(js.JsAmount,0) END) END) AS JsAmount, --结算金额
             sum(case when  ht.JsState='结算' then  ISNULL(ht.HtCfAmount,0) else  0 end  ) as  JsHtCfAmount, --结算对应合同的首次签约金额
             count( case when  ht.JsState='结算' then  ht.ContractGUID end  ) as  JsHtCfAmountCount,        -- 已结算的合同份数
+
             -- 总价合同 首次签约为总价包干合同
+            sum( case when ht.是否首次总价合同 =1 then  CASE WHEN ht.ExecutingBudgetGUID IS NOT NULL THEN ISNULL(yfs.YfsCost,0) +ISNULL(ylj.YgYeAmount,0) ELSE a.BudgetAmount END else 0 end ) as zjHtNewBudget, -- 总价合同首次签约为总价包干最新合约规划金额
             count( DISTINCT case when ht.是否首次总价合同 =1 then  ht.ContractGUID end  ) as  zjHtCfAmountCount, -- 总价合同份数
-            sum(isnull(ht.zjHtCfAmount,0)) as zjHtCfAmount, -- 总价合同首次签约金额
+            sum( isnull(ht.zjHtCfAmount,0)) as zjHtCfAmount, -- 总价合同首次签约金额
+            sum(case when  ht.jsState<>'结算' then  ISNULL(ht.zjHtCfAmount,0) else 0 end ) as zjHtCfAmountWJs, -- 未结算的已转总价合同金额
             sum(case when ht.是否首次总价合同 =1 then  fs.FsBxAmount else 0 end ) as zjFsBxAmount, -- 负数补协金额
             -- 判断如果合同已结算，则将预留金总额=【预留金已发生】，然后将预留金余额取为0   
             sum(case  when  ht.jsState='结算' then case when ht.是否首次总价合同 =1 then  ISNULL(yfs.ylj_yfs,0) else 0 end 
@@ -455,8 +475,10 @@ left join (
             end  )  AS  zjdfsljAmount,  -- 待发生预留金
 
             -- 总价合同 首次签约为单价合同，目前已转总价
+            sum( case when ht.是否已转总价合同 =1 then  CASE WHEN ht.ExecutingBudgetGUID IS NOT NULL THEN ISNULL(yfs.YfsCost,0) +ISNULL(ylj.YgYeAmount,0) ELSE a.BudgetAmount END else 0 end ) as yzzjNewBudget, -- 总价合同首次签约为单价合同，目前已转总价最新合约规划金额
             count( DISTINCT case when ht.是否已转总价合同 =1 then  ht.ContractGUID end  ) as  yzzjHtCfAmountCount, -- 已转总价合同份数
             sum(isnull(ht.yzzjHtCfAmount,0)) as yzzjHtCfAmount, -- 已转总价合同金额
+            sum(case when  ht.jsState<>'结算' then  ISNULL(ht.yzzjHtCfAmount,0) else 0 end ) as yzzjHtCfAmountWJs, -- 未结算的已转总价合同金额
             sum(case when  ht.是否已转总价合同 =1 then  zzg.ZzgAmount else 0 end ) as zjZzgAmount, -- 暂转固金额
             sum( case when ht.是否已转总价合同 =1 then  fs.fsBxAmount else 0 end ) as yzzjFsBxAmount, -- 负数补协金额 
             -- 判断如果合同已结算，则将预留金总额=【预留金已发生】，然后将预留金余额取为0   
@@ -469,9 +491,12 @@ left join (
                 case when ht.是否已转总价合同 =1 then  ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) else 0 end  - case when ht.是否已转总价合同 =1 then  ISNULL(yfs.ylj_yfs,0) else 0 end
              end)  AS  yzzjdfsljAmount,  -- 待发生预留金 
             -- 单价合同
+            sum( case when isnull(ht.bgxs,'')<>'总价包干' then  CASE WHEN ht.ExecutingBudgetGUID IS NOT NULL THEN ISNULL(yfs.YfsCost,0) +ISNULL(ylj.YgYeAmount,0) ELSE a.BudgetAmount END else 0 end ) as djHtNewBudget, -- 单价合同最新合约规划金额
             count( DISTINCT case when isnull(ht.bgxs,'')<>'总价包干' then  ht.ContractGUID end  ) as  djHtCfAmountCount, -- 单价合同份数
             sum(isnull(ht.djHtCfAmount,0)) as djHtCfAmount, -- 单价合同金额 
+            sum(case when  ht.jsState<>'结算' then  ISNULL(ht.djHtCfAmount,0) else 0 end ) as djHtCfAmountWJs, -- 未结算的单价合同金额
             sum(case when isnull(ht.bgxs,'')<>'总价包干' then  fs.FsBxAmount else 0 end ) as djFsBxAmount, -- 负数补协金额
+
             -- 判断如果合同已结算，则将预留金总额=【预留金已发生】，然后将预留金余额取为0   
             sum(case when  ht.jsState ='结算' then  case when  isnull(ht.bgxs,'')<>'总价包干' then  ISNULL(yfs.ylj_yfs,0) else 0 end  else 
                  case when  isnull(ht.bgxs,'')<>'总价包干' then  ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) else 0 end 
@@ -483,6 +508,7 @@ left join (
             end  )  AS  djdfsljAmount, -- 待发生预留金
             -- 待签约
             sum( case when ht.ExecutingBudgetGUID is null then 1 else 0 end ) as  NewBudgetAmountCount,
+            sum( case when ht.ExecutingBudgetGUID is null then ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) - ISNULL(yfs.ylj_yfs,0) else 0 end ) as  wqydfsljAmount, -- 未签约_待发生预留金
             sum( CASE WHEN ht.ExecutingBudgetGUID IS NULL THEN a.BudgetAmount else  0 END) AS  NewBudgetAmount
         FROM dbo.cb_Budget_Working a WITH(NOLOCK)
         LEFT JOIN dbo.cb_Budget_Executing ex WITH(NOLOCK) ON ex.ExecutingBudgetGUID=a.WorkingBudgetGUID

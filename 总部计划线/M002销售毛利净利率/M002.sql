@@ -1,8 +1,114 @@
+USE [ERP25]
+GO
+/****** Object:  StoredProcedure [dbo].[usp_s_M002项目业态级毛利净利表]    Script Date: 2025/4/29 10:09:39 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER PROC [dbo].[usp_s_M002项目业态级毛利净利表]
+(
+    @var_buguid VARCHAR(MAX),
+    @var_bgndate DATE = NULL,
+    @var_enddate DATE = NULL,
+    @Date DATETIME = NULL,
+    @VersionGUID VARCHAR(40) = '',
+    @IsNew INT = 0
+)
+AS /*
+存储过程名：usp_s_M002项目业态级毛利净利表
+
+参数：@var_buguid  平台公司
+	  @var_bgndate 开始时间
+	  @var_enddate 结束时间
+示例： exec usp_s_M002项目业态级毛利净利表 '6CBA0828-D863-4EA8-B594-DE3E11DDF573','2024-1-1','2024-05-31'
+
+--jiangst 修改业态单方成本版本取值，若本月没填报则取上个月的
+
+modified by lintx 20231201
+1、由于很多新项目没有在盈利规划中维护，因此需要在dss中进行填报，如果有填报的话，就优先取填报值，没有的话，就取盈利规划系统
+*/
+
+BEGIN
+
+    IF @VersionGUID = '默认值'
+       OR @VersionGUID = '00000000-0000-0000-0000-000000000000'
+    BEGIN
+        SET @VersionGUID = NULL;
+    END;
+
+    IF (ISNULL(@VersionGUID, '') <> '' AND @IsNew = 0)
+    BEGIN
+        SELECT [versionguid],
+               [OrgGuid],
+               [ProjGUID],
+               [平台公司],
+               [项目名],
+               [推广名],
+               [项目代码],
+               [投管代码],
+               [盈利规划上线方式],
+               [产品类型],
+               [产品名称],
+               [装修标准],
+               [商品类型],
+               [明源匹配主键],
+               [业态组合键],
+               [当期认购面积],
+               [当期认购金额],
+               [当期认购金额不含税],
+               [当期签约面积],
+               [当期签约金额],
+               [当期签约金额不含税],
+               [盈利规划营业成本单方],
+               [土地款_单方],
+               [除地外直投_单方],
+               [开发间接费单方],
+               [资本化利息单方],
+               [盈利规划股权溢价单方],
+               [盈利规划营销费用单方],
+               [盈利规划综合管理费单方协议口径],
+               [盈利规划税金及附加单方],
+               [盈利规划营业成本认购],
+               [盈利规划股权溢价认购],
+               [毛利认购],
+               [毛利率认购],
+               [盈利规划营销费用认购],
+               [盈利规划综合管理费认购],
+               [盈利规划税金及附加认购],
+               [税前利润认购],
+               [所得税认购],
+               [净利润认购],
+               [销售净利率认购],
+               [盈利规划营业成本签约],
+               [盈利规划股权溢价签约],
+               [毛利签约],
+               [毛利率签约],
+               [盈利规划营销费用签约],
+               [盈利规划综合管理费签约],
+               [盈利规划税金及附加签约],
+               [税前利润签约],
+               [所得税签约],
+               [净利润签约],
+               [销售净利率签约],
+               [当期认购套数],
+               [当期签约套数],
+               [当期产成品签约金额],
+               [当期产成品签约金额不含税],
+               [产成品净利润签约],
+               [产成品销售净利率签约]
+        FROM [dss].[dbo].[nmap_s_M002项目业态级毛利净利表]
+        WHERE versionguid = @VersionGUID
+              AND OrgGuid IN (
+                                 SELECT Value FROM dbo.fn_Split2(@var_buguid, ',')
+                             );
+    END;
+
+    ELSE
     BEGIN
 
-        declare @var_buguid varchar(max)='275B7A4E-4AB3-408E-A43A-1BA6AC5B0321',  --广东公司
-        		@var_bgndate DATE ='2025-01-01',
-        		@var_enddate DATE ='2025-01-14'
+        --declare @var_buguid varchar(max)='31DCD27E-1605-EA11-80B8-0A94EF7517DD', 
+        --		@var_bgndate DATE ='2022-01-01',
+        --		@var_enddate DATE ='2022-10-31'
 
         --缓存项目
         SELECT p.ProjGUID,
@@ -43,6 +149,8 @@
 			  WHERE  (s.auditstatus in ('过期审核中','已过期')
 			OR (s.auditstatus = '作废' and s.CancelAuditTime>='2024-01-01'))
 			and s.PerformanceAppraisalGUID <> 'CDF2A700-1117-EE11-B3A3-F40270D39969'
+
+
 
 		--如果多重对接的话，取去重的数据
 		SELECT roomguid,
@@ -245,7 +353,7 @@
             FROM dbo.S_PerformanceAppraisalRoom sr
                  INNER JOIN dbo.S_PerformanceAppraisal s ON s.PerformanceAppraisalGUID = sr.PerformanceAppraisalGUID
                                                             AND s.AuditStatus = '已审核'
-                                                            AND s.YjType <> '经营类(溢价款)'
+                                                            AND s.YjType NOT IN ( '经营类(溢价款)', '物业公司车位代销' )
             WHERE r.RoomGUID = sr.RoomGUID
         )
               AND NOT EXISTS
@@ -254,7 +362,7 @@
             FROM dbo.S_PerformanceAppraisalBuildings sr
                  INNER JOIN dbo.S_PerformanceAppraisal s ON s.PerformanceAppraisalGUID = sr.PerformanceAppraisalGUID
                                                             AND s.AuditStatus = '已审核'
-                                                            AND s.YjType <> '经营类(溢价款)'
+                                                             AND s.YjType NOT IN ( '经营类(溢价款)', '物业公司车位代销' )
             WHERE r.BldGUID = sr.BldGUID
         )
         GROUP BY r.ProjGUID,
@@ -856,62 +964,6 @@
         --OrgGuid,平台公司,项目guid,项目名称,项目代码,投管代码,盈利规划上线方式,产品类型,产品名称,装修标准,商品类型,匹配主键,
         --总可售面积,总可售金额,除地外直投_单方,土地款_单方,资本化利息_综合管理费_单方,盈利规划营业成本单方,税金及附加单方,股权溢价单方,
         --管理费用单方,营销费用单方,资本化利息单方,开发间接费单方,总投资不含税单方 ,盈利规划车位数
-
-        -----------------begin 新增逻辑：20250113----------------------
-        --获取盈利规划系统对应项目的营销费率
-        with hz as (
-        SELECT pj.ProjGUID AS projguid, 
-                SUM(ISNULL(TotalSaleValueAmount, 0)) 总可售金额 
-        FROM [172.16.4.161].HighData_prod.dbo.data_wide_dws_ys_SaleValueByYt yt
-            INNER JOIN [172.16.4.161].HighData_prod.dbo.data_wide_dws_ys_ProjGUID pj
-                ON yt.ProjGUID = pj.YLGHProjGUID
-                AND pj.isbase = 1
-                AND pj.Level = 3 
-        WHERE yt.IsBase = 1  
-        GROUP BY pj.ProjGUID 
-        )
-        ,fy as (
-        SELECT pj.ProjGUID,  
-                SUM(ISNULL(yt.Marketingcost, 0)) AS 营销费用 
-        FROM [172.16.4.161].HighData_prod.dbo.data_wide_dws_ys_expenses_yt yt
-            INNER JOIN [172.16.4.161].HighData_prod.dbo.data_wide_dws_ys_ProjGUID pj
-                ON yt.ProjGUID = pj.YLGHProjGUID
-                AND pj.isbase = 1
-                AND pj.Level = 3 
-        WHERE yt.IsBase = 1  
-        GROUP BY pj.ProjGUID 
-        )
-        select p.projguid,p.projname,hz.总可售金额 as  盈利规划全周期货值,fy.营销费用 as 盈利规划全周期营销费,
-        case when isnull(hz.总可售金额,0) = 0 then 0 else fy.营销费用/hz.总可售金额 end as 盈利规划营销费率
-        into #fy_ylgh
-        from erp25.dbo.mdm_project p
-        left join hz hz on p.projguid = hz.projguid
-        left join fy fy on p.projguid = fy.projguid 
-        where p.Level =2       
-
-        --获取营销费用系统对应项目的营销费率
-        SELECT  t1.projguid,  
-        sum(t.ContractAmount) 整盘累计签约金额,	
-        sum(t.TotalOccurredAmount) 整盘累计已发生费用,
-        case when sum(t.ContractAmount) = 0 then 0 else sum(t.TotalOccurredAmount)/sum(t.ContractAmount) end 营销费用系统已发生费率  
-        into #fy_ys
-        FROM MyCost_Erp352.dbo.ys_OverAllPlanDtlWork t
-        inner JOIN MyCost_Erp352.dbo.ys_OverAllPlanWork t1 ON t.OverAllPlanGUID=t1.OverAllPlanGUID
-        WHERE   t.PlanDate = 0 AND t.CostCode = 'C.01'
-        group by  t1.projguid 
-		 
-        --合并结果，如果营销费用已发生费率大于盈利规划全周期营销费率，费率比例则取营销费用已发生费率/盈利规划全周期营销费率，否则取1
-        select p.projguid,
-        fy.盈利规划全周期货值,fy.盈利规划全周期营销费,fy.盈利规划营销费率,
-        ys.整盘累计签约金额,ys.整盘累计已发生费用,ys.营销费用系统已发生费率,
-        case when isnull(ys.营销费用系统已发生费率,0) > isnull(fy.盈利规划营销费率,0) and isnull(fy.盈利规划营销费率,0)<>0 
-		then ys.营销费用系统已发生费率/fy.盈利规划营销费率 else 1 end as 费率比例
-        into #fy_ratio
-        from erp25.dbo.mdm_project p
-        left join #fy_ylgh fy on p.projguid = fy.projguid
-        left join #fy_ys ys on p.projguid = ys.projguid
-        where p.Level = 2
-
         SELECT DISTINCT
                k.[项目guid], -- 避免重复
                ISNULL(k.盈利规划主键, ylgh.匹配主键) 业态组合键,
@@ -950,7 +1002,7 @@
                    WHEN ISNULL(k.营销费用单方, 0) = 0 THEN
                         ISNULL(ylgh.营销费用单方, 0)
                    ELSE k.营销费用单方
-               END*isnull(fy.费率比例,1) AS 盈利规划营销费用单方,
+               END AS 盈利规划营销费用单方,
                CASE
                    WHEN ISNULL(k.综合管理费单方, 0) = 0 THEN
                         ISNULL(ylgh.管理费用单方, 0)
@@ -965,8 +1017,7 @@
         FROM #key k
              LEFT JOIN dss.dbo.s_F066项目毛利率销售底表_盈利规划单方 ylgh ON ylgh.匹配主键 = k.盈利规划主键
                                                               AND ylgh.[项目guid] = k.项目guid
-             INNER JOIN #p p ON k.项目guid = p.ProjGUID
-             left join #fy_ratio fy on p.projguid = fy.projguid;
+             INNER JOIN #p p ON k.项目guid = p.ProjGUID;
 
 
         --select * from #ylgh
@@ -1307,20 +1358,13 @@
                              END
                           ) / ISNULL(c.bqccpQyjeNotax, 0)
                           END
-                      ) 产成品销售净利率签约, 
-               fy.盈利规划全周期货值/100000000.0 盈利规划全周期货值,
-               fy.盈利规划全周期营销费/100000000.0 盈利规划全周期营销费,
-               fy.盈利规划营销费率,
-               fy.整盘累计签约金额/100000000.0 整盘累计签约金额,
-               fy.整盘累计已发生费用/100000000.0 整盘累计已发生费用,
-               fy.营销费用系统已发生费率 
+                      ) 产成品销售净利率签约
         FROM #p p
              LEFT JOIN vmdm_projectFlag f ON p.ProjGUID = f.ProjGUID
              INNER JOIN #cost c ON c.ProjGUID = p.ProjGUID
              LEFT JOIN [172.16.4.161].HighData_prod.dbo.data_wide_dws_ys_proj_expense tax ON tax.ProjGUID = p.ProjGUID
                                                                                              AND tax.IsBase = 1
              LEFT JOIN #xm x ON x.ProjGUID = p.ProjGUID
-             LEFT JOIN #fy_ratio fy on p.projguid = fy.projguid
         ORDER BY f.平台公司,
                  f.项目代码;
 
@@ -1342,123 +1386,9 @@
                    #ylgh,
                    #cost,
                    #key,
-                   #xm ,
-				   #fy_ratio,#fy_ylgh,#fy_ys,#r,#sroom,#tsRoomAll
+                   #xm;
 
     END;
 
 
-select * from [dbo].[vmdm_projectFlagnew]
-where 投管代码 in (
-'3638', 
-'7404', 
-'3637', 
-'3634', 
-'268', 
-'263', 
-'266', 
-'261', 
-'3328', 
-'2436', 
-'2435', 
-'5322', 
-'5318', 
-'5409', 
-'5410', 
-'1990042', 
-'1990049', 
-'1990040', 
-'1990044', 
-'1990047', 
-'1990032', 
-'177', 
-'1990026', 
-'1990034',
-'4220', 
-'4216', 
-'2519', 
-'6220', 
-'2513', 
-'3925', 
-'3924', 
-'3923', 
-'3919', 
-'3825', 
-'3812', 
-'445', 
-'427', 
-'728', 
-'727', 
-'724', 
-'725', 
-'2987', 
-'2988', 
-'2985', 
-'2989', 
-'2983', 
-'2984', 
-'2981', 
-'2979', 
-'2971', 
-'2976', 
-'7216', 
-'7213', 
-'7215', 
-'1856', 
-'1855', 
-'1854', 
-'1431', 
-'1417', 
-'1423', 
-'3324', 
-'625', 
-'630', 
-'8508', 
-'1644', 
-'1640', 
-'4924', 
-'4923', 
-'4912', 
-'4917', 
-'4922', 
-'4017', 
-'4024', 
-'4016', 
-'4020', 
-'354', 
-'348', 
-'345', 
-'327', 
-'1286', 
-'1282', 
-'1284', 
-'1283', 
-'1276', 
-'1268', 
-'8606', 
-'8610', 
-'8612', 
-'8213', 
-'8611', 
-'1532', 
-'1526', 
-'3146', 
-'5708', 
-'4112', 
-'2706', 
-'4111', 
-'4105', 
-'2010', 
-'9309', 
-'11502', 
-'1129', 
-'1127', 
-'2810', 
-'2809', 
-'2811', 
-'8711', 
-'8904', 
-'538', 
-'532', 
-'10501'
-)
+END;

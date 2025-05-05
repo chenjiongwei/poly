@@ -182,7 +182,7 @@ SELECT
     END AS ParentProjName, 
     a.*
 FROM 
-     erp25.dbo.dqy_proj_20250121 a
+     erp25.dbo.dqy_proj_20250411 a
 INNER JOIN 
     erp25.dbo.mdm_project p ON a.OldProjGuid = p.projguid
 LEFT JOIN 

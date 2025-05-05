@@ -215,7 +215,8 @@ GO
 
 
             UPDATE dc
-            SET dc.ParentCompanyGUID = t.NewDevelopmentCompanyGUID
+            SET dc.ParentCompanyGUID = t.NewDevelopmentCompanyGUID,
+                dc.ParentCompanyName = t.NewBuname
             FROM    p_DevelopmentCompany dc
                     INNER JOIN #t t ON t.OldDevelopmentCompanyGUID = dc.ParentCompanyGUID
             WHERE   dc.ParentCompanyGUID <> t.NewDevelopmentCompanyGUID;

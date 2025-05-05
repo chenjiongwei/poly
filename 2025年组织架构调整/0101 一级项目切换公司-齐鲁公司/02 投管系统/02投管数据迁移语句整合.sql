@@ -215,7 +215,8 @@ GO
 
 
             UPDATE dc
-            SET dc.ParentCompanyGUID = t.NewDevelopmentCompanyGUID
+            SET dc.ParentCompanyGUID = t.NewDevelopmentCompanyGUID,
+                dc.ParentCompanyName = t.NewDevelopmentCompanyName
             FROM    p_DevelopmentCompany dc
                     INNER JOIN #t t ON t.OldDevelopmentCompanyGUID = dc.ParentCompanyGUID
             WHERE   dc.ParentCompanyGUID <> t.NewDevelopmentCompanyGUID;
@@ -289,6 +290,22 @@ GO
         WHERE   NOT EXISTS (SELECT  1
                             FROM    p_BelongCompany b
                             WHERE   p.PartnerGUID = b.DevelopmentCompanyGUID AND b.BelongCompanyGUID = t.NewDevelopmentCompanyGUID);
+
+
+        -- 遗漏了这个表的迁移  p_DevelopmentCompanyMonthProjType
+        -- 备份
+        IF OBJECT_ID(N'p_DevelopmentCompanyMonthProjType_bak_20250411', N'U') IS NULL
+            SELECT  a.* INTO    p_DevelopmentCompanyMonthProjType_bak_20250411 FROM   p_DevelopmentCompanyMonthProjType a;
+
+        -- 更新
+        UPDATE  a
+        SET a.DevelopmentCompanyGUID = t.NewDevelopmentCompanyGUID
+        FROM    p_DevelopmentCompanyMonthProjType a
+                INNER JOIN #t t ON t.OldDevelopmentCompanyGUID = a.DevelopmentCompanyGUID
+        WHERE   a.DevelopmentCompanyGUID <> t.NewDevelopmentCompanyGUID;
+
+        PRINT '刷新项目公司月度项目类型数据' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+
 
         DROP TABLE #t1;
         DROP TABLE #part;

@@ -16,8 +16,6 @@ AS
 	创建日期：2025-03-27
 
 EXEC usp_nmap_F_平台公司待转化资源填报 '2025-03-27','erp25.dbo.','E122693F-3FFC-4F14-841B-2D9A0C5E39A8',1
-
-
 SELECT [平台公司待转化资源填报GUID]
       ,[FillHistoryGUID]
       ,[BusinessGUID]
@@ -68,8 +66,14 @@ SELECT [平台公司待转化资源填报GUID]
       ,[剩余权益口径占压金额（单位万元）]
       ,[剩余并表口径占压金额（单位万元）]
       ,[全年累计签约金额（全口径、单位万元）]
+      ,[本季度已盘活金额（并表口径、单位万元）]
+      ,[存货]
+      ,[其他应收款]
+      ,[预付账款]
+      ,[长期股权投资]
+      ,[差额]
+      ,[有差额的填写原因]
   FROM [dbo].[nmap_F_平台公司待转化资源填报]
-GO
 GO
 */
 
@@ -125,7 +129,6 @@ GO
 			--AND A.FILLHISTORYGUID <> @FILLHISTORYGUID
     ORDER BY ENDDATE DESC;	
 
-
 	-- 刷新组织架构
 	SELECT  
 	   newid() as [平台公司待转化资源填报GUID]
@@ -172,23 +175,31 @@ GO
       ,isnull(d.[预计本季度工作计划是否按节点达成],a.[预计本季度工作计划是否按节点达成]) as [预计本季度工作计划是否按节点达成]
       ,isnull(d.[未按节点达成事项],a.[未按节点达成事项]) as [未按节点达成事项]
       ,isnull(d.[盘活资金比例_（低于应盘活比例70%，推送预警）],a.[盘活资金比例_（低于应盘活比例70%，推送预警）]) as [盘活资金比例_（低于应盘活比例70%，推送预警）]
-      ,isnull(d.[全年累计盘活任务（并表口径、单位万元）],a.[全年累计盘活任务（并表口径、单位万元）]) as [全年累计盘活任务（并表口径、单位万元）]
-      ,isnull(d.[全年累计盘活金额（并表口径、单位万元）],a.[全年累计盘活金额（并表口径、单位万元）]) as [全年累计盘活金额（并表口径、单位万元）]
+      ,isnull(d.[全年累计盘活任务（并表口径、单位万元）],a.[全年累计盘活任务_（并表口径、单位万元）]) as [全年累计盘活任务（并表口径、单位万元）]
+      ,isnull(d.[全年累计盘活金额（并表口径、单位万元）],a.[全年累计盘活金额_（并表口径、单位万元）]) as [全年累计盘活金额（并表口径、单位万元）]
       ,isnull(d.[剩余全口径占压金额（单位万元）],a.[剩余全口径占压金额（单位万元）]) as [剩余全口径占压金额（单位万元）]
       ,isnull(d.[剩余权益口径占压金额（单位万元）],a.[剩余权益口径占压金额（单位万元）]) as [剩余权益口径占压金额（单位万元）]
       ,isnull(d.[剩余并表口径占压金额（单位万元）],a.[剩余并表口径占压金额（单位万元）]) as [剩余并表口径占压金额（单位万元）]
       ,isnull(d.[全年累计签约金额（全口径、单位万元）],a.[全年累计签约金额（全口径、单位万元）]) as [全年累计签约金额（全口径、单位万元）]
+      ,isnull(d.[本季度已盘活金额（并表口径、单位万元）],a.[本季度已盘活金额_（并表口径、单位万元）]) as [本季度已盘活金额（并表口径、单位万元）]
+      ,isnull(d.[存货],a.[存货]) as [存货]
+      ,isnull(d.[其他应收款],a.[其他应收款]) as [其他应收款]
+      ,isnull(d.[预付账款],a.[预付账款]) as [预付账款]
+      ,isnull(d.[长期股权投资],a.[长期股权投资]) as [长期股权投资]
+      ,isnull(d.[差额],a.[差额]) as [差额]
+      ,isnull(d.[有差额的填写原因],a.[有差额的填写原因]) as [有差额的填写原因]    
 	INTO #TempData
-	from  待转化资源 a
-	left join erp25.dbo.p_DevelopmentCompany b on  case when a.公司 = '东北公司' then '辽宁公司' else a.公司 end = b.DevelopmentCompanyName
+	from  待转化资源V3 a
+	left join erp25.dbo.p_DevelopmentCompany b on  a.公司  = b.DevelopmentCompanyName
 	left join nmap_N_CompanyToTerraceBusiness c2b on b.DevelopmentCompanyGUID = c2b.DevelopmentCompanyGUID
 	left join nmap_N_Company c on c2b.CompanyGUID = c.CompanyGUID
 	-- 查询上一版的数据进行继承
 	left join (
            select  distinct * from  NMAP_F_平台公司待转化资源填报  
 		   where  FILLHISTORYGUID = @FILLHISTORYGUIDLAST and isnull(项目名称,'') <> ''
-	) d on a.[项目名称] = d.[项目名称]
-
+	) d on  a.项目代码 =  d.项目代码 
+            and a.挂图问题类型 =d.[挂图问题类型]
+            and a.项目名称 = d.[项目名称]
 
 
 -- --删除旧数据  
