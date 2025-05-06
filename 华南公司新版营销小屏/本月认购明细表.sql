@@ -24,7 +24,7 @@ VALUES(N'茂名保利中环广场', N'0668005', N'5806', N'2021-4-26');
 INSERT  [dbo].#qtyj([项目推广名], [明源系统代码], [项目代码], [认定日期])
 VALUES(N'阳江保利海陵岛', N'0662002', N'1702', N'2021-5-24');
 
-DECLARE @var_date DATETIME = '2025-04-30';
+DECLARE @var_date DATETIME = '2025-05-06';
 
 SELECT  
         t1.projguid ,

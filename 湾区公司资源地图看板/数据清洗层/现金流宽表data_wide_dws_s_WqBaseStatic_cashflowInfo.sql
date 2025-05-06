@@ -68,21 +68,73 @@ FROM (SELECT TopProjGUID ,
 FROM   data_wide_dws_s_gsfkylbhzb hl
 GROUP BY TopProjGUID) t
 
+-- 获取项目动态成本直投及总投
+SELECT  ParentProjGUID AS projguid,
+        SUM(CASE WHEN CostShortName = '项目总投资' THEN ISNULL(DynamicCost_hfxj, 0) ELSE 0 END) /10000.0 AS 总投含非现金,
+        SUM(CASE WHEN CostShortName = '项目总投资' THEN ISNULL(DynamicCost, 0) ELSE 0 END) /10000.0 AS 总投不含非现金,
+
+        SUM(CASE WHEN CostShortName = '土地款' THEN ISNULL(DynamicCost_hfxj, 0) ELSE 0 END) /10000.0 AS 土地款动态成本含非现金含税,
+        SUM(CASE WHEN CostShortName = '土地款' THEN ISNULL(DynamicCost, 0) ELSE 0 END) /10000.0 AS 土地款动态成本不含非现金含税,
+
+        SUM(CASE WHEN CostShortName = '项目总投资' THEN ISNULL(DynamicCost_hfxj, 0) ELSE 0 END) /10000.0
+        - SUM(CASE WHEN CostShortName IN ('土地款', '营销费用', '管理费用', '财务费用') THEN ISNULL(DynamicCost_hfxj, 0) ELSE 0 END) /10000.0 AS 除地价直投含非现金含税,
+        SUM(CASE WHEN CostShortName = '项目总投资' THEN ISNULL(DynamicCost, 0) ELSE 0 END) /10000.0
+        - SUM(CASE WHEN CostShortName IN ('土地款', '营销费用', '管理费用', '财务费用') THEN ISNULL(DynamicCost, 0) ELSE 0 END) /10000.0 AS 除地价直投不含非现金含税
+into #qpDtCost
+FROM    data_wide_cb_ProjCostAccount c
+WHERE   c.CostShortName IN ('土地款', '营销费用', '管理费用', '财务费用', '项目总投资')
+GROUP BY ParentProjGUID
+
+-- 获取盈利规划 营销费用 管理费用 财务费用 税金
+SELECT  项目guid,
+        SUM(ISNULL(资本化利息, 0)) /10000.0 AS 财务费用, -- 单位万元
+        SUM(ISNULL(营销费用, 0)) /10000.0 AS 营销费用,
+        SUM(ISNULL(税金及附加, 0)) /10000.0 AS 税金,
+        SUM(ISNULL(综合管理费管控口径, 0)) /10000.0 AS 管理费用
+INTO    #qpylgh
+FROM    dw_f_TopProJect_ProfitCost_ylgh
+GROUP BY 项目guid
+
+
+-- 取明源系统项目的动态总货值
+SELECT  组织架构id as 项目GUID,
+        总货值金额 AS 动态总货值金额 -- 单位万元
+into #qpdthz
+FROM    [172.16.4.141].erp25.dbo.ydkb_dthz_wq_deal_salevalueinfo 
+WHERE   组织架构类型 = 3 
+        --and 组织架构id ='C66ED2CC-4166-E911-80B7-0A94EF7517DD'
+
 --获取项目层级的现金流数据，并循环更新区域公司->公司的数据
 SELECT  o.组织架构父级ID ,
         o.组织架构id ,
         o.组织架构名称 ,
         3 AS 组织架构类型 ,
+
+        /* 统计全盘现金流数据*/
+        isnull(dthz.动态总货值金额,0) as 全盘现金流入,
+        isnull(dtcost.土地款动态成本含非现金含税,0) + isnull(dtcost.除地价直投含非现金含税,0) 
+        + isnull(ylgh.营销费用,0) + isnull(ylgh.管理费用,0) + isnull(ylgh.财务费用,0) + isnull(ylgh.税金,0) as 全盘现金流出 ,  --全盘地价支出+直投+三费+税金
+        isnull(dtcost.土地款动态成本含非现金含税,0) AS 全盘地价支出 , --源动态成本土地款含非现金含税
+        isnull(dtcost.除地价直投含非现金含税,0) AS 全盘除地价外直投发生 , -- 明源动态成本除地价外直投含非现金含税
+        isnull(ylgh.营销费用,0) AS 全盘营销费用, -- 盈利规划系统 营销费用
+        isnull(ylgh.管理费用,0) AS 全盘管理费用, -- 盈利规划系统 管理费协议口径 
+        isnull(ylgh.财务费用,0) AS 全盘财务费用, -- 盈利规划系统 资本化利息
+        isnull(ylgh.税金,0) AS 全盘税金, -- 盈利规划系统 税金及附加
+        0 as 全盘贷款, -- 贷款 默认0
+
+        /* 统计累计现金流数据  */
         --dss累计现金流+成本本月实时现金流
         xjl.累计经营性现金流 +(isnull(byhl.本月实际回笼全口径,0) - (isnull(byfk.本月地价支出,0) + isnull(byfk.本月除地价外直投发生,0) + isnull(byfk.本月营销费支出,0) 
         + isnull(byfk.本月管理费支出,0) + isnull(byfk.本月财务费支出,0)))  AS 累计经营性现金流 ,
         isnull(xjl.累计回笼金额,0)+isnull(byhl.本月实际回笼全口径,0) AS 累计现金流入 ,
+        
         isnull(xjl.累计直接投资土地费用,0) + isnull(xjl.累计建安费用,0) + isnull(sanf.累计营销费支出,0) + isnull(sanf.累计管理费支出,0) 
         + isnull(sanf.累计财务费支出,0) + isnull(xjl.累计税金,0)+
         isnull(byfk.本月地价支出,0) + isnull(byfk.本月除地价外直投发生,0) + isnull(byfk.本月营销费支出,0) + isnull(byfk.本月管理费支出,0) 
         + isnull(byfk.本月财务费支出,0) AS 累计现金流出 ,
         isnull(xjl.累计直接投资土地费用,0)+isnull(byfk.本月地价支出,0) AS 累计地价支出 ,
         isnull(xjl.累计建安费用,0)+isnull(byfk.本月除地价外直投发生,0) AS 累计除地价外直投发生 ,
+ 
         isnull(sanf.累计营销费支出,0)+isnull(byfk.本月营销费支出,0) as 累计营销费支出,
         isnull(sanf.累计管理费支出,0)+isnull(byfk.本月管理费支出,0) as 累计管理费支出,
         isnull(sanf.累计财务费支出,0)+isnull(byfk.本月财务费支出,0) as  累计财务费支出,
@@ -192,6 +244,10 @@ FROM    data_wide_dws_s_WqBaseStatic_Organization o
         LEFT JOIN #byhl byhl ON byhl.topprojguid = o.组织架构id
         --获取本月实付款数据
         LEFT JOIN #byfk byfk ON byfk.projguid = o.组织架构id
+        --获取项目动态成本直投及总投
+        left join #qpDtCost dtcost On dtcost.projguid = o.组织架构id
+        left join #qpylgh ylgh on ylgh.项目guid = o.组织架构id
+        left join #qpdthz dthz on dthz.项目GUID =o.组织架构id
 WHERE   o.组织架构类型 = 3;
 
 --select  * from  #temp_result where 本月税金支出 is null 
@@ -208,6 +264,16 @@ WHILE(@baseinfo > 0)
                 o.组织架构id ,
                 o.组织架构名称,
                 o.组织架构类型,
+                sum(isnull(j.全盘现金流入,0)) as 全盘现金流入,
+                sum(isnull(j.全盘现金流出,0)) as 全盘现金流出,
+                sum(isnull(j.全盘地价支出,0)) as 全盘地价支出,
+                sum(isnull(j.全盘除地价外直投发生,0)) as 全盘除地价外直投发生,
+                sum(isnull(j.全盘营销费用,0)) as 全盘营销费用,
+                sum(isnull(j.全盘管理费用,0)) as 全盘管理费用,
+                sum(isnull(j.全盘财务费用,0)) as 全盘财务费用,
+                sum(isnull(j.全盘税金,0)) as 全盘税金,
+                sum(isnull(j.全盘贷款,0)) as 全盘贷款,
+
                 SUM(isnull(j.累计经营性现金流,0)) AS 累计经营性现金流 ,
                 SUM(isnull(j.累计现金流入,0)) AS 累计现金流入 ,
                 SUM(isnull(j.累计现金流出,0)) AS 累计现金流出 ,
@@ -237,7 +303,7 @@ WHILE(@baseinfo > 0)
                 SUM(isnull(j.本年税金支出,0)) AS 本年税金支出 ,
                 SUM(isnull(j.本年拓展任务,0)) AS 本年拓展任务 ,
                 SUM(isnull(j.本年实际拓展金额,0)) AS 本年实际拓展金额 ,
-				SUM(isnull(j.本年贷款任务,0)) AS 本年贷款任务,
+		SUM(isnull(j.本年贷款任务,0)) AS 本年贷款任务,
                 SUM(isnull(j.本月经营性现金流,0)) AS 本月经营性现金流 ,
                 SUM(isnull(j.本月现金流入,0)) AS 本月现金流入 ,
                 SUM(isnull(j.本月现金流出,0)) AS 本月现金流出 ,
@@ -287,4 +353,7 @@ DROP TABLE #temp_result ,
            #byfk ,
            #byhl ,
            #confk ,
-           #conproj
+           #conproj,
+           #qpDtCost,
+           #qpylgh,
+           #qpdthz
