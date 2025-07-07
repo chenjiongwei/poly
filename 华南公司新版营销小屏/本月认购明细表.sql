@@ -1,11 +1,13 @@
+
+-- 创建临时表 #qtyj
 CREATE TABLE [dbo].#qtyj ([项目推广名] [NVARCHAR](255) NULL ,
                           [明源系统代码] [NVARCHAR](255) NULL ,
                           [项目代码] [NVARCHAR](255) NULL ,
                           [认定日期] DATETIME);
 
+-- 插入数据
 INSERT  [dbo].#qtyj([项目推广名], [明源系统代码], [项目代码], [认定日期])
 VALUES(N'佛山保利环球汇', N'0757046', N'2937', N'2020-8-31');
-
 INSERT  [dbo].#qtyj([项目推广名], [明源系统代码], [项目代码], [认定日期])
 VALUES(N'佛山保利西山林语', N'0757056', N'2946', N'2022-5-27');
 
@@ -24,6 +26,7 @@ VALUES(N'茂名保利中环广场', N'0668005', N'5806', N'2021-4-26');
 INSERT  [dbo].#qtyj([项目推广名], [明源系统代码], [项目代码], [认定日期])
 VALUES(N'阳江保利海陵岛', N'0662002', N'1702', N'2021-5-24');
 
+-- 定义变量
 DECLARE @var_date DATETIME = '2025-05-06';
 
 SELECT  
@@ -70,15 +73,16 @@ FROM(SELECT
                     bld.TopProductTypeName ,
                     r.RoomGUID ,
                     SUM(CASE WHEN DATEDIFF(MONTH, StatisticalDate, @var_date) = 0 THEN CCjAmount
-                             WHEN (s.TsyjType = '物业公司车位代销' AND  DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0) THEN r.CjRmbTotal / 10000.0
+                             WHEN (s.TsyjType = '物业公司车位代销' AND  DATEDIFF(MONTH, StatisticalDate, @var_date) = 0) THEN r.CjRmbTotal / 10000.0
                              ELSE 0
                         END) AS byhzje ,                                                                                                                                                                -- 本月认购金额
-                    SUM(CASE WHEN DATEDIFF(MONTH, StatisticalDate, @var_date) = 0 OR (s.TsyjType = '物业公司车位代销' AND   DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0) THEN CCjCount ELSE 0 END) AS byhzts ,   --本月认购套数
+                    SUM(CASE WHEN DATEDIFF(MONTH, StatisticalDate, @var_date) = 0 
+                                  OR (s.TsyjType = '物业公司车位代销' AND   DATEDIFF(MONTH, StatisticalDate, @var_date) = 0) THEN CCjCount ELSE 0 END) AS byhzts ,   --本月认购套数
                     SUM(CASE WHEN DATEDIFF(DAY, StatisticalDate, @var_date) = 0 THEN CCjAmount
-                             WHEN (s.TsyjType = '物业公司车位代销' AND  DATEDIFF(DAY, r.RgQsDate, @var_date) = 0) THEN r.CjRmbTotal / 10000.0
+                             WHEN (s.TsyjType = '物业公司车位代销' AND  DATEDIFF(DAY, StatisticalDate, @var_date) = 0) THEN r.CjRmbTotal / 10000.0
                              ELSE 0
                         END) AS brhzje ,                                                                                                                                                                --本日认购金额
-                    SUM(CASE WHEN DATEDIFF(DAY, StatisticalDate, @var_date) = 0 OR  (s.TsyjType = '物业公司车位代销' AND DATEDIFF(DAY, r.RgQsDate, @var_date) = 0) THEN CCjCount ELSE 0 END) AS brhzts          --本日认购套数
+                    SUM(CASE WHEN DATEDIFF(DAY, StatisticalDate, @var_date) = 0 OR  (s.TsyjType = '物业公司车位代销' AND DATEDIFF(DAY, StatisticalDate, @var_date) = 0) THEN CCjCount ELSE 0 END) AS brhzts          --本日认购套数
              FROM   dbo.data_wide_s_SpecialPerformance s
                     LEFT JOIN data_wide_s_RoomoVerride r ON s.roomguid = r.roomguid
                     INNER JOIN data_wide_dws_mdm_Building bld ON bld.BuildingGUID = s.BldGUID

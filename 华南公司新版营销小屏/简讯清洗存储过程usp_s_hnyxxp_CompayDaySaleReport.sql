@@ -1,6 +1,6 @@
 USE [HighData_prod]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_s_hnyxxp_CompayDaySaleReport]    Script Date: 2025/1/17 15:48:56 ******/
+/****** Object:  StoredProcedure [dbo].[usp_s_hnyxxp_CompayDaySaleReport]    Script Date: 2025/5/6 19:08:52 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON

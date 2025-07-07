@@ -127,3 +127,6 @@ else org.区域+'_'+isnull(org.销售片区,'无') end ,
 da.时间
 
 drop table  #dw02, #date02
+
+
+

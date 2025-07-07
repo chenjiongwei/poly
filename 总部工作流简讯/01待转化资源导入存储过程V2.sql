@@ -1,0 +1,209 @@
+USE [dss]
+GO
+/****** Object:  StoredProcedure [dbo].[usp_nmap_F_平台公司待转化资源填报]    Script Date: 2025/6/4 10:31:42 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+create    PROC [dbo].[usp_nmap_F_平台公司待转化资源填报V2]
+    (
+      @CLEANDATE DATETIME ,
+      @DATABASENAME VARCHAR(100) ,
+      @FILLHISTORYGUID UNIQUEIDENTIFIER ,
+      @ISCURRFILLHISTORY BIT
+    )
+AS
+/*
+	参数：@CLEANDATE  清洗日期
+		  @DATABASENAME 数据库地址
+		  @FILLHISTORYGUID 填报批次
+		  @ISCURRFILLHISTORY 是否当前批次
+	功能：待转化资源导入
+	创建者：CHENJW
+	创建日期：2025-03-27
+
+--填报清洗规则表
+INSERT  INTO dbo.nmap_S_FillDataSynchRule
+        ( FillDataSynchRuleGUID ,
+          FillName ,
+          SynchTableName ,
+          SynchStorName ,
+          SystemType ,
+          SynchOrder
+        )
+VALUES  ( NEWID() ,
+          '平台公司待转化资源填报V2' ,
+          'nmap_F_平台公司待转化资源填报V2' ,
+          'usp_nmap_F_平台公司待转化资源填报V2' ,
+          '9999' ,   --数据库标识
+          '999908'   --数据库标识加上排序
+        );
+go
+
+EXEC usp_nmap_F_平台公司待转化资源填报V2 '2025-03-27','erp25.dbo.','E122693F-3FFC-4F14-841B-2D9A0C5E39A8',1
+
+*/
+
+
+    PRINT @CLEANDATE; 
+    PRINT @DATABASENAME;  
+    PRINT @FILLHISTORYGUID; 
+    PRINT @ISCURRFILLHISTORY; 
+
+    DECLARE @STRSQL VARCHAR(MAX); 
+	DECLARE @COUNTNUM INT;
+
+	--若为历史版本，则不刷新
+	DECLARE @FILLHISTORYGUIDNEW UNIQUEIDENTIFIER;
+	SELECT TOP 1 @FILLHISTORYGUIDNEW= A.FILLHISTORYGUID
+    FROM    NMAP_F_FILLHISTORY A
+    WHERE   FILLDATAGUID = ( SELECT FILLDATAGUID
+                             FROM   NMAP_F_FILLDATA
+                             WHERE  FILLNAME = '平台公司待转化资源填报V2'
+                           )
+    ORDER BY ENDDATE DESC;
+
+	IF @FILLHISTORYGUID <> @FILLHISTORYGUIDNEW
+	BEGIN
+		PRINT '该版本不是最新版本，故不更新'
+		RETURN;
+	END
+
+  
+
+  	-- 若当前版本有数据的话，不刷新组织架构
+	SELECT @COUNTNUM = COUNT(1) 
+	FROM NMAP_F_平台公司待转化资源填报V2 
+	WHERE ISNULL(上月工作进展,'') <> '' 
+	  AND FILLHISTORYGUID = @FILLHISTORYGUID;
+
+	IF @COUNTNUM > 0
+	BEGIN
+		PRINT '当前版本有数据，不刷新组织架构信息'
+		RETURN;
+	END
+
+	--当是当前批次时,刷新组织纬度,即根据填报类型(自定义/公司级/项目级)生成对应的组织架构信息
+	--若当前版本有数据的话，不刷新组织架构
+	SELECT @COUNTNUM=COUNT(1) FROM NMAP_F_平台公司待转化资源填报V2 
+	WHERE ISNULL(项目名称,'') <> '' AND FILLHISTORYGUID = @FILLHISTORYGUID;
+
+	IF @ISCURRFILLHISTORY = 1 AND @COUNTNUM = 0
+        BEGIN
+			PRINT '新生成版本需要重新刷新组织架构信息'
+            EXEC dbo.USP_NMAP_S_FILLDATASYNCH_RECREATEBATCH @FILLHISTORYGUID = @FILLHISTORYGUID;
+        END;
+
+	--截至日期最后,且有数据 的版本号
+    DECLARE @FILLHISTORYGUIDLAST UNIQUEIDENTIFIER;
+  
+    SELECT TOP 1
+            @FILLHISTORYGUIDLAST = A.FILLHISTORYGUID
+    FROM    NMAP_F_FILLHISTORY A
+    WHERE   FILLDATAGUID = ( SELECT FILLDATAGUID
+                             FROM   NMAP_F_FILLDATA
+                             WHERE  FILLNAME = '平台公司待转化资源填报V2'
+                           )
+			AND FILLHISTORYGUID IN (SELECT DISTINCT FILLHISTORYGUID FROM NMAP_F_平台公司待转化资源填报V2  
+			WHERE ISNULL(项目名称,'') <> '')
+            --AND A.APPROVESTATUS = '已审核' 
+			--AND A.FILLHISTORYGUID <> @FILLHISTORYGUID
+    ORDER BY ENDDATE DESC;	
+
+	-- 刷新组织架构
+	SELECT  
+	    newid() as [平台公司待转化资源填报GUID] 
+      ,@FILLHISTORYGUID as [FILLHISTORYGUID]
+      ,c.CompanyGUID as [BUSINESSGUID]
+      ,c.CompanyName as [公司简称]
+      ,isnull(d.[最后导入人],null) as [最后导入人]
+      ,isnull(d.[最后导入时间],getdate()) as [最后导入时间]
+      ,null as [ROWID]
+      ,isnull(d.[公司],a.[公司]) as [公司]
+      ,isnull(d.[我司股比],a.[我司股比]) as [我司股比]
+      ,isnull(d.[是否并表],a.[是否并表]) as [是否并表]
+      ,isnull(d.[项目代码],a.[项目代码]) as [项目代码]
+      ,isnull(d.[挂图问题类型],a.[挂图问题类型]) as [挂图问题类型]
+      ,isnull(d.[项目名称],a.[项目名称]) as [项目名称]
+      ,isnull(d.[项目直接责任人],a.[项目直接责任人]) as [项目直接责任人]
+
+      ,isnull(d.[年初全口径占压资金（万元）],a.[年初全口径占压资金（万元）]) as [年初全口径占压资金（万元）]
+      ,isnull(d.[年初权益占压资金（万元）],a.[年初权益占压资金（万元）]) as [年初权益占压资金（万元）]
+      ,isnull(d.[年初并表口径占压资金（万元）],a.[年初并表口径占压资金（万元）]) as [年初并表口径占压资金（万元）]
+      ,isnull(d.[2025年计划完成的重要节点或目标],a.[2025年计划完成的重要节点或目标]) as [2025年计划完成的重要节点或目标]
+      ,isnull(d.[对应盘活资金（并表口径，万元）],a.[对应盘活资金（并表口径，万元）]) as [对应盘活资金（并表口径，万元）]
+
+      ,isnull(d.[年初铺排一季度计划],a.[年初铺排一季度计划]) as [年初铺排一季度计划]
+      ,isnull(d.[年初铺排一季度盘活金额],a.[年初铺排一季度盘活金额]) as [年初铺排一季度盘活金额]
+      ,isnull(d.[年初铺排二季度计划],a.[年初铺排二季度计划]) as [年初铺排二季度计划]
+      ,isnull(d.[年初铺排二季度盘活金额],a.[年初铺排二季度盘活金额]) as [年初铺排二季度盘活金额]
+
+      ,isnull(d.[年初铺排三季度计划],a.[年初铺排三季度计划]) as [年初铺排三季度计划]
+      ,isnull(d.[年初铺排三季度盘活金额],a.[年初铺排三季度盘活金额]) as [年初铺排三季度盘活金额]
+      ,isnull(d.[年初铺排四季度计划],a.[年初铺排四季度计划]) as [年初铺排四季度计划]
+      ,isnull(d.[年初铺排四季度盘活金额],a.[年初铺排四季度盘活金额]) as [年初铺排四季度盘活金额]
+
+      ,isnull(d.[7月新排计划],a.[7月新排计划]) as [7月新排计划]
+      ,isnull(d.[7月新排盘活金额],a.[7月新排盘活金额]) as [7月新排盘活金额]
+      ,isnull(d.[8月新排计划],a.[8月新排计划]) as [8月新排计划]
+      ,isnull(d.[8月新排盘活金额],a.[8月新排盘活金额]) as [8月新排盘活金额]
+
+      ,isnull(d.[9月新排计划],a.[9月新排计划]) as [9月新排计划]
+      ,isnull(d.[9月新排盘活金额],a.[9月新排盘活金额]) as [9月新排盘活金额]
+      ,isnull(d.[10月新排计划],a.[10月新排计划]) as [10月新排计划]
+      ,isnull(d.[10月新排盘活金额],a.[10月新排盘活金额]) as [10月新排盘活金额]
+      ,isnull(d.[11月新排计划],a.[11月新排计划]) as [11月新排计划]
+      ,isnull(d.[11月新排盘活金额],a.[11月新排盘活金额]) as [11月新排盘活金额]
+      ,isnull(d.[12月新排计划],a.[12月新排计划]) as [12月新排计划]
+      ,isnull(d.[12月新排盘活金额],a.[12月新排盘活金额]) as [12月新排盘活金额]
+      ,isnull(d.[2026年盘活计划],a.[2026年盘活计划]) as [2026年盘活计划]
+      ,isnull(d.[2026年盘活金额],a.[2026年盘活金额]) as [2026年盘活金额]
+      ,isnull(d.[2027年盘活计划],a.[2027年盘活计划]) as [2027年盘活计划]
+      ,isnull(d.[2027年盘活金额],a.[2027年盘活金额]) as [2027年盘活金额]
+
+
+
+      ,''  as [上月工作进展]
+      ,'' as [下月工作计划]
+      ,'' as [预计本季度工作计划是否按节点达成]
+      ,'' as [未按节点达成事项]
+      ,'' as [本季度已盘活金额（并表口径、单位万元）]
+      ,'' as [全年累计盘活任务（并表口径、单位万元）]
+      ,'' as [全年累计盘活金额（并表口径、单位万元）]
+      ,'' as [盘活资金比例]
+      ,'' as [剩余全口径占压金额（单位万元）]
+      ,'' as [剩余权益口径占压金额（单位万元）]
+      ,'' as [剩余并表口径占压金额（单位万元）]
+      ,'' as [全年累计签约金额（全口径、单位万元）]
+
+      ,'' as [存货]
+      ,'' as [其他应收款]
+      ,'' as [预付账款]
+      ,'' as [长期股权投资]
+      ,'' as [差额]
+      ,'' as [有差额的填写原因]    
+	INTO #TempData
+	from  待转化资源V4 a
+	left join erp25.dbo.p_DevelopmentCompany b on  a.公司  = b.DevelopmentCompanyName
+	left join nmap_N_CompanyToTerraceBusiness c2b on b.DevelopmentCompanyGUID = c2b.DevelopmentCompanyGUID
+	left join nmap_N_Company c on c2b.CompanyGUID = c.CompanyGUID
+	-- 查询上一版的数据进行继承
+	left join (
+           select  distinct * from  NMAP_F_平台公司待转化资源填报V2  
+		   where  FILLHISTORYGUID = @FILLHISTORYGUIDLAST and isnull(项目名称,'') <> ''
+	) d on  a.项目代码 =  d.项目代码 
+            and a.挂图问题类型 =d.[挂图问题类型]
+            and a.项目名称 = d.[项目名称]
+
+
+-- --删除旧数据  
+    DELETE  FROM NMAP_F_平台公司待转化资源填报V2
+    WHERE   FillHistoryGUID = @FillHistoryGUID;  
+
+	 -- 将数据插入到当前版本
+	 INSERT INTO NMAP_F_平台公司待转化资源填报V2  
+	 SELECT * FROM #TempData;
+
+	 -- 删除临时表
+	 DROP TABLE #TempData;
+

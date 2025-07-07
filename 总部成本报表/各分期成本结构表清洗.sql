@@ -1,12 +1,19 @@
+USE [MyCost_Erp352]
+GO
+/****** Object:  StoredProcedure [dbo].[usp_cb_CostStructureReport_Clean]    Script Date: 2025/6/9 19:06:05 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
 -- =============================================
 -- Author:      chenjw
 -- Create date: 2025-04-27
 -- Description: 清洗各分期成本结构表数据，插入到 cb_CostStructureReport_qx
 -- 执行实例：exec [usp_cb_CostStructureReport_Clean] '455FC380-B609-4A5A-9AAC-EE0F84C7F1B8','2025-04-28'
--- 执行实例：exec [usp_cb_CostStructureReport_Clean] '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23','2025-05-04'
+-- 执行实例：exec [usp_cb_CostStructureReport_Clean] '11B11DB4-E907-4F1F-8835-B9DAAB6E1F23','2025-05-27'
 
 -- =============================================
-alter PROCEDURE [dbo].[usp_cb_CostStructureReport_Clean]
+ALTER PROCEDURE [dbo].[usp_cb_CostStructureReport_Clean]
 (
     @buguid  varchar(max)=null, -- 公司GUID
     @qxDate datetime --  查询日期
@@ -110,7 +117,9 @@ BEGIN
         待签约_合同数 DECIMAL(18,2),
         待签约_合约规划金额 DECIMAL(18,2),
         待签约_待发生预留金 DECIMAL(18,2),
-        非现金 DECIMAL(18,2)
+        非现金 DECIMAL(18,2),
+        已发生预留金_已结算 DECIMAL(18,2),
+        已发生预留金_未结算 DECIMAL(18,2)
     );
 
     -- 调用报表生成存储过程，将结果插入临时表
@@ -133,7 +142,6 @@ BEGIN
     -- 删除临时表，释放资源
     DROP TABLE #cb_CostStructureReport_temp;
 END;
-
 
 -- USE [MyCost_Erp352]
 -- GO

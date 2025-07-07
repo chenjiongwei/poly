@@ -1614,3 +1614,39 @@ BEGIN
     PRINT '更新ys_OverAllPlanWork表BUGUID：' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 END;
 */
+
+/*
+
+select bu.BUName,bu.BUGUID,count(1) 
+from fy_ItemApply_FtDetail a
+inner join  ys_DeptCost dcl on a.CostGUID =dcl.DeptCostGUID --and  a.FtYear =dcl.Year
+inner join  ys_SpecialBusinessUnit spb on a.DeptGUID =spb.SpecialUnitGUID
+inner join  ys_DeptCost mdl on mdl.CostCode =dcl.CostCode and  dcl.Year =mdl.Year and  mdl.BUGUID =spb.BUGUID
+inner join [myBusinessUnit] bu on bu.BUGUID =dcl.BUGUID
+where dcl.BUGUID <> mdl.BUGUID 
+and dcl.BUGUID in (
+'289A694A-E5D1-4F02-BFEF-8510E4B6C6A0',
+'A8E2ACA1-508E-46F3-B764-8E2114255B4B',
+'CEBF9C18-CF48-49FD-B490-A86E3D9F10D4',
+'31120F08-22C4-4220-8ED2-DCAD398C823C',
+'4674A41A-81C3-4A20-8B5C-E52319022195'
+)
+group by bu.BUName,bu.BUGUID
+
+update  a
+   set  a.CostGUID=mdl.DeptCostGUID
+from fy_ItemApply_FtDetail a
+inner join  ys_DeptCost dcl on a.CostGUID =dcl.DeptCostGUID --and  a.FtYear =dcl.Year
+inner join  ys_SpecialBusinessUnit spb on a.DeptGUID =spb.SpecialUnitGUID
+inner join  ys_DeptCost mdl on mdl.CostCode =dcl.CostCode and  dcl.Year =mdl.Year and  mdl.BUGUID =spb.BUGUID
+inner join [myBusinessUnit] bu on bu.BUGUID =dcl.BUGUID
+where dcl.BUGUID <> mdl.BUGUID 
+and dcl.BUGUID in (
+'289A694A-E5D1-4F02-BFEF-8510E4B6C6A0',
+'A8E2ACA1-508E-46F3-B764-8E2114255B4B',
+'CEBF9C18-CF48-49FD-B490-A86E3D9F10D4',
+'31120F08-22C4-4220-8ED2-DCAD398C823C',
+'4674A41A-81C3-4A20-8B5C-E52319022195'
+)
+
+*/

@@ -1,218 +1,205 @@
--- 声明变量
-declare @buguid varchar(max) = '4A1E877C-A0B2-476D-9F19-B5C426173C38'  -- 公司GUID
-declare @dev varchar(max) = '5A4B2DEF-E803-49F8-9FE2-308735E7233D'     -- 开发公司GUID
+declare @buguid varchar(max) = '4A1E877C-A0B2-476D-9F19-B5C426173C38'
+declare @dev varchar(max) = '5A4B2DEF-E803-49F8-9FE2-308735E7233D'
 
--- 1. 取认购签约情况
-select  
-    -- 本日认购数据
-    convert(decimal(16,2), sum(isnull(本日实际认购金额,0))/10000.0) 本日认购金额,
-    convert(decimal(16,2), sum(case when 产品类型 = '地下室/车库' then isnull(本日实际认购金额,0) else 0 end)) 本日车位认购金额,
-    convert(decimal(16,2), sum(case when 产品类型 in ('公寓','商业','办公楼') then isnull(本日实际认购金额,0) else 0 end)) 本日公商办认购金额,
-    
-    -- 本月认购数据
-    convert(decimal(16,2), sum(isnull(本月实际认购金额,0))/10000.0) 本月认购金额,
-    convert(decimal(16,2), sum(case when 产品类型 = '地下室/车库' then isnull(本月实际认购金额,0) else 0 end)/10000.0) 本月车位认购金额,
-    convert(decimal(16,2), sum(case when 产品类型 in ('公寓','商业','办公楼') then isnull(本月实际认购金额,0) else 0 end)/10000.0) 本月公商办认购金额,
-    
-    -- 本年认购数据
-    convert(decimal(16,2), sum(isnull(本年实际认购金额,0))/10000.0) 本年认购金额,
-    convert(decimal(16,2), sum(case when 产品类型 = '地下室/车库' then isnull(本年认购金额,0) else 0 end)/10000.0) 本年车位认购金额,
-    convert(decimal(16,2), sum(case when 产品类型 in ('公寓','商业','办公楼') then isnull(本年认购金额,0) else 0 end)/10000.0) 本年公商办认购金额,
-    
-    -- 签约数据
-    -- convert(decimal(16,2), sum(isnull(本日签约金额,0))/10000.0) 本日签约金额,  -- 已注释
-    convert(decimal(16,2), sum(isnull(本月签约金额,0))/10000.0) 本月签约金额, 
-    convert(decimal(16,2), sum(isnull(本年签约金额,0))/10000.0) 本年签约金额
+--获取本月1号是第几周
+declare @month_1 varchar(10) = convert(varchar(7),GETDATE(),121)+'-01' --本月1号
+declare @week_1 int = DATEPART(WEEK, @month_1) --本月1号是当前的第几周
+--如果1号是在周一的话，那么本周就算在本月，否则算在上月
+declare @week_name varchar(1)  =  DATEPART(WEEK, getdate())-@week_1+ case when DATEPART(dw,@week_1) = 2 then 1 else  0 end
+
+--获取周一的时间
+declare @lastw varchar(10) = convert(varchar(10),DATEADD(WEEK, DATEDIFF(WEEK, 0, CONVERT(DATETIME, getdate(), 120) - 1), 0),121) 
+declare @lastw_m varchar(2) = convert(varchar(2),month(@lastw))
+declare @lastw_r varchar(2) = convert(varchar(2),DAY(@lastw));
+
+--获取周日的时间
+declare @w1 varchar(10) = convert(varchar(10),DATEADD(DAY, 6, DATEADD(WEEK, DATEDIFF(WEEK, 0, CONVERT(DATETIME, getdate(), 120) - 1), 0)),121)
+declare @by varchar(2) = convert(varchar(2),month(@w1))
+declare @br varchar(2) = convert(varchar(2),DAY(@w1));
+
+
+CREATE TABLE #sale_bz( 
+	[公司名称] [varchar](100) NULL,
+	[BUGUID] [uniqueidentifier] NULL,
+	[项目名称] [varchar](400) NULL,
+	[投管项目名称] [varchar](500) NULL,
+	[投管推广名] [varchar](500) NULL,
+	[操盘方式] [varchar](200) NULL,
+	[并表方式] [varchar](200) NULL,
+	[项目权益比例] [money] NULL,
+	[项目代码] [varchar](200) NULL,
+	[产品类型] [varchar](400) NULL,
+	[首推日期] [datetime] NULL,
+	[获取时间] [datetime] NULL,
+	[项目类型] [varchar](200) NULL,
+	[本期认购套数] [int] NULL,
+	[本期认购面积] [money] NULL,
+	[本期认购金额] [money] NULL,
+	[本期签约套数] [int] NULL,
+	[本期签约面积] [money] NULL,
+	[本期签约金额] [money] NULL,
+	[本月认购套数] [int] NULL,
+	[本年认购套数] [int] NULL,
+	[累计认购套数] [int] NULL,
+	[本月认购面价] [money] NULL,
+	[本年认购面价] [money] NULL,
+	[累计认购面价] [money] NULL,
+	[本月认购金额] [money] NULL,
+	[本年认购金额] [money] NULL,
+	[累计认购金额] [money] NULL,
+	[本月签约套数] [int] NULL,
+	[本年签约套数] [int] NULL,
+	[累计签约套数] [int] NULL,
+	[本月签约面积] [money] NULL,
+	[本年签约面积] [money] NULL,
+	[累计签约面积] [money] NULL,
+	[本月签约金额] [money] NULL,
+	[本年签约金额] [money] NULL,
+	[累计签约金额] [money] NULL,
+	[本年签约权益面积] [money] NULL,
+	[本年签约权益金额] [money] NULL,
+	[本期认购均价] [money] NULL,
+	[本月认购均价] [money] NULL,
+	[本年认购均价] [money] NULL,
+	[累计认购均价] [money] NULL,
+	[本期签约均价] [money] NULL,
+	[本月签约均价] [money] NULL,
+	[本年签约均价] [money] NULL,
+	[累计签约均价] [money] NULL,
+	[投管代码] [varchar](200) NULL,
+	[未签约套数] [money] NULL,
+	[未签约面积] [money] NULL,
+	[未签约金额] [money] NULL,
+	[本日预认购套数] [money] NULL,
+	[本日预认购面积] [money] NULL,
+	[本日预认购金额] [money] NULL,
+	[本月预认购套数] [money] NULL,
+	[本月预认购面积] [money] NULL,
+	[本月预认购金额] [money] NULL,
+	[本年预认购套数] [money] NULL,
+	[本年预认购面积] [money] NULL,
+	[本年预认购金额] [money] NULL,
+	[累计预认购套数] [money] NULL,
+	[累计预认购面积] [money] NULL,
+	[累计预认购金额] [money] NULL,
+	[本日实际认购套数] [money] NULL,
+	[本日实际认购面积] [money] NULL,
+	[本日实际认购金额] [money] NULL,
+	[本月实际认购套数] [money] NULL,
+	[本月实际认购面积] [money] NULL,
+	[本月实际认购金额] [money] NULL,
+	[本年实际认购套数] [money] NULL,
+	[本年实际认购面积] [money] NULL,
+	[本年实际认购金额] [money] NULL,
+	[累计实际认购套数] [money] NULL,
+	[累计实际认购面积] [money] NULL,
+	[累计实际认购金额] [money] NULL
+)
+
+--获取本周的签约认购数据
+insert into #sale_bz  
+exec [usp_S_08ZYXSQYJB_HHZTSYJ]   @buguid ,@lastw,@w1;
+
+--取当天认购签约情况
+with s_br as (select 
+sum(isnull(本月实际认购金额,0))/10000.0 本月认购金额,
+sum(case when 产品类型 = '地下室/车库' then isnull(本月实际认购金额,0) else 0 end)/10000.0 本月车位认购金额,
+sum(case when 产品类型 in ('公寓','商业','办公楼') then isnull(本月实际认购金额,0) else 0 end)/10000.0 本月公商办认购金额,
+sum(isnull(本年实际认购金额,0))/10000.0 本年认购金额,
+sum(case when 产品类型 = '地下室/车库' then isnull(本年认购金额,0) else 0 end)/10000.0 本年车位认购金额,
+sum(case when 产品类型 in ('公寓','商业','办公楼') then isnull(本年认购金额,0) else 0 end)/10000.0 本年公商办认购金额,
+sum(isnull(本月签约金额,0))/10000.0 本月签约金额, 
+sum(isnull(本年签约金额,0))/10000.0 本年签约金额,
+sum(isnull(本期认购金额,0))/10000.0 本周认购金额,
+sum(case when 产品类型 = '地下室/车库' then isnull(本期认购金额,0) else 0 end)/10000.0 本周车位认购金额,
+sum(isnull(本期签约金额,0))/10000.0 本周签约金额 
+from #sale_bz   ) 
+select 
+convert(decimal(16,2),s.本月认购金额) as 本月认购金额,
+convert(decimal(16,2),s.本月车位认购金额) as 本月车位认购金额,
+convert(decimal(16,2),s.本月公商办认购金额) as 本月公商办认购金额,
+convert(decimal(16,2),s.本年认购金额) as 本年认购金额,
+convert(decimal(16,2),s.本年车位认购金额) as 本年车位认购金额,
+convert(decimal(16,2),s.本年公商办认购金额) as 本年公商办认购金额,
+convert(decimal(16,2),s.本月签约金额) as 本月签约金额,
+convert(decimal(16,2),s.本年签约金额) as 本年签约金额,
+convert(decimal(16,2),s.本周认购金额) 本周认购金额,
+convert(decimal(16,2),s.本周车位认购金额) 本周车位认购金额,
+convert(decimal(16,2),s.本周签约金额) 本周签约金额
 into #qy
-from S_08ZYXSQYJB_HHZTSYJ 
-where datediff(dd,qxdate,getdate()) = 0
-    and BUGUID = @buguid
+from s_br s 
 
--- 2. 取本日签约金额
-select 
-    convert(decimal(16,2), sum(isnull(c.JyTotal,0))/100000000.0) 本日签约金额 
-into #brqy
-from s_Contract c
-left join dbo.s_Order so 
-    on ISNULL(so.TradeGUID, '') = ISNULL(c.TradeGUID, '')
-where datediff(dd,c.qsdate,getdate()) = 0
-    and c.status = '激活'
-    and (
-        (so.Status = '关闭' AND so.CloseReason = '转签约')
-        OR so.TradeGUID IS NULL
-    )
-    and c.BUGUID = @buguid
-
--- 3. 取回笼数据
-SELECT 
-    convert(decimal(16,2),(本年实际回笼全口径)/10000.0) as 本年回笼金额,
-    convert(decimal(16,2),(
-        CASE 
-            WHEN MONTH(GETDATE()) = 1 THEN 本年实际回笼全口径 
-            ELSE 本年实际回笼全口径 - 上个月本年实际回笼全口径 
-        END
-    )/10000.0) as 本月回笼金额,
-    convert(decimal(16,2),(昨天本年实际回笼全口径 - 前天本年实际回笼全口径)/10000.0) as 本日回笼金额  
+--取回笼
+SELECT convert(decimal(16,2),(本年实际回笼全口径)/10000.0) as 本年回笼金额 ,
+convert(decimal(16,2),(CASE WHEN MONTH(GETDATE()) = 1 THEN 本年实际回笼全口径 ELSE 本年实际回笼全口径 - 上个月本年实际回笼全口径 END)/10000.0) as 本月回笼金额 ,
+convert(decimal(16,2),(本年实际回笼全口径 - 七天前本年实际回笼全口径)/10000.0) as 本周回笼金额  
 into #hl
-FROM (
-    SELECT
-        -- 本年实际回笼全口径
-        SUM(CASE 
-            WHEN DATEDIFF(dd, qxDate, GETDATE()) = 0 THEN
-                ISNULL(hl.应退未退本年金额, 0) + 
-                ISNULL(hl.本年回笼金额认购, 0) + 
-                ISNULL(hl.本年回笼金额签约, 0) + 
-                ISNULL(hl.关闭交易本年退款金额, 0) + 
-                ISNULL(hl.本年特殊业绩关联房间, 0) +
-                ISNULL(hl.本年特殊业绩未关联房间, 0)
-            ELSE 0
-        END) AS 本年实际回笼全口径,
-        
-        -- 昨天本年实际回笼全口径
-        SUM(CASE 
-            WHEN DATEDIFF(dd, qxDate, GETDATE() - 1) = 0 THEN
-                ISNULL(hl.应退未退本年金额, 0) + 
-                ISNULL(hl.本年回笼金额认购, 0) + 
-                ISNULL(hl.本年回笼金额签约, 0) + 
-                ISNULL(hl.关闭交易本年退款金额, 0) + 
-                ISNULL(hl.本年特殊业绩关联房间, 0) +
-                ISNULL(hl.本年特殊业绩未关联房间, 0)
-            ELSE 0
-        END) AS 昨天本年实际回笼全口径,
-        
-        -- 前天本年实际回笼全口径
-        SUM(CASE 
-            WHEN DATEDIFF(dd, qxDate, GETDATE() - 2) = 0 THEN
-                ISNULL(hl.应退未退本年金额, 0) + 
-                ISNULL(hl.本年回笼金额认购, 0) + 
-                ISNULL(hl.本年回笼金额签约, 0) + 
-                ISNULL(hl.关闭交易本年退款金额, 0) + 
-                ISNULL(hl.本年特殊业绩关联房间, 0) +
-                ISNULL(hl.本年特殊业绩未关联房间, 0)
-            ELSE 0
-        END) AS 前天本年实际回笼全口径,
-        
-        -- 上个月本年实际回笼全口径
-        SUM(CASE 
-            WHEN DATEDIFF(dd, qxDate, DATEADD(m, DATEDIFF(MONTH, -1, GETDATE()) - 1, -1)) = 0 THEN
-                ISNULL(hl.应退未退本年金额, 0) + 
-                ISNULL(hl.本年回笼金额认购, 0) + 
-                ISNULL(hl.本年回笼金额签约, 0) + 
-                ISNULL(hl.关闭交易本年退款金额, 0) + 
-                ISNULL(hl.本年特殊业绩关联房间, 0) +
-                ISNULL(hl.本年特殊业绩未关联房间, 0)
-            ELSE 0
-        END) AS 上个月本年实际回笼全口径,
-        
-        -- 本年签约本年回笼
-        SUM(CASE 
-            WHEN DATEDIFF(dd, qxDate, GETDATE()) = 0 THEN 
-                ISNULL(hl.本年签约本年回笼非按揭回笼, 0) + ISNULL(本年签约本年回笼按揭回笼, 0)
-            ELSE 0 
-        END) AS 本年签约本年回笼
-    FROM s_gsfkylbhzb hl
-    WHERE hl.buguid = @buguid
-) t 
+FROM (SELECT
+SUM( CASE WHEN DATEDIFF(dd, qxDate, GETDATE()) = 0 THEN
+         ISNULL(hl.应退未退本年金额, 0) + ISNULL(hl.本年回笼金额认购, 0) + ISNULL(hl.本年回笼金额签约, 0) + ISNULL(hl.关闭交易本年退款金额, 0) + ISNULL(hl.本年特殊业绩关联房间, 0)
+         + ISNULL(hl.本年特殊业绩未关联房间, 0)
+     ELSE 0
+END) AS 本年实际回笼全口径 ,
+SUM(
+CASE WHEN DATEDIFF(dd,qxDate,@lastw) = 0 THEN
+        ISNULL(hl.应退未退本年金额, 0) + ISNULL(hl.本年回笼金额认购, 0) + ISNULL(hl.本年回笼金额签约, 0) + ISNULL(hl.关闭交易本年退款金额, 0) + ISNULL(hl.本年特殊业绩关联房间, 0)
+         + ISNULL(hl.本年特殊业绩未关联房间, 0)
+     ELSE 0
+END) AS 七天前本年实际回笼全口径 , 
+SUM(
+CASE WHEN DATEDIFF(dd, qxDate, DATEADD(m, DATEDIFF(MONTH, -1, GETDATE()) - 1, -1)) = 0 THEN
+         ISNULL(hl.应退未退本年金额, 0) + ISNULL(hl.本年回笼金额认购, 0) + ISNULL(hl.本年回笼金额签约, 0) + ISNULL(hl.关闭交易本年退款金额, 0) + ISNULL(hl.本年特殊业绩关联房间, 0)
+         + ISNULL(hl.本年特殊业绩未关联房间, 0)
+     ELSE 0
+END) AS 上个月本年实际回笼全口径 ,
+SUM(CASE WHEN DATEDIFF(dd, qxDate, GETDATE()) = 0 THEN ISNULL(hl.本年签约本年回笼非按揭回笼, 0) + ISNULL(本年签约本年回笼按揭回笼, 0)ELSE 0 END) AS 本年签约本年回笼
+FROM   s_gsfkylbhzb hl
+WHERE  hl.buguid = @buguid  ) t ; 
 
--- 4. 取来访数据
+with jlv as (
 select 
-    sum(isnull(newVisitNum,0) + isnull(oldVisitNum,0)) as 本日来访情况,
-    sum(case 
-        when sk.ProjGUID is null then isnull(newVisitNum,0) + isnull(oldVisitNum,0) 
-        else 0 
-    end) as 本日续销项目来访情况
-into #lf
-from s_YHJVisitNum v 
-inner join mdm_Project pj 
-    on v.managementProjectGuid = pj.ProjGUID
--- 判断是否续销，只有当月开盘的项目，才算首开，其他情况都算是续销
-left join (
-    select 
-        ProjGUID,
-        min(isnull(SJkpxsDate,isnull(YJkpxsDate,'2099-12-31'))) as skdate 
-    from p_lddb 
-    where DATEDIFF(dd,qxdate,getdate()) = 0
-        and DevelopmentCompanyGUID = @dev
-    group by ProjGUID
-) sk  on sk.ProjGUID = v.managementProjectGuid  and DATEDIFF(mm,sk.skdate,getdate()) = 0
-where DATEDIFF(DAY, bizdate, getdate()) = 0 and DevelopmentCompanyGUID = @dev
-
--- 5. 取销净率
-SELECT 
-    -- 本日净利润率
-    convert(decimal(16,2),
-        CASE
-            WHEN SUM(本日签约金额不含税) > 0 THEN
-                SUM(本日净利润签约) / SUM(本日签约金额不含税) * 100
-            ELSE 0
-        END
-    ) 本日净利润率,
-    
-    -- 本月净利润率
-    convert(decimal(16,2),
-        CASE
-            WHEN SUM(本月签约金额不含税) > 0 THEN
-                SUM(本月净利润签约) / SUM(本月签约金额不含税) * 100
-            ELSE 0
-        END
-    ) 本月净利润率,
-    
-    -- 本年净利润率
-    convert(decimal(16,2),
-        CASE
-            WHEN SUM(本年签约金额不含税) > 0 THEN
-                SUM(本年净利润签约) / SUM(本年签约金额不含税) * 100
-            ELSE 0
-        END
-    ) 本年净利润率
+sum(case when versionType = '本周版(周一开始)' then 当期签约金额不含税 else 0 end) as 本周签约金额不含税,
+sum(case when versionType = '本月版' then 当期签约金额不含税 else 0 end) as 本月签约金额不含税,
+sum(case when versionType = '本年版' then 当期签约金额不含税 else 0 end) as 本年签约金额不含税,
+sum(case when versionType = '本周版(周一开始)' then 净利润签约 else 0 end) as 本周净利润签约,
+sum(case when versionType = '本月版' then 净利润签约 else 0 end) as 本月净利润签约,
+sum(case when versionType = '本年版' then 净利润签约 else 0 end) as 本年净利润签约
+from s_M002业态净利毛利大底表 
+where  平台公司 = '湖南公司' 
+and versionType in ('本周版(周一开始)','本年版','本月版')
+)
+select convert(decimal(16,2),CASE
+           WHEN SUM(本周签约金额不含税) > 0 THEN
+                SUM(本周净利润签约) / SUM(本周签约金额不含税)
+           ELSE 0
+       END*100)  本周净利润率,
+convert(decimal(16,2),CASE
+           WHEN SUM(本月签约金额不含税) > 0 THEN
+                SUM(本月净利润签约) / SUM(本月签约金额不含税)
+           ELSE 0
+       END*100)  本月净利润率,
+       convert(decimal(16,2),CASE
+           WHEN SUM(本年签约金额不含税) > 0 THEN
+                SUM(本年净利润签约) / SUM(本年签约金额不含税)
+           ELSE 0
+       END*100) 本年净利润率
 into #lv
-FROM s_M002项目级毛利净利汇总表New a
-WHERE DATEDIFF(DAY, qxdate, GETDATE()) = 0 AND a.OrgGuid = @dev
+from jlv
 
--- 6. 汇总情况
-select 
-    t.header + '<br>' +
-    '一、当日经营情况' + '<br>' +
-    
-    -- 认购情况
-    '【认购】日' + convert(varchar,isnull(本日认购金额,0)) + '亿，其中车位' + 
-    convert(varchar,isnull(本日车位认购金额,0)) + '万，公商办' + 
-    convert(varchar,isnull(本日公商办认购金额,0)) + '万；月' + 
-    convert(varchar,isnull(本月认购金额,0)) + '亿，其中车位' + 
-    convert(varchar,isnull(本月车位认购金额,0)) + '亿，公商办' + 
-    convert(varchar,isnull(本月公商办认购金额,0)) + '亿；年' + 
-    convert(varchar,isnull(本年认购金额,0)) + '亿，其中车位' + 
-    convert(varchar,isnull(本年车位认购金额,0)) + '亿，公商办' + 
-    convert(varchar,isnull(本年公商办认购金额,0)) + '亿；' + '<br>' +
-    
-    -- 签约情况
-    '【签约】日' + convert(varchar,isnull(本日签约金额,0)) + '亿，月' + 
-    convert(varchar,isnull(本月签约金额,0)) + '亿，年' + 
-    convert(varchar,isnull(本年签约金额,0)) + '亿；' + '<br>' +
-    
-    -- 回笼情况
-    '【回笼】日' + convert(varchar,isnull(本日回笼金额,0)) + '亿，月' + 
-    convert(varchar,isnull(本月回笼金额,0)) + '亿，年' + 
-    convert(varchar,isnull(本年回笼金额,0)) + '亿；' + '<br>' +
-    
-    -- 销净率情况
-    '【销净率】日' + convert(varchar,isnull(本日净利润率,0)) + '%，月' + 
-    convert(varchar,isnull(本月净利润率,0)) + '%，年' + 
-    convert(varchar,isnull(本年净利润率,0)) + '%；' + '<br>' +
-    
-    -- 来访情况
-    '【来访】' + convert(varchar,isnull(本日来访情况,0)) + '批，其中续销项目来访' + 
-    convert(varchar,isnull(本日续销项目来访情况,0)) + '批；' as 经营任务情况
-from (
-    select '【湖南公司经营日报简讯】（' + 
-           convert(varchar(2),month(getdate())) + '月' + 
-           convert(varchar(2),day(getdate())) + '日）：' as header 
-) t 
+--汇总情况
+select t.header+'<br>'+
+'一、本周经营情况'+'<br>'+
+
+'【认购】本周'+convert(varchar,isnull(本周认购金额,0))+'亿，其中车位'+convert(varchar,isnull(本周车位认购金额,0))+'亿；月'
++convert(varchar,isnull(本月认购金额,0))+'亿，其中车位'+convert(varchar,isnull(本月车位认购金额,0))+'亿，公商办'+convert(varchar,isnull(本月公商办认购金额,0))
++'亿；年'+convert(varchar,isnull(本年认购金额,0))+'亿，其中车位'+convert(varchar,isnull(本年车位认购金额,0))+'亿，公商办'+convert(varchar,isnull(本年公商办认购金额,0))+'亿；'+'<br>'+
+
+'【签约】本周'+convert(varchar,isnull(本周签约金额,0))+'亿，月'+convert(varchar,isnull(本月签约金额,0))+'亿，年'+convert(varchar,isnull(本年签约金额,0))+'亿；'+'<br>'+
+'【回笼】本周'+convert(varchar,isnull(本周回笼金额,0))+'亿，月'+convert(varchar,isnull(本月回笼金额,0))+'亿，年'+convert(varchar,isnull(本年回笼金额,0))+'亿；'+'<br>'+
+'【销净率】本周'+convert(varchar,isnull(本周净利润率,0))+'%，月'+convert(varchar,isnull(本月净利润率,0))+'%，年'+convert(varchar,isnull(本年净利润率,0))+'%。' as 经营任务情况
+from (select '各位领导，以下为湖南公司'+@by+'月第'+@week_name+'周（'+@lastw_m+'.'+@lastw_r+'-'+@by+'.'+@br+'）经营简报，烦请查阅：' as header ) t 
 left join #qy on 1=1
-left join #brqy on 1=1
-left join #hl on 1=1
-left join #lf on 1=1
+left join #hl on 1=1 
 left join #lv on 1=1
 
--- 清理临时表
-drop table #qy,#brqy,#hl,#lf,#lv
+drop table #qy, #hl, #lv,#sale_bz

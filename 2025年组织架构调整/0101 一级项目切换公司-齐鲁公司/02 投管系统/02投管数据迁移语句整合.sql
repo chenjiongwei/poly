@@ -307,6 +307,21 @@ GO
         PRINT '刷新项目公司月度项目类型数据' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
 
 
+        IF OBJECT_ID(N'mdm_SetStageFillModeExecuteVer_bak20250411', N'U') IS NULL
+        select a.* 
+        into mdm_SetStageFillModeExecuteVer_bak20250523
+        from mdm_SetStageFillModeExecuteVer a
+        inner join mdm_Project p on a.ProjGUID =p.ProjGUID
+        inner join mdm_Project pf on pf.ProjGUID =p.ParentProjGUID
+        where a.DevelopmentCompanyGUID<>p.DevelopmentCompanyGUID
+        
+        -- 更新
+        update a set a.DevelopmentCompanyGUID =p.DevelopmentCompanyGUID
+        from mdm_SetStageFillModeExecuteVer a
+        inner join mdm_Project p on a.ProjGUID =p.ProjGUID
+        --inner join mdm_Project pf on pf.ProjGUID =p.ParentProjGUID
+        where a.DevelopmentCompanyGUID<>p.DevelopmentCompanyGUID
+
         DROP TABLE #t1;
         DROP TABLE #part;
 

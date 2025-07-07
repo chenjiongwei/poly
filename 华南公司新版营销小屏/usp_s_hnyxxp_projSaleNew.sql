@@ -1,10 +1,14 @@
 USE [HighData_prod]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_s_hnyxxp_projSaleNew]    Script Date: 2025/3/21 17:23:25 ******/
+/****** Object:  StoredProcedure [dbo].[usp_s_hnyxxp_projSaleNew]    Script Date: 2025/7/3 19:46:09 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
+
+
+
+
 
 /*
 修复区域负责人和组团负责人为空的情况
@@ -49,6 +53,7 @@ exec usp_s_hnyxxp_projSaleNew @var_date
 ALTER PROC [dbo].[usp_s_hnyxxp_projSaleNew](@var_date DATETIME)
 AS
     BEGIN
+        --declare @var_date datetime  =getdate()
         DECLARE @szyxfzr VARCHAR(200);
 
   --      --检查填报表将责任人为空的数据补齐
@@ -107,7 +112,7 @@ AS
         FROM    data_tb_hn_yxpq a
         WHERE   ISNULL(a.数字营销部负责人, '') = '';
 
-        -- DECLARE @var_date DATETIME ='2024-04-23'  
+        --DECLARE @var_date DATETIME ='2025-06-23'  
         DECLARE @bzSDate DATETIME = DATEADD(WEEK, DATEDIFF(WEEK, 0, CONVERT(DATETIME, @var_date, 120) - 1), 0); --本周一
         DECLARE @bzEDate DATETIME = DATEADD(DAY, 6, DATEADD(WEEK, DATEDIFF(WEEK, 0, CONVERT(DATETIME, @var_date, 120) - 1), 0));
 
@@ -125,8 +130,8 @@ AS
                 DATEDIFF(DAY, DATEADD(mm, DATEDIFF(mm, 0, @var_date), 0), @var_date) * 1.00 / 30 AS 本月时间分摊比
         INTO    #TopProduct
         FROM    data_wide_dws_mdm_Building bd
-                INNER JOIN data_wide_dws_mdm_Project p ON bd.ParentProjGUID = p.ProjGUID AND   p.Level = 2
-                LEFT JOIN data_tb_hn_yxpq tb ON p.ProjGUID = tb.项目GUID
+        INNER JOIN data_wide_dws_mdm_Project p ON bd.ParentProjGUID = p.ProjGUID AND   p.Level = 2
+        LEFT JOIN data_tb_hn_yxpq tb ON p.ProjGUID = tb.项目GUID
         WHERE   bd.BldType = '产品楼栋' AND bd.BUGUID = '70DD6DF4-47F7-46AF-B470-BC18EE57D8FF'
         GROUP BY ParentProjGUID ,
                  p.ProjName ,
@@ -167,6 +172,7 @@ AS
         --查询其他业绩的签约金额
         SELECT  p.projguid ,
                 bld.TopProductTypeName ,
+
                 SUM(CASE WHEN DATEDIFF(DAY, r.RgQsDate, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本日认购金额 ,
                 SUM(CASE WHEN DATEDIFF(DAY, r.RgQsDate, @var_date) = 0 THEN r.CjBldArea ELSE 0 END) AS 其他业绩本日认购面积 ,
                 SUM(CASE WHEN DATEDIFF(DAY, r.RgQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩本日认购套数 ,
@@ -214,13 +220,90 @@ AS
                 
 				SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND   r.Status = '签约' AND   DATEDIFF(MONTH, r.QsDate, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩产成品本月签约金额 ,
                 SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND   r.Status = '签约' AND   DATEDIFF(MONTH, r.QsDate, @var_date) = 0 THEN r.CjBldArea ELSE 0 END) AS 其他业绩产成品本月签约面积,
-				SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND   r.Status = '签约' AND   DATEDIFF(MONTH, r.QsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩产成品本月签约套数
+				SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND   r.Status = '签约' AND   DATEDIFF(MONTH, r.QsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩产成品本月签约套数,
+
+                -- 准产成品 本年竣备以及本年预计竣备 PlanFinishDate
+				SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   DATEDIFF(DAY, r.RgQsDate, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩准产成品本日认购金额 ,
+			    SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   DATEDIFF(DAY, r.RgQsDate, @var_date) = 0 THEN r.CjBldArea ELSE 0 END) AS 其他业绩准产成品本日认购面积 ,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   DATEDIFF(DAY, r.RgQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩准产成品本日认购套数 ,
+
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 AND (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩准产成品本周认购金额 ,
+       		    SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 AND (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) THEN r.CjBldArea ELSE 0 END) AS 其他业绩准产成品本周认购面积 ,         
+				SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 AND (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) THEN 1 ELSE 0 END) AS 其他业绩准产成品本周认购套数 ,
+
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩准产成品本月认购金额 ,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 THEN r.CjBldArea ELSE 0 END) AS 其他业绩准产成品本月认购面积 ,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩准产成品本月认购套数 ,
+                
+				SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   YEAR(r.QsDate) = YEAR(@var_date) THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩准产成品本年认购金额 ,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   YEAR(r.QsDate) = YEAR(@var_date) THEN r.CjBldArea ELSE 0 END) AS 其他业绩准产成品本年认购面积 ,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   YEAR(r.QsDate) = YEAR(@var_date) THEN 1 ELSE 0 END) AS 其他业绩准产成品本年认购套数 ,
+                
+				SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   r.Status = '签约' AND   YEAR(r.QsDate) = YEAR(@var_date) THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩准产成品本年签约金额 ,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   r.Status = '签约' AND   YEAR(r.QsDate) = YEAR(@var_date) THEN r.CjBldArea ELSE 0 END) AS 其他业绩准产成品本年签约面积 ,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   r.Status = '签约' AND   YEAR(r.QsDate) = YEAR(@var_date) THEN 1 ELSE 0 END) AS 其他业绩准产成品本年签约套数 ,
+                
+				SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   r.Status = '签约' AND   DATEDIFF(MONTH, r.QsDate, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩准产成品本月签约金额 ,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   r.Status = '签约' AND   DATEDIFF(MONTH, r.QsDate, @var_date) = 0 THEN r.CjBldArea ELSE 0 END) AS 其他业绩准产成品本月签约面积,
+				SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   r.Status = '签约' AND   DATEDIFF(MONTH, r.QsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩准产成品本月签约套数,
+
+                -- 大户型
+				SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' AND   DATEDIFF(DAY, r.RgQsDate, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩大户型本日认购金额 ,
+			    SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' AND   DATEDIFF(DAY, r.RgQsDate, @var_date) = 0 THEN r.CjBldArea ELSE 0 END) AS 其他业绩大户型本日认购面积 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' AND   DATEDIFF(DAY, r.RgQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩大户型本日认购套数 ,
+
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' AND   DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 AND (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩大户型本周认购金额 ,
+       		    SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' AND   DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 AND (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) THEN r.CjBldArea ELSE 0 END) AS 其他业绩大户型本周认购面积 ,         
+				SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' AND   DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 AND (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) THEN 1 ELSE 0 END) AS 其他业绩大户型本周认购套数 ,
+
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' AND   DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩大户型本月认购金额 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' AND   DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 THEN r.CjBldArea ELSE 0 END) AS 其他业绩大户型本月认购面积 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' AND   DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩大户型本月认购套数 ,
+                
+				SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' AND   YEAR(r.QsDate) = YEAR(@var_date) THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩大户型本年认购金额 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' AND   YEAR(r.QsDate) = YEAR(@var_date) THEN r.CjBldArea ELSE 0 END) AS 其他业绩大户型本年认购面积 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' AND   YEAR(r.QsDate) = YEAR(@var_date) THEN 1 ELSE 0 END) AS 其他业绩大户型本年认购套数 ,
+                
+				SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' AND   r.Status = '签约' AND   YEAR(r.QsDate) = YEAR(@var_date) THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩大户型本年签约金额 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' AND   r.Status = '签约' AND   YEAR(r.QsDate) = YEAR(@var_date) THEN r.CjBldArea ELSE 0 END) AS 其他业绩大户型本年签约面积 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' AND   r.Status = '签约' AND   YEAR(r.QsDate) = YEAR(@var_date) THEN 1 ELSE 0 END) AS 其他业绩大户型本年签约套数 ,
+                
+				SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' AND   r.Status = '签约' AND   DATEDIFF(MONTH, r.QsDate, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩大户型本月签约金额 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' AND   r.Status = '签约' AND   DATEDIFF(MONTH, r.QsDate, @var_date) = 0 THEN r.CjBldArea ELSE 0 END) AS 其他业绩大户型本月签约面积,
+				SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' AND   r.Status = '签约' AND   DATEDIFF(MONTH, r.QsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩大户型本月签约套数,
+
+                -- 联动房
+				SUM(CASE WHEN ldf.RoomGUID IS NOT NULL AND   DATEDIFF(DAY, r.RgQsDate, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩联动房本日认购金额 ,
+			    SUM(CASE WHEN ldf.RoomGUID IS NOT NULL AND   DATEDIFF(DAY, r.RgQsDate, @var_date) = 0 THEN r.CjBldArea ELSE 0 END) AS 其他业绩联动房本日认购面积 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL AND   DATEDIFF(DAY, r.RgQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩联动房本日认购套数 ,
+
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL AND   DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 AND (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩联动房本周认购金额 ,
+       		    SUM(CASE WHEN ldf.RoomGUID IS NOT NULL AND   DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 AND (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) THEN r.CjBldArea ELSE 0 END) AS 其他业绩联动房本周认购面积 ,         
+				SUM(CASE WHEN ldf.RoomGUID IS NOT NULL AND   DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 AND (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) THEN 1 ELSE 0 END) AS 其他业绩联动房本周认购套数 ,
+
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL AND   DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩联动房本月认购金额 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL AND   DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 THEN r.CjBldArea ELSE 0 END) AS 其他业绩联动房本月认购面积 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL AND   DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩联动房本月认购套数 ,
+                
+				SUM(CASE WHEN ldf.RoomGUID IS NOT NULL AND   YEAR(r.QsDate) = YEAR(@var_date) THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩联动房本年认购金额 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL AND   YEAR(r.QsDate) = YEAR(@var_date) THEN r.CjBldArea ELSE 0 END) AS 其他业绩联动房本年认购面积 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL AND   YEAR(r.QsDate) = YEAR(@var_date) THEN 1 ELSE 0 END) AS 其他业绩联动房本年认购套数 ,
+                
+				SUM(CASE WHEN ldf.RoomGUID IS NOT NULL AND   r.Status = '签约' AND   YEAR(r.QsDate) = YEAR(@var_date) THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩联动房本年签约金额 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL AND   r.Status = '签约' AND   YEAR(r.QsDate) = YEAR(@var_date) THEN r.CjBldArea ELSE 0 END) AS 其他业绩联动房本年签约面积 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL AND   r.Status = '签约' AND   YEAR(r.QsDate) = YEAR(@var_date) THEN 1 ELSE 0 END) AS 其他业绩联动房本年签约套数 ,
+                
+				SUM(CASE WHEN ldf.RoomGUID IS NOT NULL AND   r.Status = '签约' AND   DATEDIFF(MONTH, r.QsDate, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩联动房本月签约金额 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL AND   r.Status = '签约' AND   DATEDIFF(MONTH, r.QsDate, @var_date) = 0 THEN r.CjBldArea ELSE 0 END) AS 其他业绩联动房本月签约面积,
+				SUM(CASE WHEN ldf.RoomGUID IS NOT NULL AND   r.Status = '签约' AND   DATEDIFF(MONTH, r.QsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩联动房本月签约套数
         INTO    #qtqy
         FROM    data_wide_s_SpecialPerformance a
-                INNER JOIN data_wide_s_RoomoVerride r ON a.RoomGUID = r.RoomGUID
-                INNER JOIN data_wide_dws_mdm_Building bld ON bld.BuildingGUID = r.BldGUID
-                INNER JOIN data_wide_dws_mdm_Project p ON a.ParentProjGUID = p.ProjGUID AND p.Level = 2
-                INNER JOIN #qtyj qt ON qt.明源系统代码 = p.ProjCode
+        INNER JOIN data_wide_s_RoomoVerride r ON a.RoomGUID = r.RoomGUID
+        INNER JOIN data_wide_dws_mdm_Building bld ON bld.BuildingGUID = r.BldGUID
+        INNER JOIN data_wide_dws_mdm_Project p ON a.ParentProjGUID = p.ProjGUID AND p.Level = 2
+        INNER JOIN #qtyj qt ON qt.明源系统代码 = p.ProjCode
+        LEFT JOIN data_tb_hnyx_areasection mjd ON r.BldArea between mjd.开始面积 and mjd.截止面积 and mjd.业态 = bld.TopProductTypeName
+        LEFT JOIN data_wide_s_LdfSaleDtl ldf on ldf.RoomGUID =r.RoomGUID
         WHERE   DATEDIFF(DAY, a.[StatisticalDate], qt.认定日期) = 0 AND r.Status IN ('认购', '签约')    -- AND YEAR(r.QsDate) = YEAR(@var_date)
         GROUP BY p.projguid ,
                  bld.TopProductTypeName;
@@ -240,6 +323,14 @@ AS
                 SUM(CASE WHEN  DATEDIFF(DAY,pb.FactFinishDate,@var_date) > 0  AND  DATEDIFF(DAY, @var_date, Sale.StatisticalDate) = 0 
 				THEN ISNULL(Sale.CNetCount, 0) + ISNULL(Sale.SpecialCNetCount, 0)ELSE 0 END) 本日产成品签约套数全口径 ,
 
+                SUM(CASE WHEN ((DATEDIFF(YEAR,pb.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,pb.PlanFinishDate,@var_date) = 0 and pb.factfinishdate is null)))  AND  DATEDIFF(DAY, @var_date, Sale.StatisticalDate) = 0    THEN ISNULL(Sale.CNetAmount, 0) + ISNULL(Sale.SpecialCNetAmount, 0)
+                         ELSE 0
+                    END) / 10000 本日准产成品签约金额全口径 ,
+                SUM(CASE WHEN ((DATEDIFF(YEAR,pb.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,pb.PlanFinishDate,@var_date) = 0 and pb.factfinishdate is null)))  AND  DATEDIFF(DAY, @var_date, Sale.StatisticalDate) = 0 
+				THEN ISNULL(Sale.CNetArea, 0) + ISNULL(Sale.SpecialCNetArea, 0)ELSE 0 END) 本日准产成品签约面积全口径 ,
+                SUM(CASE WHEN ((DATEDIFF(YEAR,pb.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,pb.PlanFinishDate,@var_date) = 0 and pb.factfinishdate is null)))  AND  DATEDIFF(DAY, @var_date, Sale.StatisticalDate) = 0 
+				THEN ISNULL(Sale.CNetCount, 0) + ISNULL(Sale.SpecialCNetCount, 0)ELSE 0 END) 本日准产成品签约套数全口径 ,
+
 				--获取本周签约情况
                 SUM(CASE WHEN (Sale.StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND  MONTH(Sale.StatisticalDate) = MONTH(@var_date)  THEN ISNULL(Sale.CNetAmount, 0) + ISNULL(Sale.SpecialCNetAmount, 0)ELSE 0 END) / 10000 AS 本周签约金额全口径 ,
 				SUM(CASE WHEN (Sale.StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND  MONTH(Sale.StatisticalDate) = MONTH(@var_date)  THEN ISNULL(Sale.CNetArea, 0) + ISNULL(Sale.SpecialCNetArea, 0)ELSE 0 END) AS 本周签约面积全口径,
@@ -251,8 +342,14 @@ AS
                 SUM(CASE WHEN  DATEDIFF(DAY,pb.FactFinishDate,@var_date) > 0  THEN ISNULL(Sale.CNetAmount, 0) + ISNULL(Sale.SpecialCNetAmount, 0)
                          ELSE 0
                     END) / 10000 本年产成品签约金额全口径 ,
-			    SUM(CASE WHEN   DATEDIFF(DAY,pb.FactFinishDate,@var_date) > 0   THEN ISNULL(Sale.CNetArea, 0) + ISNULL(Sale.SpecialCNetArea, 0) ELSE  0 END  ) 本年产成品签约面积全口径 ,
-                SUM(CASE WHEN   DATEDIFF(DAY,pb.FactFinishDate,@var_date) > 0   THEN ISNULL(Sale.CNetCount, 0) + ISNULL(Sale.SpecialCNetCount, 0) ELSE  0 END  ) 本年产成品签约套数全口径 ,
+			    SUM(CASE WHEN DATEDIFF(DAY,pb.FactFinishDate,@var_date) > 0   THEN ISNULL(Sale.CNetArea, 0) + ISNULL(Sale.SpecialCNetArea, 0) ELSE  0 END  ) 本年产成品签约面积全口径 ,
+                SUM(CASE WHEN DATEDIFF(DAY,pb.FactFinishDate,@var_date) > 0   THEN ISNULL(Sale.CNetCount, 0) + ISNULL(Sale.SpecialCNetCount, 0) ELSE  0 END  ) 本年产成品签约套数全口径 ,
+                
+                SUM(CASE WHEN  (DATEDIFF(YEAR,pb.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,pb.PlanFinishDate,@var_date) = 0 AND pb.FactFinishDate IS NULL))  THEN ISNULL(Sale.CNetAmount, 0) + ISNULL(Sale.SpecialCNetAmount, 0)
+                         ELSE 0
+                    END) / 10000 本年准产成品签约金额全口径 ,
+			    SUM(CASE WHEN (DATEDIFF(YEAR,pb.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,pb.PlanFinishDate,@var_date) = 0 AND pb.FactFinishDate IS NULL))   THEN ISNULL(Sale.CNetArea, 0) + ISNULL(Sale.SpecialCNetArea, 0) ELSE  0 END  ) 本年准产成品签约面积全口径 ,
+                SUM(CASE WHEN (DATEDIFF(YEAR,pb.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,pb.PlanFinishDate,@var_date) = 0 AND pb.FactFinishDate IS NULL))   THEN ISNULL(Sale.CNetCount, 0) + ISNULL(Sale.SpecialCNetCount, 0) ELSE  0 END  ) 本年准产成品签约套数全口径 ,
                 --获取本月签约情况
                 SUM(CASE WHEN DATEDIFF(mm, @var_date, Sale.StatisticalDate) = 0 THEN ISNULL(Sale.CNetAmount, 0) + ISNULL(Sale.SpecialCNetAmount, 0)ELSE 0 END) / 10000.0 AS 本月签约金额全口径 ,
                 SUM(CASE WHEN DATEDIFF(mm, @var_date, Sale.StatisticalDate) = 0 THEN ISNULL(Sale.CNetArea, 0) + ISNULL(Sale.SpecialCNetArea, 0)ELSE 0 END) AS 本月签约面积全口径 ,
@@ -264,16 +361,114 @@ AS
 				SUM(CASE WHEN  DATEDIFF(DAY,pb.FactFinishDate,@var_date) > 0  AND DATEDIFF(mm, @var_date, Sale.StatisticalDate) = 0  
 				    THEN ISNULL(Sale.CNetArea, 0) + ISNULL(Sale.SpecialCNetArea, 0)ELSE 0 END) AS 本月产成品签约面积全口径,
 				SUM(CASE WHEN  DATEDIFF(DAY,pb.FactFinishDate,@var_date) > 0  AND DATEDIFF(mm, @var_date, Sale.StatisticalDate) = 0  
-				    THEN ISNULL(Sale.CNetCount, 0) + ISNULL(Sale.SpecialCNetCount, 0)ELSE 0 END) AS 本月产成品签约套数全口径 
+				    THEN ISNULL(Sale.CNetCount, 0) + ISNULL(Sale.SpecialCNetCount, 0)ELSE 0 END) AS 本月产成品签约套数全口径,
+                SUM( CASE WHEN ((DATEDIFF(YEAR,pb.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,pb.PlanFinishDate,@var_date) = 0 and pb.factfinishdate is null)))  AND (DATEDIFF(mm, @var_date, Sale.StatisticalDate) = 0)  THEN
+                         ISNULL(Sale.CNetAmount, 0) + ISNULL(Sale.SpecialCNetAmount, 0)
+                     ELSE 0
+                END) / 10000 本月准产成品签约金额全口径,
+				SUM(CASE WHEN  ((DATEDIFF(YEAR,pb.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,pb.PlanFinishDate,@var_date) = 0 and pb.factfinishdate is null)))  AND DATEDIFF(mm, @var_date, Sale.StatisticalDate) = 0  
+				    THEN ISNULL(Sale.CNetArea, 0) + ISNULL(Sale.SpecialCNetArea, 0)ELSE 0 END) AS 本月准产成品签约面积全口径,
+				SUM(CASE WHEN  ((DATEDIFF(YEAR,pb.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,pb.PlanFinishDate,@var_date) = 0 and pb.factfinishdate is null)))  AND DATEDIFF(mm, @var_date, Sale.StatisticalDate) = 0  
+				    THEN ISNULL(Sale.CNetCount, 0) + ISNULL(Sale.SpecialCNetCount, 0)ELSE 0 END) AS 本月准产成品签约套数全口径 
         INTO    #projsale
         FROM    dbo.data_wide_dws_s_SalesPerf Sale
-                INNER JOIN data_wide_dws_mdm_Project pj ON pj.ProjGUID = Sale.ParentProjGUID
-                LEFT JOIN data_wide_dws_s_Dimension_Organization do ON do.OrgGUID = pj.XMSSCSGSGUID AND do.ParentOrganizationGUID = pj.BUGUID
-                LEFT JOIN data_wide_dws_s_Dimension_Organization do1 ON do1.OrgGUID = do.ParentOrganizationGUID
-                LEFT JOIN data_wide_dws_mdm_Building pb ON Sale.GCBldGUID = pb.BuildingGUID AND pb.BldType = '工程楼栋'
+        INNER JOIN data_wide_dws_mdm_Project pj ON pj.ProjGUID = Sale.ParentProjGUID
+        LEFT JOIN data_wide_dws_s_Dimension_Organization do ON do.OrgGUID = pj.XMSSCSGSGUID AND do.ParentOrganizationGUID = pj.BUGUID
+        LEFT JOIN data_wide_dws_s_Dimension_Organization do1 ON do1.OrgGUID = do.ParentOrganizationGUID
+        LEFT JOIN data_wide_dws_mdm_Building pb ON Sale.GCBldGUID = pb.BuildingGUID AND pb.BldType = '工程楼栋'
         WHERE   Sale.StatisticalDate BETWEEN CONVERT(VARCHAR(4), YEAR(@var_date)) + '-01-01' AND CONVERT(VARCHAR(4), YEAR(@var_date)) + '-12-31'
         GROUP BY Sale.ParentProjGUID ,
                  Sale.TopProductTypeName;
+
+        -- --获取各产品业态的签约金额【补充大户型和联动房的签约数据】
+        SELECT  Sale.ParentProjGUID AS orgguid ,
+                Sale.TopProductTypeName ,
+                --获取大户型本日签约情况
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是'  and DATEDIFF(DAY, @var_date, Sale.StatisticalDate) = 0 THEN ISNULL(Sale.CNetAmount, 0) ELSE 0 END) / 10000 AS 本日大户型签约金额全口径 ,
+				SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是'  and DATEDIFF(DAY, @var_date, Sale.StatisticalDate) = 0 THEN ISNULL(Sale.CNetArea, 0) ELSE 0 END) AS 本日大户型签约面积全口径,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是'  and DATEDIFF(DAY, @var_date, Sale.StatisticalDate) = 0 THEN ISNULL(Sale.CNetCount, 0) ELSE 0 END) 本日大户型签约套数全口径 ,
+				
+				--获取大户型本周签约情况
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是'  and (Sale.StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND  MONTH(Sale.StatisticalDate) = MONTH(@var_date)  THEN ISNULL(Sale.CNetAmount, 0) ELSE 0 END) / 10000 AS 本周大户型签约金额全口径 ,
+				SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是'  and (Sale.StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND  MONTH(Sale.StatisticalDate) = MONTH(@var_date)  THEN ISNULL(Sale.CNetArea, 0) ELSE 0 END) AS 本周大户型签约面积全口径,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是'  and (Sale.StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND  MONTH(Sale.StatisticalDate) = MONTH(@var_date)  THEN ISNULL(Sale.CNetCount, 0) ELSE 0 END) AS 本周大户型签约套数全口径 ,
+                
+				--获取大户型本月签约情况
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是'  and DATEDIFF(mm, @var_date, Sale.StatisticalDate) = 0 THEN ISNULL(Sale.CNetAmount, 0) ELSE 0 END) / 10000.0 AS 本月大户型签约金额全口径 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是'  and DATEDIFF(mm, @var_date, Sale.StatisticalDate) = 0 THEN ISNULL(Sale.CNetArea, 0) ELSE 0 END) AS 本月大户型签约面积全口径 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是'  and DATEDIFF(mm, @var_date, Sale.StatisticalDate) = 0 THEN ISNULL(Sale.CNetCount, 0) ELSE 0 END) AS 本月大户型签约套数全口径 ,
+
+				--获取大户型本年签约情况
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是'  and DATEDIFF(yy, @var_date, Sale.StatisticalDate) = 0 THEN ISNULL(Sale.CNetAmount, 0) ELSE 0 END) / 10000 AS 本年大户型签约金额全口径 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是'  and DATEDIFF(yy, @var_date, Sale.StatisticalDate) = 0 THEN ISNULL(Sale.CNetArea, 0) ELSE 0 END) AS 本年大户型签约面积全口径 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是'  and DATEDIFF(yy, @var_date, Sale.StatisticalDate) = 0 THEN ISNULL(Sale.CNetCount, 0) ELSE 0 END) AS 本年大户型签约套数全口径,
+                
+				--获取联动房本日签约情况
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and DATEDIFF(DAY, @var_date, Sale.StatisticalDate) = 0 THEN ISNULL(Sale.CNetAmount, 0) ELSE 0 END) / 10000 AS 本日联动房签约金额全口径 ,
+				SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and DATEDIFF(DAY, @var_date, Sale.StatisticalDate) = 0 THEN ISNULL(Sale.CNetArea, 0) ELSE 0 END) AS 本日联动房签约面积全口径,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and DATEDIFF(DAY, @var_date, Sale.StatisticalDate) = 0 THEN ISNULL(Sale.CNetCount, 0) ELSE 0 END) 本日联动房签约套数全口径 ,
+				
+				--获取联动房本周签约情况
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and (Sale.StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND  MONTH(Sale.StatisticalDate) = MONTH(@var_date)  THEN ISNULL(Sale.CNetAmount, 0) ELSE 0 END) / 10000 AS 本周联动房签约金额全口径 ,
+				SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and (Sale.StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND  MONTH(Sale.StatisticalDate) = MONTH(@var_date)  THEN ISNULL(Sale.CNetArea, 0) ELSE 0 END) AS 本周联动房签约面积全口径,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and (Sale.StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND  MONTH(Sale.StatisticalDate) = MONTH(@var_date)  THEN ISNULL(Sale.CNetCount, 0) ELSE 0 END) AS 本周联动房签约套数全口径 ,
+                
+				--获取联动房本月签约情况
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and DATEDIFF(mm, @var_date, Sale.StatisticalDate) = 0 THEN ISNULL(Sale.CNetAmount, 0) ELSE 0 END) / 10000.0 AS 本月联动房签约金额全口径 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and DATEDIFF(mm, @var_date, Sale.StatisticalDate) = 0 THEN ISNULL(Sale.CNetArea, 0) ELSE 0 END) AS 本月联动房签约面积全口径 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and DATEDIFF(mm, @var_date, Sale.StatisticalDate) = 0 THEN ISNULL(Sale.CNetCount, 0) ELSE 0 END) AS 本月联动房签约套数全口径 ,
+
+				--获取联动房本年签约情况
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and DATEDIFF(yy, @var_date, Sale.StatisticalDate) = 0 THEN ISNULL(Sale.CNetAmount, 0) ELSE 0 END) / 10000 AS 本年联动房签约金额全口径 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and DATEDIFF(yy, @var_date, Sale.StatisticalDate) = 0 THEN ISNULL(Sale.CNetArea, 0) ELSE 0 END) AS 本年联动房签约面积全口径 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and DATEDIFF(yy, @var_date, Sale.StatisticalDate) = 0 THEN ISNULL(Sale.CNetCount, 0) ELSE 0 END) AS 本年联动房签约套数全口径
+            INTO #projsale_ldf_dhx
+			from (
+                SELECT  p.ParentGUID as ParentProjGUID,
+                    sb.TopProductTypeName,
+                    r.RoomGUID,
+                    CONVERT(NVARCHAR(10), isnull(r.TsRoomQSDate, shd.QsDate), 23) AS StatisticalDate,											--统计日期
+                    SUM(CASE WHEN ((p.DiskFlag = '是' and r.specialFlag = '否') or ISNULL(sp.YJMode,sp1.YJMode)=1) AND shd.TradeType = '签约' THEN isnull(shd.BldArea,0) ELSE 0 END) as CNetArea, --签约面积
+                    SUM(CASE WHEN ((p.DiskFlag = '是' and r.specialFlag = '否') or ISNULL(sp.YJMode,sp1.YJMode)=1) AND shd.TradeType = '签约' THEN isnull(shd.jyTotal,0) ELSE 0 END) as CNetAmount, --签约金额
+                    SUM(CASE WHEN ((p.DiskFlag = '是' and r.specialFlag = '否') or ISNULL(sp.YJMode,sp1.YJMode)=1)  AND shd.TradeType = '签约' THEN isnull(shd.Ts,0) ELSE 0 END) as CNetCount 	--签约套数
+
+                FROM    data_wide_s_SaleHsData shd with(nolock)
+                inner join data_wide_s_RoomoVerride r with(nolock)  on r.RoomGUID = shd.RoomGUID
+                inner join data_wide_dws_mdm_Project p with(nolock) on p.ProjGUID = shd.ProjGUID	
+                inner join data_wide_dws_mdm_Building sb with(nolock) on sb.BuildingGUID = shd.BldGUID
+                LEFT JOIN (SELECT roomguid,YJMode FROM dbo.data_wide_s_SpecialPerformance where YJMode=1 GROUP BY  roomguid,YJMode) sp ON sp.RoomGUID = r.RoomGUID
+                LEFT JOIN (SELECT BldGUID,YJMode FROM dbo.data_wide_s_SpecialPerformance where YJMode=1 AND RoomGUID IS null GROUP BY  BldGUID,YJMode) sp1 ON sp1.BldGUID = r.BldGUID
+                where shd.QsDate is not null 
+                    and shd.buguid ='70DD6DF4-47F7-46AF-B470-BC18EE57D8FF'
+                    and isnull(r.TsRoomQSDate, shd.QsDate) BETWEEN CONVERT(VARCHAR(4), YEAR(@var_date)) + '-01-01' AND CONVERT(VARCHAR(4), YEAR(@var_date)) + '-12-31'
+                GROUP BY  p.ParentGUID,sb.TopProductTypeName,r.RoomGUID,CONVERT(NVARCHAR(10), isnull(r.TsRoomQSDate, shd.QsDate), 23)
+                UNION ALL 
+                select p.ParentGUID as ParentProjGUID,
+                        pb.TopProductTypeName,
+                        a.RoomGUID,
+                        CONVERT(NVARCHAR(10), a.StatisticalDate, 23) as StatisticalDate,
+                        sum(case when a.YJMode<>1 then a.CCjArea else 0 end) as CCjArea,
+                        sum(a.CCjAmount) as CCjAmount,
+                        1 as SpecialType --房间维度取数                            
+                from data_wide_s_SpecialPerformance a  with(nolock) 
+                inner join data_wide_s_RoomoVerride r with(nolock)  on r.RoomGUID = a.RoomGUID
+                inner join data_wide_dws_mdm_Project p with(nolock) on p.ProjGUID = r.ProjGUID	
+                inner join data_wide_dws_mdm_Building pb on a.BldGUID = pb.BuildingGUID
+                where isnull(a.TsyjType,'') NOT IN (SELECT TsyjTypeName FROM data_wide_s_TsyjType WHERE IsRelatedBuildingsRoom =0) and a.RoomGUID is not null and a.StatisticalDate is not null
+                    and a.StatisticalDate BETWEEN CONVERT(VARCHAR(4), YEAR(@var_date)) + '-01-01' AND CONVERT(VARCHAR(4), YEAR(@var_date)) + '-12-31'
+                    and a.buguid ='70DD6DF4-47F7-46AF-B470-BC18EE57D8FF'
+                group by p.ParentGUID,
+                        pb.TopProductTypeName,
+                        a.RoomGUID,
+                        CONVERT(NVARCHAR(10), a.StatisticalDate, 23)
+        ) sale
+        INNER JOIN data_wide_s_RoomoVerride r  on r.RoomGUID = sale.RoomGUID
+		INNER JOIN data_wide_dws_mdm_Building bld ON bld.BuildingGUID = r.BldGUID
+        LEFT JOIN data_tb_hnyx_areasection mjd ON r.BldArea between mjd.开始面积 and mjd.截止面积 and mjd.业态 = sale.TopProductTypeName
+        LEFT JOIN data_wide_s_LdfSaleDtl ldf on ldf.RoomGUID = r.RoomGUID
+		GROUP BY Sale.ParentProjGUID ,
+                Sale.TopProductTypeName
+
 
         --获取各产品业态新货签约金额认购金额以及已认购未签约金额
         SELECT  pj.ProjGUID ,
@@ -302,7 +497,30 @@ AS
 		        SUM(CASE WHEN r.specialFlag = '否' AND  DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0 AND   r.Status = '认购' AND r.specialFlag = '否' THEN r.CjBldArea ELSE 0 END) AS 累计产成品已认购未签约面积,
                 SUM(CASE WHEN r.specialFlag = '否' AND  DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0 AND   r.Status = '认购' AND r.specialFlag = '否' THEN 1 ELSE 0 END) AS 累计产成品已认购未签约套数,
 
+                -- 准产成品 
+				SUM(CASE WHEN r.specialFlag = '否' AND  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   DATEDIFF(DAY, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjRmbTotal + ISNULL(specialYj, 0)ELSE 0 END) / 10000.0 AS 本日准产成品认购金额 ,
+ 				SUM(CASE WHEN r.specialFlag = '否' AND  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   DATEDIFF(DAY, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjBldArea ELSE 0 END)  AS 本日准产成品认购面积 ,               
+				SUM(CASE WHEN r.specialFlag = '否' AND  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   DATEDIFF(DAY, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN 1 ELSE 0 END) AS 本日准产成品认购套数 ,
+                SUM(
+                CASE WHEN r.specialFlag = '否'  AND  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND  MONTH(r.RgQsDate) = MONTH(@var_date) AND r.Status IN ('签约', '认购') THEN
+                         r.CjRmbTotal + ISNULL(specialYj, 0)
+                     ELSE 0
+                END) / 10000.0 AS 本周准产成品认购金额 ,
+				SUM(CASE WHEN r.specialFlag = '否' AND  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND  MONTH(r.RgQsDate) = MONTH(@var_date) AND r.Status IN ('签约', '认购') THEN r.CjBldArea ELSE 0 END) AS 本周准产成品认购面积,
+                SUM(CASE WHEN r.specialFlag = '否' AND  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND  MONTH(r.RgQsDate) = MONTH(@var_date) AND r.Status IN ('签约', '认购') THEN 1 ELSE 0 END) AS 本周准产成品认购套数 ,
 
+                SUM(CASE WHEN r.specialFlag = '否' AND  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL))  AND   DATEDIFF(yy, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjRmbTotal + ISNULL(specialYj, 0)ELSE 0 END) / 10000.0 AS 本年准产成品认购金额 ,
+                SUM(CASE WHEN r.specialFlag = '否' AND  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL))  AND   DATEDIFF(yy, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjBldArea ELSE 0 END) AS 本年准产成品认购面积,
+				SUM(CASE WHEN r.specialFlag = '否' AND  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL))  AND   DATEDIFF(yy, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN 1 ELSE 0 END) AS 本年准产成品认购套数 ,
+
+                SUM(CASE WHEN r.specialFlag = '否' AND  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL))  AND   DATEDIFF(mm, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjRmbTotal + ISNULL(specialYj, 0)ELSE 0 END) / 10000.0 AS 本月准产成品认购金额 ,
+                SUM(CASE WHEN r.specialFlag = '否' AND  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL))  AND   DATEDIFF(mm, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjBldArea ELSE 0 END) AS 本月准产成品认购面积 ,
+			    SUM(CASE WHEN r.specialFlag = '否' AND  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL))  AND   DATEDIFF(mm, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN 1 ELSE 0 END) AS 本月准产成品认购套数 ,
+
+                SUM(CASE WHEN r.specialFlag = '否' AND  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL))  AND   r.Status = '认购' AND r.specialFlag = '否' THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 累计准产成品已认购未签约金额 ,
+		        SUM(CASE WHEN r.specialFlag = '否' AND  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   r.Status = '认购' AND r.specialFlag = '否' THEN r.CjBldArea ELSE 0 END) AS 累计准产成品已认购未签约面积,
+                SUM(CASE WHEN r.specialFlag = '否' AND  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   r.Status = '认购' AND r.specialFlag = '否' THEN 1 ELSE 0 END) AS 累计准产成品已认购未签约套数,
+                
                 SUM(CASE WHEN DATEDIFF(yy, r.FangPanTime, @var_date) = 0 AND r.Status = '签约' AND DATEDIFF(yy, r.QsDate, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.00 AS 本年新货签约金额 ,
                 SUM(CASE WHEN DATEDIFF(yy, r.FangPanTime, @var_date) > 0 AND r.Status = '签约' AND DATEDIFF(yy, r.QsDate, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.00 AS 本年存货签约金额 ,
                 SUM(CASE WHEN DATEDIFF(mm, r.FangPanTime, @var_date) = 0 AND r.Status = '签约' AND (DATEDIFF(mm, r.QsDate, @var_date) = 0) THEN r.CjRmbTotal ELSE 0 END) / 10000.00 AS 本月新货签约金额 ,
@@ -334,11 +552,71 @@ AS
                 SUM(CASE WHEN r.specialFlag = '否' AND   r.Status = '认购' AND DATEDIFF(yy, @var_date, r.RgQsDate) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 本年已认购未签约金额 ,
                 SUM(CASE WHEN r.specialFlag = '否' AND   r.Status = '认购' AND DATEDIFF(yy, @var_date, r.RgQsDate) = 0 THEN 1 ELSE 0 END) AS 本年已认购未签约套数 ,
                 SUM(CASE WHEN r.specialFlag = '否' AND   r.Status = '认购' AND DATEDIFF(mm, @var_date, r.RgQsDate) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 本月已认购未签约金额 ,
-                SUM(CASE WHEN r.specialFlag = '否' AND   r.Status = '认购' AND DATEDIFF(mm, @var_date, r.RgQsDate) = 0 THEN 1 ELSE 0 END) AS 本月已认购未签约套数
+                SUM(CASE WHEN r.specialFlag = '否' AND   r.Status = '认购' AND DATEDIFF(mm, @var_date, r.RgQsDate) = 0 THEN 1 ELSE 0 END) AS 本月已认购未签约套数,
+                
+                --大户型
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' and r.specialFlag = '否' AND   DATEDIFF(DAY, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjRmbTotal + ISNULL(specialYj, 0)ELSE 0 END) / 10000.0 AS 本日大户型认购金额 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' and r.specialFlag = '否' AND   DATEDIFF(DAY, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjBldArea ELSE 0 END) AS 本日大户型认购面积 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' and r.specialFlag = '否' AND   DATEDIFF(DAY, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN 1 ELSE 0 END) AS 本日大户型认购套数 ,
+
+                SUM(
+                CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' and r.specialFlag = '否' AND   (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND  MONTH(r.RgQsDate) = MONTH(@var_date) AND r.Status IN ('签约', '认购') THEN
+                         r.CjRmbTotal + ISNULL(specialYj, 0)
+                     ELSE 0
+                END) / 10000.0 AS 本周大户型认购金额 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' and r.specialFlag = '否' AND   (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND  MONTH(r.RgQsDate) = MONTH(@var_date) AND r.Status IN ('签约', '认购') THEN  r.CjBldArea ELSE 0 END) AS 本周大户型认购面积 ,
+				SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' and r.specialFlag = '否' AND   (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND  MONTH(r.RgQsDate) = MONTH(@var_date) AND r.Status IN ('签约', '认购') THEN 1 ELSE 0 END) AS 本周大户型认购套数 ,
+
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' and r.specialFlag = '否' AND   DATEDIFF(yy, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjRmbTotal + ISNULL(specialYj, 0)ELSE 0 END) / 10000.0 AS 本年大户型认购金额 ,
+				SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' and r.specialFlag = '否' AND   DATEDIFF(yy, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjBldArea ELSE 0 END) AS 本年大户型认购面积 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' and r.specialFlag = '否' AND   DATEDIFF(yy, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN 1 ELSE 0 END) AS 本年大户型认购套数 ,
+
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' and r.specialFlag = '否' AND   DATEDIFF(mm, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjRmbTotal + ISNULL(specialYj, 0)ELSE 0 END) / 10000.0 AS 本月大户型认购金额 ,
+			    SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' and r.specialFlag = '否' AND   DATEDIFF(mm, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjBldArea ELSE 0 END) AS 本月大户型认购面积 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' and r.specialFlag = '否' AND   DATEDIFF(mm, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN 1 ELSE 0 END) AS 本月大户型认购套数 ,
+
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' and r.specialFlag = '否' AND   r.Status = '认购' AND r.specialFlag = '否' THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 累计大户型已认购未签约金额 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' and r.specialFlag = '否' AND   r.Status = '认购' AND r.specialFlag = '否' THEN r.CjBldArea ELSE 0 END) AS 累计大户型已认购未签约面积 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' and r.specialFlag = '否' AND   r.Status = '认购' AND r.specialFlag = '否' THEN 1 ELSE 0 END) AS 累计大户型已认购未签约套数 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' and r.specialFlag = '否' AND   r.Status = '认购' AND DATEDIFF(yy, @var_date, r.RgQsDate) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 本年大户型已认购未签约金额 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' and r.specialFlag = '否' AND   r.Status = '认购' AND DATEDIFF(yy, @var_date, r.RgQsDate) = 0 THEN 1 ELSE 0 END) AS 本年大户型已认购未签约套数 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' and r.specialFlag = '否' AND   r.Status = '认购' AND DATEDIFF(mm, @var_date, r.RgQsDate) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 本月大户型已认购未签约金额 ,
+                SUM(CASE WHEN bld.TopProductTypeName IN ('高级住宅', '住宅', '别墅') and mjd.是否大户型 ='是' and r.specialFlag = '否' AND   r.Status = '认购' AND DATEDIFF(mm, @var_date, r.RgQsDate) = 0 THEN 1 ELSE 0 END) AS 本月大户型已认购未签约套数,
+                
+                --联动房
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and r.specialFlag = '否' AND   DATEDIFF(DAY, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjRmbTotal + ISNULL(specialYj, 0)ELSE 0 END) / 10000.0 AS 本日联动房认购金额 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and r.specialFlag = '否' AND   DATEDIFF(DAY, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjBldArea ELSE 0 END) AS 本日联动房认购面积 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and r.specialFlag = '否' AND   DATEDIFF(DAY, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN 1 ELSE 0 END) AS 本日联动房认购套数 ,
+
+                SUM(
+                CASE WHEN ldf.RoomGUID IS NOT NULL and r.specialFlag = '否' AND   (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND  MONTH(r.RgQsDate) = MONTH(@var_date) AND r.Status IN ('签约', '认购') THEN
+                         r.CjRmbTotal + ISNULL(specialYj, 0)
+                     ELSE 0
+                END) / 10000.0 AS 本周联动房认购金额 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and r.specialFlag = '否' AND   (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND  MONTH(r.RgQsDate) = MONTH(@var_date) AND r.Status IN ('签约', '认购') THEN  r.CjBldArea ELSE 0 END) AS 本周联动房认购面积 ,
+				SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and r.specialFlag = '否' AND   (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND  MONTH(r.RgQsDate) = MONTH(@var_date) AND r.Status IN ('签约', '认购') THEN 1 ELSE 0 END) AS 本周联动房认购套数 ,
+
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and r.specialFlag = '否' AND   DATEDIFF(yy, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjRmbTotal + ISNULL(specialYj, 0)ELSE 0 END) / 10000.0 AS 本年联动房认购金额 ,
+				SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and r.specialFlag = '否' AND   DATEDIFF(yy, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjBldArea ELSE 0 END) AS 本年联动房认购面积 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and r.specialFlag = '否' AND   DATEDIFF(yy, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN 1 ELSE 0 END) AS 本年联动房认购套数 ,
+
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and r.specialFlag = '否' AND   DATEDIFF(mm, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjRmbTotal + ISNULL(specialYj, 0)ELSE 0 END) / 10000.0 AS 本月联动房认购金额 ,
+			    SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and r.specialFlag = '否' AND   DATEDIFF(mm, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjBldArea ELSE 0 END) AS 本月联动房认购面积 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and r.specialFlag = '否' AND   DATEDIFF(mm, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN 1 ELSE 0 END) AS 本月联动房认购套数 ,
+
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and r.specialFlag = '否' AND   r.Status = '认购' AND r.specialFlag = '否' THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 累计联动房已认购未签约金额 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and r.specialFlag = '否' AND   r.Status = '认购' AND r.specialFlag = '否' THEN r.CjBldArea ELSE 0 END) AS 累计联动房已认购未签约面积 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and r.specialFlag = '否' AND   r.Status = '认购' AND r.specialFlag = '否' THEN 1 ELSE 0 END) AS 累计联动房已认购未签约套数 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and r.specialFlag = '否' AND   r.Status = '认购' AND DATEDIFF(yy, @var_date, r.RgQsDate) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 本年联动房已认购未签约金额 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and r.specialFlag = '否' AND   r.Status = '认购' AND DATEDIFF(yy, @var_date, r.RgQsDate) = 0 THEN 1 ELSE 0 END) AS 本年联动房已认购未签约套数 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and r.specialFlag = '否' AND   r.Status = '认购' AND DATEDIFF(mm, @var_date, r.RgQsDate) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 本月联动房已认购未签约金额 ,
+                SUM(CASE WHEN ldf.RoomGUID IS NOT NULL and r.specialFlag = '否' AND   r.Status = '认购' AND DATEDIFF(mm, @var_date, r.RgQsDate) = 0 THEN 1 ELSE 0 END) AS 本月联动房已认购未签约套数
         INTO    #rsale
         FROM    dbo.data_wide_s_RoomoVerride r
                 INNER JOIN data_wide_dws_mdm_Building bld ON bld.BuildingGUID = r.BldGUID
                 INNER JOIN data_wide_dws_mdm_Project pj ON r.ParentProjGUID = pj.ProjGUID
+                LEFT JOIN data_tb_hnyx_areasection mjd ON r.BldArea between mjd.开始面积 and mjd.截止面积 and mjd.业态 = bld.TopProductTypeName
+                LEFT JOIN data_wide_s_LdfSaleDtl ldf on ldf.RoomGUID = r.RoomGUID
         WHERE   r.BUGUID = '70DD6DF4-47F7-46AF-B470-BC18EE57D8FF'
         GROUP BY pj.ProjGUID ,
                  bld.TopProductTypeName;
@@ -362,6 +640,7 @@ AS
 				SUM(ISNULL(hz.brhzmj, 0) + ISNULL(ts.brhzmj, 0)) AS 本日认购面积 ,
                 SUM(ISNULL(hz.brhzts, 0) + ISNULL(ts.brhzts, 0)) AS 本日认购套数,
 
+                --产成品
 				SUM(ISNULL(hz.bnccphzje, 0) + ISNULL(ts.bnccphzje, 0)) AS 本年产成品认购金额 ,
 				SUM(ISNULL(hz.bnccphzmj, 0) + ISNULL(ts.bnccphzmj, 0)) AS 本年产成品认购面积 ,
                 SUM(ISNULL(hz.bnccphzts, 0) + ISNULL(ts.bnccphzts, 0)) AS 本年产成品认购套数 ,
@@ -376,115 +655,207 @@ AS
 
                 SUM(ISNULL(hz.brccphzje, 0) + ISNULL(ts.brccphzje, 0)) AS 本日产成品认购金额 ,
                 SUM(ISNULL(hz.brccphzmj, 0) + ISNULL(ts.brccphzmj, 0)) AS 本日产成品认购面积 ,
-                SUM(ISNULL(hz.brccphzts, 0) + ISNULL(ts.brccphzts, 0)) AS 本日产成品认购套数 
+                SUM(ISNULL(hz.brccphzts, 0) + ISNULL(ts.brccphzts, 0)) AS 本日产成品认购套数 ,
+
+                --准产成品
+				SUM(ISNULL(hz.zbnccphzje, 0) + ISNULL(ts.zbnccphzje, 0)) AS 本年准产成品认购金额 ,
+				SUM(ISNULL(hz.zbnccphzmj, 0) + ISNULL(ts.zbnccphzmj, 0)) AS 本年准产成品认购面积 ,
+                SUM(ISNULL(hz.zbnccphzts, 0) + ISNULL(ts.zbnccphzts, 0)) AS 本年准产成品认购套数 ,
+
+                SUM(ISNULL(hz.zbyccphzje, 0) + ISNULL(ts.zbyccphzje, 0)) AS 本月准产成品认购金额 ,
+                SUM(ISNULL(hz.zbyccphzmj, 0) + ISNULL(ts.zbyccphzmj, 0)) AS 本月准产成品认购面积 ,              
+				SUM(ISNULL(hz.zbyccphzts, 0) + ISNULL(ts.zbyccphzts, 0)) AS 本月准产成品认购套数 ,
+                
+				SUM(ISNULL(hz.zbzccphzje, 0) + ISNULL(ts.zbzccphzje, 0)) AS 本周准产成品认购金额 ,
+     		    SUM(ISNULL(hz.zbzccphzmj, 0) + ISNULL(ts.zbzccphzmj, 0)) AS 本周准产成品认购面积 ,           
+				SUM(ISNULL(hz.zbzccphzts, 0) + ISNULL(ts.zbzccphzts, 0)) AS 本周准产成品认购套数 ,
+
+                SUM(ISNULL(hz.zbrccphzje, 0) + ISNULL(ts.zbrccphzje, 0)) AS 本日准产成品认购金额 ,
+                SUM(ISNULL(hz.zbrccphzmj, 0) + ISNULL(ts.zbrccphzmj, 0)) AS 本日准产成品认购面积 ,
+                SUM(ISNULL(hz.zbrccphzts, 0) + ISNULL(ts.zbrccphzts, 0)) AS 本日准产成品认购套数     
         INTO    #rg
         FROM    dbo.data_wide_dws_mdm_Project pj
-                INNER JOIN #TopProduct pt ON pt.ParentProjGUID = pj.ProjGUID
-                LEFT JOIN(SELECT    a.ProjGUID ,
-                                    ProductType AS TopProductTypeName ,
-									-- 产成品
-								    SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  THEN   CCjTotal ELSE  0  END  ) AS bnccphzje ,                                                                                                                           --产成品本年认购金额
-                                    SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  THEN   CCjArea ELSE  0  END  ) AS bnccphzmj ,
-									SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  THEN   CCjCount ELSE  0 END  ) AS bnccphzts ,                                                                                                                           --产成品本年认购套数
-                                    SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjTotal ELSE 0 END) AS byccphzje ,                                                       --产成品本月认购金额
-                                    SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjArea ELSE 0 END) AS byccphzmj ,                                                        --产成品本月认购面积      
-									SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjCount ELSE 0 END) AS byccphzts ,                                                       --产成品本月认购套数
-                                    
-									SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0 AND  (StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjTotal ELSE 0 END) AS bzccphzje , --产成品本周认购金额
-                                    SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0 AND  (StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjArea ELSE 0 END) AS bzccphzmj , --产成品本周认购面积
-									SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0 AND  (StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjCount ELSE 0 END) AS bzccphzts , --产成品本周认购套数
+        INNER JOIN #TopProduct pt ON pt.ParentProjGUID = pj.ProjGUID
+        LEFT JOIN(SELECT    a.ProjGUID ,
+                            ProductType AS TopProductTypeName ,
+                            -- 产成品
+                            SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  THEN   CCjTotal ELSE  0  END  ) AS bnccphzje ,                                                                                                                           --产成品本年认购金额
+                            SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  THEN   CCjArea ELSE  0  END  ) AS  bnccphzmj ,
+                            SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  THEN   CCjCount ELSE  0 END  ) AS  bnccphzts ,                                                                                                                           --产成品本年认购套数
+                            SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjTotal ELSE 0 END) AS byccphzje ,                                                       --产成品本月认购金额
+                            SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjArea ELSE 0 END) AS byccphzmj ,                                                        --产成品本月认购面积      
+                            SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjCount ELSE 0 END) AS byccphzts ,                                                       --产成品本月认购套数
+                            
+                            SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0 AND  (StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjTotal ELSE 0 END) AS bzccphzje , --产成品本周认购金额
+                            SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0 AND  (StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjArea ELSE 0 END) AS bzccphzmj , --产成品本周认购面积
+                            SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0 AND  (StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjCount ELSE 0 END) AS bzccphzts , --产成品本周认购套数
 
-                                    SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0 AND  DATEDIFF(DAY, StatisticalDate, @var_date) = 0 THEN CCjTotal ELSE 0 END) AS brccphzje ,                                                   --产成品本日认购金额
-									SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0 AND  DATEDIFF(DAY, StatisticalDate, @var_date) = 0 THEN CCjArea ELSE 0 END) AS brccphzmj ,                                                    --产成品本日认购面积 
-                                    SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0 AND  DATEDIFF(DAY, StatisticalDate, @var_date) = 0 THEN CCjCount ELSE 0 END) AS brccphzts ,     
+                            SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0 AND  DATEDIFF(DAY, StatisticalDate, @var_date) = 0 THEN CCjTotal ELSE 0 END) AS brccphzje ,                                                   --产成品本日认购金额
+                            SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0 AND  DATEDIFF(DAY, StatisticalDate, @var_date) = 0 THEN CCjArea ELSE 0 END) AS brccphzmj ,                                                    --产成品本日认购面积 
+                            SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0 AND  DATEDIFF(DAY, StatisticalDate, @var_date) = 0 THEN CCjCount ELSE 0 END) AS brccphzts ,     
 
-                                    SUM(CCjTotal) AS bnhzje ,                                                                                                                           -- 本年认购金额
-                                    SUM(CCjArea)  AS bnhzmj,                                                                                                                            -- 本年认购面积
-									SUM(CCjCount) AS bnhzts ,                                                                                                                           -- 本年认购套数
+                            -- 准产成品
+                            SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) THEN   CCjTotal ELSE  0  END  )AS zbnccphzje ,                                                                                                                           --产成品本年认购金额
+                            SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) THEN   CCjArea ELSE  0  END  ) AS zbnccphzmj ,
+                            SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) THEN   CCjCount ELSE  0 END  ) AS zbnccphzts ,                                                                                                                           --产成品本年认购套数
+                            SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjTotal ELSE 0 END) AS zbyccphzje ,                                                       --产成品本月认购金额
+                            SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjArea ELSE 0 END) AS  zbyccphzmj ,                                                        --产成品本月认购面积      
+                            SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjCount ELSE 0 END) AS zbyccphzts ,                                                       --产成品本月认购套数
+                            
+                            SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  (StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjTotal ELSE 0 END) AS zbzccphzje , --产成品本周认购金额
+                            SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  (StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjArea ELSE 0 END) AS  zbzccphzmj , --产成品本周认购面积
+                            SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  (StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjCount ELSE 0 END) AS zbzccphzts , --产成品本周认购套数
 
-                                    SUM(CASE WHEN MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjTotal ELSE 0 END) AS byhzje ,                                                       --本月认购金额
-									SUM(CASE WHEN MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjArea ELSE 0 END) AS byhzmj ,                                                        --本月认购面积
-                                    SUM(CASE WHEN MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjCount ELSE 0 END) AS byhzts ,                                                       --本月认购套数
+                            SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(DAY, StatisticalDate, @var_date) = 0 THEN CCjTotal ELSE 0 END) AS zbrccphzje ,                                                   --产成品本日认购金额
+                            SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(DAY, StatisticalDate, @var_date) = 0 THEN CCjArea ELSE 0 END) AS  zbrccphzmj ,                                                    --产成品本日认购面积 
+                            SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(DAY, StatisticalDate, @var_date) = 0 THEN CCjCount ELSE 0 END) AS zbrccphzts ,  
 
-                                    SUM(CASE WHEN (StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjTotal ELSE 0 END) AS bzhzje , --本周认购金额
-									SUM(CASE WHEN (StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjArea ELSE 0 END) AS bzhzmj,   --本周认购面积 
-                                    SUM(CASE WHEN (StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjCount ELSE 0 END) AS bzhzts , --本周认购套数
-                                    SUM(CASE WHEN DATEDIFF(DAY, StatisticalDate, @var_date) = 0 THEN CCjTotal ELSE 0 END) AS brhzje ,                                                   --本日认购金额
-									SUM(CASE WHEN DATEDIFF(DAY, StatisticalDate, @var_date) = 0 THEN CCjArea ELSE 0 END) AS brhzmj ,                                                    --本日认购面积
-                                    SUM(CASE WHEN DATEDIFF(DAY, StatisticalDate, @var_date) = 0 THEN CCjCount ELSE 0 END) AS brhzts                                                     --本日认购套数
-                          FROM  dbo.data_wide_s_NoControl a
-						  INNER JOIN data_wide_dws_mdm_Building bld ON bld.BuildingGUID = a.BldGUID 
-                          WHERE StatisticalDate BETWEEN CONVERT(VARCHAR(4), YEAR(@var_date)) + '-01-01' AND CONVERT(VARCHAR(4), YEAR(@var_date)) + '-12-31'
-                          GROUP BY a.ProjGUID ,
-                                   ProductType) hz ON hz.ProjGUID = pj.ProjGUID AND pt.TopProductTypeName = hz.TopProductTypeName
-                LEFT JOIN(
-                         --如果特殊业绩类型为“代销车位”则业绩金额要双算
-                         SELECT s.ParentProjGUID AS projguid ,
-                                bld.TopProductTypeName ,
-								--产成品
-					            SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  ( DATEDIFF(YEAR, StatisticalDate, @var_date) = 0 OR (s.TsyjType = '物业公司车位代销' AND   DATEDIFF(YEAR, r.RgQsDate, @var_date) = 0) ) THEN CCjAmount ELSE 0 END) AS bnccphzje ,    --产成品本年认购金额
-								SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  ( DATEDIFF(YEAR, StatisticalDate, @var_date) = 0 OR (s.TsyjType = '物业公司车位代销' AND   DATEDIFF(YEAR, r.RgQsDate, @var_date) = 0) ) THEN CCjArea ELSE 0 END) AS bnccphzmj ,    --产成品本年认购面积
-                                SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  ( DATEDIFF(YEAR, StatisticalDate, @var_date) = 0 OR (s.TsyjType = '物业公司车位代销' AND   DATEDIFF(YEAR, r.RgQsDate, @var_date) = 0) )  THEN CCjCount ELSE 0 END) AS bnccphzts ,     --产成品本年认购套数
-								-- 本年认购套数
-                                SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  ( DATEDIFF(MONTH, StatisticalDate, @var_date) = 0 OR   (s.TsyjType = '物业公司车位代销' AND DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0) ) THEN CCjAmount ELSE 0 END) AS byccphzje ,  -- 产成品本月认购金额
-                                SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  ( DATEDIFF(MONTH, StatisticalDate, @var_date) = 0 OR   (s.TsyjType = '物业公司车位代销' AND DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0) ) THEN CCjArea ELSE 0 END) AS byccphzmj ,    -- 产成品本月认购面积 
-								SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  ( DATEDIFF(MONTH, StatisticalDate, @var_date) = 0 OR   (s.TsyjType = '物业公司车位代销' AND DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0) ) THEN CCjCount ELSE 0 END) AS byccphzts ,   --产成品本月认购套数
-                                SUM(
-                                CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0 AND  ((StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(StatisticalDate) = MONTH(@var_date))
-                                             OR   ((r.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(r.RgQsDate) = MONTH(@var_date)) THEN CCjAmount
-                                     ELSE 0
-                                END) AS bzccphzje ,                                                                                                                                                                    --产成品本周认购金额
-                                SUM(
-                                CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  ((StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(StatisticalDate) = MONTH(@var_date))
-                                          OR   ((r.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(r.RgQsDate) = MONTH(@var_date)) THEN CCjArea
-                                     ELSE 0
-                                END) AS bzccphzmj ,                                                                                                                                                                    --产成品本周认购面积 
-                                SUM(
-                                CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  ((StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(StatisticalDate) = MONTH(@var_date))
-                                          OR   ((r.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(r.RgQsDate) = MONTH(@var_date)) THEN CCjCount
-                                     ELSE 0
-                                END) AS bzccphzts ,                                                                                                                                                                    --产成品本周认购套数
+                            SUM(CCjTotal) AS bnhzje ,                                                                                                                           -- 本年认购金额
+                            SUM(CCjArea)  AS bnhzmj,                                                                                                                            -- 本年认购面积
+                            SUM(CCjCount) AS bnhzts ,                                                                                                                           -- 本年认购套数
 
-                                SUM(CASE WHEN  DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND ( DATEDIFF(DAY, StatisticalDate, @var_date) = 0 OR (s.TsyjType = '物业公司车位代销' AND DATEDIFF(DAY, r.RgQsDate, @var_date) = 0) ) THEN CCjAmount ELSE 0 END) AS brccphzje ,     --产成品本日认购金额
-								SUM(CASE WHEN  DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND ( DATEDIFF(DAY, StatisticalDate, @var_date) = 0 OR (s.TsyjType = '物业公司车位代销' AND DATEDIFF(DAY, r.RgQsDate, @var_date) = 0) ) THEN CCjArea ELSE 0 END) AS brccphzmj ,       --产成品本日认购面积
-                                SUM(CASE WHEN  DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0 AND ( DATEDIFF(DAY, StatisticalDate, @var_date) = 0 OR (s.TsyjType = '物业公司车位代销' AND DATEDIFF(DAY, r.RgQsDate, @var_date) = 0) )  THEN CCjCount ELSE 0 END) AS brccphzts ,      --产成品本日认购套数
+                            SUM(CASE WHEN MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjTotal ELSE 0 END) AS byhzje ,                                                       --本月认购金额
+                            SUM(CASE WHEN MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjArea ELSE 0 END) AS byhzmj ,                                                        --本月认购面积
+                            SUM(CASE WHEN MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjCount ELSE 0 END) AS byhzts ,                                                       --本月认购套数
 
-                                SUM(CASE WHEN DATEDIFF(YEAR, StatisticalDate, @var_date) = 0  THEN CCjAmount
-								         WHEN  (s.TsyjType = '物业公司车位代销' AND   DATEDIFF(YEAR, r.RgQsDate, @var_date) = 0) THEN r.CjRmbTotal /10000.0 ELSE 0 END) AS bnhzje,    --本年认购金额
-                                SUM(CASE WHEN DATEDIFF(YEAR, StatisticalDate, @var_date) = 0 OR (s.TsyjType = '物业公司车位代销' AND   DATEDIFF(YEAR, r.RgQsDate, @var_date) = 0) THEN CCjArea ELSE 0 END) AS bnhzmj ,  --本年认购面积
-                                SUM(CASE WHEN DATEDIFF(YEAR, StatisticalDate, @var_date) = 0 OR (s.TsyjType = '物业公司车位代销' AND   DATEDIFF(YEAR, r.RgQsDate, @var_date) = 0) THEN CCjCount ELSE 0 END) AS bnhzts ,     --本年认购套数                                                                                                                          -- 本年认购套数
-                                
-								SUM(CASE WHEN DATEDIFF(MONTH, StatisticalDate, @var_date) = 0 THEN CCjAmount
-								         WHEN  (s.TsyjType = '物业公司车位代销' AND DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0) THEN r.CjRmbTotal /10000.0 ELSE 0 END) AS byhzje ,  -- 本月认购金额
-                                SUM(CASE WHEN DATEDIFF(MONTH, StatisticalDate, @var_date) = 0 OR   (s.TsyjType = '物业公司车位代销' AND DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0) THEN CCjArea ELSE 0 END) AS byhzmj ,  --本月认购面积
-								SUM(CASE WHEN DATEDIFF(MONTH, StatisticalDate, @var_date) = 0 OR   (s.TsyjType = '物业公司车位代销' AND DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0) THEN CCjCount ELSE 0 END) AS byhzts ,   --本月认购套数
+                            SUM(CASE WHEN (StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjTotal ELSE 0 END) AS bzhzje , --本周认购金额
+                            SUM(CASE WHEN (StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjArea ELSE 0 END) AS bzhzmj,   --本周认购面积 
+                            SUM(CASE WHEN (StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(StatisticalDate) = MONTH(@var_date) THEN CCjCount ELSE 0 END) AS bzhzts , --本周认购套数
+                            SUM(CASE WHEN DATEDIFF(DAY, StatisticalDate, @var_date) = 0 THEN CCjTotal ELSE 0 END) AS brhzje ,                                                   --本日认购金额
+                            SUM(CASE WHEN DATEDIFF(DAY, StatisticalDate, @var_date) = 0 THEN CCjArea ELSE 0 END) AS brhzmj ,                                                    --本日认购面积
+                            SUM(CASE WHEN DATEDIFF(DAY, StatisticalDate, @var_date) = 0 THEN CCjCount ELSE 0 END) AS brhzts                                                     --本日认购套数
+                    FROM  dbo.data_wide_s_NoControl a
+                    INNER JOIN data_wide_dws_mdm_Building bld ON bld.BuildingGUID = a.BldGUID 
+                    WHERE StatisticalDate BETWEEN CONVERT(VARCHAR(4), YEAR(@var_date)) + '-01-01' AND CONVERT(VARCHAR(4), YEAR(@var_date)) + '-12-31'
+                    GROUP BY a.ProjGUID ,
+                            ProductType) hz ON hz.ProjGUID = pj.ProjGUID AND pt.TopProductTypeName = hz.TopProductTypeName
+        LEFT JOIN(
+                    --如果特殊业绩类型为“代销车位”则业绩金额要双算
+                    SELECT s.ParentProjGUID AS projguid ,
+                        bld.TopProductTypeName ,
+                        --产成品
+                        SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  ( DATEDIFF(YEAR, StatisticalDate, @var_date) = 0 
+                            OR (s.TsyjType = '物业公司车位代销' AND   DATEDIFF(YEAR, StatisticalDate, @var_date) = 0) ) THEN CCjAmount ELSE 0 END) AS bnccphzje ,    --产成品本年认购金额
+                        SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  ( DATEDIFF(YEAR, StatisticalDate, @var_date) = 0 
+                            OR (s.TsyjType = '物业公司车位代销' AND   DATEDIFF(YEAR, StatisticalDate, @var_date) = 0) ) THEN CCjArea ELSE 0 END) AS bnccphzmj ,    --产成品本年认购面积
+                        SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  ( DATEDIFF(YEAR, StatisticalDate, @var_date) = 0 
+                            OR (s.TsyjType = '物业公司车位代销' AND   DATEDIFF(YEAR, StatisticalDate, @var_date) = 0) )  THEN CCjCount ELSE 0 END) AS bnccphzts ,     --产成品本年认购套数
+                        -- 本年认购套数
+                        SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  ( DATEDIFF(MONTH, StatisticalDate, @var_date) = 0 
+                            OR   (s.TsyjType = '物业公司车位代销' AND DATEDIFF(MONTH, StatisticalDate, @var_date) = 0) ) THEN CCjAmount ELSE 0 END) AS byccphzje ,  -- 产成品本月认购金额
+                        SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  ( DATEDIFF(MONTH, StatisticalDate, @var_date) = 0 
+                            OR   (s.TsyjType = '物业公司车位代销' AND DATEDIFF(MONTH, StatisticalDate, @var_date) = 0) ) THEN CCjArea ELSE 0 END) AS byccphzmj ,    -- 产成品本月认购面积 
+                        SUM(CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  ( DATEDIFF(MONTH, StatisticalDate, @var_date) = 0 
+                            OR   (s.TsyjType = '物业公司车位代销' AND DATEDIFF(MONTH, StatisticalDate, @var_date) = 0) ) THEN CCjCount ELSE 0 END) AS byccphzts ,   --产成品本月认购套数
+                        SUM(
+                        CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0 AND  ((StatisticalDate BETWEEN @bzSDate AND @bzEDate) 
+                                        AND MONTH(StatisticalDate) = MONTH(@var_date))
+                                        OR   ((r.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(r.RgQsDate) = MONTH(@var_date)) THEN CCjAmount
+                                ELSE 0
+                        END) AS bzccphzje ,                                                                                                                                                                    --产成品本周认购金额
+                        SUM(
+                        CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  ((StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(StatisticalDate) = MONTH(@var_date))
+                                    OR   ((r.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(r.RgQsDate) = MONTH(@var_date)) THEN CCjArea
+                                ELSE 0
+                        END) AS bzccphzmj ,                                                                                                                                                                    --产成品本周认购面积 
+                        SUM(
+                        CASE WHEN DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND  ((StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(StatisticalDate) = MONTH(@var_date))
+                                    OR   ((r.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(r.RgQsDate) = MONTH(@var_date)) THEN CCjCount
+                                ELSE 0
+                        END) AS bzccphzts ,                                                                                                                                                                    --产成品本周认购套数
 
-                                SUM(
-                                CASE WHEN ((StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(StatisticalDate) = MONTH(@var_date)) THEN CCjAmount
-                                          WHEN  ( s.TsyjType = '物业公司车位代销' AND   (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(r.RgQsDate) = MONTH(@var_date)) THEN r.CjRmbTotal /10000.0
-                                     ELSE 0
-                                END) AS bzhzje ,                                                                                                                                                                    --本周认购金额
- 							   SUM(
-                                CASE WHEN ((StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(StatisticalDate) = MONTH(@var_date))
-                                          OR   ( s.TsyjType = '物业公司车位代销' AND  (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(r.RgQsDate) = MONTH(@var_date)) THEN CCjArea
-                                     ELSE 0
-                                END) AS bzhzmj ,                                                                                                                                                                    --本周认购面积                             
-							   SUM(
-                                CASE WHEN ((StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(StatisticalDate) = MONTH(@var_date))
-                                          OR   ( s.TsyjType = '物业公司车位代销' AND  (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(r.RgQsDate) = MONTH(@var_date)) THEN CCjCount
-                                     ELSE 0
-                                END) AS bzhzts ,                                                                                                                                                                    --本周认购套数
+                        SUM(CASE WHEN  DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND ( DATEDIFF(DAY, StatisticalDate, @var_date) = 0 
+                        OR (s.TsyjType = '物业公司车位代销' AND DATEDIFF(DAY, StatisticalDate, @var_date) = 0) ) THEN CCjAmount ELSE 0 END) AS brccphzje ,     --产成品本日认购金额
+                        SUM(CASE WHEN  DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0  AND ( DATEDIFF(DAY, StatisticalDate, @var_date) = 0 
+                        OR (s.TsyjType = '物业公司车位代销' AND DATEDIFF(DAY, StatisticalDate, @var_date) = 0) ) THEN CCjArea ELSE 0 END) AS brccphzmj ,       --产成品本日认购面积
+                        SUM(CASE WHEN  DATEDIFF(DAY,bld.FactFinishDate,@var_date) > 0 AND ( DATEDIFF(DAY, StatisticalDate, @var_date) = 0 
+                        OR (s.TsyjType = '物业公司车位代销' AND DATEDIFF(DAY, StatisticalDate, @var_date) = 0) )  THEN CCjCount ELSE 0 END) AS brccphzts ,      --产成品本日认购套数
+                        
+                        --准产成品
+                        SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL) )  AND  ( DATEDIFF(YEAR, StatisticalDate, @var_date) = 0 
+                        OR (s.TsyjType = '物业公司车位代销' AND   DATEDIFF(YEAR, StatisticalDate, @var_date) = 0) ) THEN CCjAmount ELSE 0 END) AS zbnccphzje ,    --准产成品本年认购金额
+                        SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL))  AND  ( DATEDIFF(YEAR, StatisticalDate, @var_date) = 0 
+                        OR (s.TsyjType = '物业公司车位代销' AND   DATEDIFF(YEAR, StatisticalDate, @var_date) = 0) ) THEN CCjArea ELSE 0 END) AS zbnccphzmj ,    --准产成品本年认购面积
+                        SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL))  AND  ( DATEDIFF(YEAR, StatisticalDate, @var_date) = 0 
+                        OR (s.TsyjType = '物业公司车位代销' AND   DATEDIFF(YEAR, StatisticalDate, @var_date) = 0) )  THEN CCjCount ELSE 0 END) AS zbnccphzts ,     --准产成品本年认购套数
+                        -- 本年认购套数
+                        SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL))  AND  ( DATEDIFF(MONTH, StatisticalDate, @var_date) = 0 
+                        OR   (s.TsyjType = '物业公司车位代销' AND DATEDIFF(MONTH, StatisticalDate, @var_date) = 0) ) THEN CCjAmount ELSE 0 END) AS zbyccphzje ,  -- 准产成品本月认购金额
+                        SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL))  AND  ( DATEDIFF(MONTH, StatisticalDate, @var_date) = 0 
+                        OR   (s.TsyjType = '物业公司车位代销' AND DATEDIFF(MONTH, StatisticalDate, @var_date) = 0) ) THEN CCjArea ELSE 0 END) AS zbyccphzmj ,    -- 准产成品本月认购面积 
+                        SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL))  AND  ( DATEDIFF(MONTH, StatisticalDate, @var_date) = 0 
+                        OR   (s.TsyjType = '物业公司车位代销' AND DATEDIFF(MONTH, StatisticalDate, @var_date) = 0) ) THEN CCjCount ELSE 0 END) AS zbyccphzts ,   --准产成品本月认购套数
+                        SUM(
+                        CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  ((StatisticalDate BETWEEN @bzSDate AND @bzEDate) 
+                                        AND MONTH(StatisticalDate) = MONTH(@var_date))
+                                        OR   ((r.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(r.RgQsDate) = MONTH(@var_date)) THEN CCjAmount
+                                ELSE 0
+                        END) AS zbzccphzje ,                                                                                                                                                                    --准产成品本周认购金额
+                        SUM(
+                        CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL))  AND  ((StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(StatisticalDate) = MONTH(@var_date))
+                                    OR   ((r.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(r.RgQsDate) = MONTH(@var_date)) THEN CCjArea
+                                ELSE 0
+                        END) AS zbzccphzmj ,                                                                                                                                                                    --准产成品本周认购面积 
+                        SUM(
+                        CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL))  AND  ((StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(StatisticalDate) = MONTH(@var_date))
+                                    OR   ((r.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(r.RgQsDate) = MONTH(@var_date)) THEN CCjCount
+                                ELSE 0
+                        END) AS zbzccphzts ,                                                                                                                                                                    --准产成品本周认购套数
 
-                                SUM(CASE WHEN DATEDIFF(DAY, StatisticalDate, @var_date) = 0 THEN  CCjAmount
-								     WHEN  (s.TsyjType = '物业公司车位代销' AND DATEDIFF(DAY, r.RgQsDate, @var_date) = 0) THEN r.CjRmbTotal /10000.0 ELSE 0 END) AS brhzje ,        --本日认购金额
-                                SUM(CASE WHEN DATEDIFF(DAY, StatisticalDate, @var_date) = 0 OR (s.TsyjType = '物业公司车位代销' AND DATEDIFF(DAY, r.RgQsDate, @var_date) = 0) THEN CCjArea ELSE 0 END) AS brhzmj,   --本日认购面积
-                                SUM(CASE WHEN DATEDIFF(DAY, StatisticalDate, @var_date) = 0 OR (s.TsyjType = '物业公司车位代销' AND DATEDIFF(DAY, r.RgQsDate, @var_date) = 0) THEN CCjCount ELSE 0 END) AS brhzts           --本日认购套数
-                         FROM   dbo.data_wide_s_SpecialPerformance s
-                                LEFT JOIN data_wide_s_RoomoVerride r ON s.roomguid = r.roomguid
-                                INNER JOIN data_wide_dws_mdm_Building bld ON bld.BuildingGUID = s.BldGUID
-                         WHERE 1 = 1    --StatisticalDate BETWEEN CONVERT(VARCHAR(4), YEAR(@var_date)) + '-01-01' AND CONVERT(VARCHAR(4), YEAR(@var_date)) + '-12-31'
-                         GROUP BY s.ParentProjGUID ,
-                                  bld.TopProductTypeName) ts ON ts.ProjGUID = pj.ProjGUID AND  pt.TopProductTypeName = ts.TopProductTypeName
+                        SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL))  AND ( DATEDIFF(DAY, StatisticalDate, @var_date) = 0 
+                        OR (s.TsyjType = '物业公司车位代销' AND DATEDIFF(DAY, StatisticalDate, @var_date) = 0) ) THEN CCjAmount ELSE 0 END) AS zbrccphzje ,     --准产成品本日认购金额
+                        SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL))  AND ( DATEDIFF(DAY, StatisticalDate, @var_date) = 0 
+                        OR (s.TsyjType = '物业公司车位代销' AND DATEDIFF(DAY, StatisticalDate, @var_date) = 0) ) THEN CCjArea ELSE 0 END) AS zbrccphzmj ,       --准产成品本日认购面积
+                        SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND ( DATEDIFF(DAY, StatisticalDate, @var_date) = 0 
+                        OR (s.TsyjType = '物业公司车位代销' AND DATEDIFF(DAY, StatisticalDate, @var_date) = 0) )  THEN CCjCount ELSE 0 END) AS zbrccphzts ,      --准产成品本日认购套数
+
+                        SUM(CASE WHEN DATEDIFF(YEAR, StatisticalDate, @var_date) = 0  THEN CCjAmount
+                                    WHEN  (s.TsyjType = '物业公司车位代销' AND   DATEDIFF(YEAR, StatisticalDate, @var_date) = 0) 
+                                    THEN r.CjRmbTotal /10000.0 ELSE 0 END) AS bnhzje,    --本年认购金额
+                        SUM(CASE WHEN DATEDIFF(YEAR, StatisticalDate, @var_date) = 0 
+                            OR (s.TsyjType = '物业公司车位代销' AND   DATEDIFF(YEAR, StatisticalDate, @var_date) = 0) THEN CCjArea ELSE 0 END) AS bnhzmj ,  --本年认购面积
+                        SUM(CASE WHEN DATEDIFF(YEAR, StatisticalDate, @var_date) = 0 
+                            OR (s.TsyjType = '物业公司车位代销' AND   DATEDIFF(YEAR, StatisticalDate, @var_date) = 0) THEN CCjCount ELSE 0 END) AS bnhzts ,     --本年认购套数                                                                                                                          -- 本年认购套数
+                        
+                        SUM(CASE WHEN DATEDIFF(MONTH, StatisticalDate, @var_date) = 0 THEN CCjAmount
+                                    WHEN  (s.TsyjType = '物业公司车位代销' AND DATEDIFF(MONTH,StatisticalDate, @var_date) = 0) THEN r.CjRmbTotal /10000.0 ELSE 0 END) AS byhzje ,  -- 本月认购金额
+                        SUM(CASE WHEN DATEDIFF(MONTH, StatisticalDate, @var_date) = 0 
+                            OR   (s.TsyjType = '物业公司车位代销' AND DATEDIFF(MONTH, StatisticalDate, @var_date) = 0) THEN CCjArea ELSE 0 END) AS byhzmj ,  --本月认购面积
+                        SUM(CASE WHEN DATEDIFF(MONTH, StatisticalDate, @var_date) = 0 
+                            OR   (s.TsyjType = '物业公司车位代销' AND DATEDIFF(MONTH, StatisticalDate, @var_date) = 0) THEN CCjCount ELSE 0 END) AS byhzts ,   --本月认购套数
+
+                        SUM(
+                        CASE WHEN ((StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(StatisticalDate) = MONTH(@var_date)) THEN CCjAmount
+                                    WHEN  ( s.TsyjType = '物业公司车位代销' AND   (StatisticalDate BETWEEN @bzSDate AND @bzEDate) 
+                                        AND MONTH(StatisticalDate) = MONTH(@var_date)) THEN r.CjRmbTotal /10000.0
+                                ELSE 0
+                        END) AS bzhzje ,                                                                                                                                                                    --本周认购金额
+                        SUM(
+                        CASE WHEN ((StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(StatisticalDate) = MONTH(@var_date))
+                                    OR   ( s.TsyjType = '物业公司车位代销' AND  (StatisticalDate BETWEEN @bzSDate AND @bzEDate) 
+                                    AND MONTH(StatisticalDate) = MONTH(@var_date)) THEN CCjArea
+                                ELSE 0
+                        END) AS bzhzmj ,                                                                                                                                                                    --本周认购面积                             
+                        SUM(
+                        CASE WHEN ((StatisticalDate BETWEEN @bzSDate AND @bzEDate) AND MONTH(StatisticalDate) = MONTH(@var_date))
+                                    OR   ( s.TsyjType = '物业公司车位代销' AND  (StatisticalDate BETWEEN @bzSDate AND @bzEDate) 
+                                    AND MONTH(StatisticalDate) = MONTH(@var_date)) THEN CCjCount
+                                ELSE 0
+                        END) AS bzhzts ,                                                                                                                                                                    --本周认购套数
+
+                        SUM(CASE WHEN DATEDIFF(DAY, StatisticalDate, @var_date) = 0 THEN  CCjAmount
+                                WHEN  (s.TsyjType = '物业公司车位代销' AND DATEDIFF(DAY, StatisticalDate, @var_date) = 0) 
+                                THEN r.CjRmbTotal /10000.0 ELSE 0 END) AS brhzje ,        --本日认购金额
+                        SUM(CASE WHEN DATEDIFF(DAY, StatisticalDate, @var_date) = 0 
+                                OR (s.TsyjType = '物业公司车位代销' AND DATEDIFF(DAY, StatisticalDate, @var_date) = 0) THEN CCjArea ELSE 0 END) AS brhzmj,   --本日认购面积
+                        SUM(CASE WHEN DATEDIFF(DAY, StatisticalDate, @var_date) = 0 
+                                OR (s.TsyjType = '物业公司车位代销' AND DATEDIFF(DAY, StatisticalDate, @var_date) = 0) THEN CCjCount ELSE 0 END) AS brhzts           --本日认购套数
+                    FROM   dbo.data_wide_s_SpecialPerformance s
+                        LEFT JOIN data_wide_s_RoomoVerride r ON s.roomguid = r.roomguid
+                        INNER JOIN data_wide_dws_mdm_Building bld ON bld.BuildingGUID = s.BldGUID
+                    WHERE 1 = 1    --StatisticalDate BETWEEN CONVERT(VARCHAR(4), YEAR(@var_date)) + '-01-01' AND CONVERT(VARCHAR(4), YEAR(@var_date)) + '-12-31'
+                    GROUP BY s.ParentProjGUID ,
+                            bld.TopProductTypeName) ts ON ts.ProjGUID = pj.ProjGUID AND  pt.TopProductTypeName = ts.TopProductTypeName
         WHERE   pj.Level = 2
         GROUP BY pj.ProjGUID ,
                  pt.TopProductTypeName;
@@ -516,12 +887,12 @@ AS
                 SUM(CASE WHEN DATEDIFF(YEAR, os.QyQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 数字营销本年签约套数,
 
 				--产成品
-                SUM(CASE WHEN YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND   DATEDIFF(DAY, os.RgQsDate, @var_date) = 0 THEN os.RgAmount ELSE 0 END) / 10000.0 AS 数字营销产成品本日认购金额 ,
-                SUM(CASE WHEN YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  DATEDIFF(DAY, os.RgQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 数字营销产成品本日认购套数 ,
-                SUM(CASE WHEN YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  (os.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(os.RgQsDate) = MONTH(@var_date) THEN os.RgAmount ELSE 0 END) / 10000.0 AS 数字营销产成品本周认购金额 ,
-                SUM(CASE WHEN YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  (os.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(os.RgQsDate) = MONTH(@var_date) THEN 1 ELSE 0 END) AS 数字营销产成品本周认购套数 ,
-                SUM(CASE WHEN YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  DATEDIFF(MONTH, os.RgQsDate, @var_date) = 0 THEN os.RgAmount ELSE 0 END) / 10000.0 AS 数字营销产成品本月认购金额 ,
-                SUM(CASE WHEN YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  DATEDIFF(MONTH, os.RgQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 数字营销产成品本月认购套数 ,
+                SUM(CASE WHEN  YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND   DATEDIFF(DAY, os.RgQsDate, @var_date) = 0 THEN os.RgAmount ELSE 0 END) / 10000.0 AS 数字营销产成品本日认购金额 ,
+                SUM(CASE WHEN  YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  DATEDIFF(DAY, os.RgQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 数字营销产成品本日认购套数 ,
+                SUM(CASE WHEN  YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  (os.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(os.RgQsDate) = MONTH(@var_date) THEN os.RgAmount ELSE 0 END) / 10000.0 AS 数字营销产成品本周认购金额 ,
+                SUM(CASE WHEN  YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  (os.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(os.RgQsDate) = MONTH(@var_date) THEN 1 ELSE 0 END) AS 数字营销产成品本周认购套数 ,
+                SUM(CASE WHEN  YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  DATEDIFF(MONTH, os.RgQsDate, @var_date) = 0 THEN os.RgAmount ELSE 0 END) / 10000.0 AS 数字营销产成品本月认购金额 ,
+                SUM(CASE WHEN  YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  DATEDIFF(MONTH, os.RgQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 数字营销产成品本月认购套数 ,
                 SUM(CASE WHEN  YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  DATEDIFF(DAY, os.QyQsDate, @var_date) = 0 THEN os.QyAmount ELSE 0 END) / 10000.0 AS 数字营销产成品本日签约金额 ,
                 SUM(CASE WHEN  YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  DATEDIFF(DAY, os.QyQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 数字营销产成品本日签约套数 ,
                 SUM(CASE WHEN  YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  DATEDIFF(MONTH, os.QyQsDate, @var_date) = 0 THEN os.QyAmount ELSE 0 END) / 10000.0 AS 数字营销产成品本月签约金额 ,
@@ -531,7 +902,33 @@ AS
                 SUM(CASE WHEN  YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND   DATEDIFF(YEAR, os.RgQsDate, @var_date) = 0 THEN os.RgAmount ELSE 0 END) / 10000.0 AS 数字营销产成品本年认购金额 ,
                 SUM(CASE WHEN  YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  DATEDIFF(YEAR, os.RgQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 数字营销产成品本年认购套数 ,
                 SUM(CASE WHEN  YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  DATEDIFF(YEAR, os.QyQsDate, @var_date) = 0 THEN os.QyAmount ELSE 0 END) / 10000.0 AS 数字营销产成品本年签约金额 ,
-                SUM(CASE WHEN  YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  DATEDIFF(YEAR, os.QyQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 数字营销产成品本年签约套数
+                SUM(CASE WHEN  YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  DATEDIFF(YEAR, os.QyQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 数字营销产成品本年签约套数,
+
+                --准产成品
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   DATEDIFF(DAY, os.RgQsDate, @var_date) = 0 THEN os.RgAmount ELSE 0 END) / 10000.0 AS 数字营销准产成品本日认购金额 ,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   DATEDIFF(DAY, os.RgQsDate, @var_date) = 0 THEN r.BldArea ELSE 0 END)  AS 数字营销准产成品本日认购面积,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(DAY, os.RgQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 数字营销准产成品本日认购套数 ,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  (os.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(os.RgQsDate) = MONTH(@var_date) THEN os.RgAmount ELSE 0 END) / 10000.0 AS 数字营销准产成品本周认购金额 ,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  (os.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(os.RgQsDate) = MONTH(@var_date) THEN r.BldArea ELSE 0 END) AS 数字营销准产成品本周认购面积,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  (os.RgQsDate BETWEEN @bzSDate AND @bzEDate) AND   MONTH(os.RgQsDate) = MONTH(@var_date) THEN 1 ELSE 0 END) AS 数字营销准产成品本周认购套数 ,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(MONTH, os.RgQsDate, @var_date) = 0 THEN os.RgAmount ELSE 0 END) / 10000.0 AS 数字营销准产成品本月认购金额 ,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(MONTH, os.RgQsDate, @var_date) = 0 THEN r.BldArea ELSE 0 END)  AS 数字营销准产成品本月认购面积,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(MONTH, os.RgQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 数字营销准产成品本月认购套数 ,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(DAY, os.QyQsDate, @var_date) = 0 THEN os.QyAmount ELSE 0 END) / 10000.0 AS 数字营销准产成品本日签约金额 ,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(DAY, os.QyQsDate, @var_date) = 0 THEN r.BldArea ELSE 0 END) AS 数字营销准产成品本日签约面积,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(DAY, os.QyQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 数字营销准产成品本日签约套数 ,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(MONTH, os.QyQsDate, @var_date) = 0 THEN os.QyAmount ELSE 0 END) / 10000.0 AS 数字营销准产成品本月签约金额 ,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(MONTH, os.QyQsDate, @var_date) = 0 THEN r.BldArea ELSE 0 END) AS 数字营销准产成品本月签约面积,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(MONTH, os.QyQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 数字营销准产成品本月签约套数 ,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  r.specialFlag = '否' AND   r.Status = '认购' AND r.specialFlag = '否' THEN os.RgAmount ELSE 0 END) / 10000.0 AS 数字营销准产成品已认购未签约金额 ,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  r.specialFlag = '否' AND   r.Status = '认购' AND r.specialFlag = '否' THEN r.BldArea ELSE 0 END)  AS 数字营销准产成品已认购未签约面积,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  r.specialFlag = '否' AND   r.Status = '认购' AND r.specialFlag = '否' THEN 1 ELSE 0 END) AS 数字营销准产成品已认购未签约套数 ,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   DATEDIFF(YEAR, os.RgQsDate, @var_date) = 0 THEN os.RgAmount ELSE 0 END) / 10000.0 AS 数字营销准产成品本年认购金额 ,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   DATEDIFF(YEAR, os.RgQsDate, @var_date) = 0 THEN r.BldArea ELSE 0 END) AS 数字营销准产成品本年认购面积 ,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(YEAR, os.RgQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 数字营销准产成品本年认购套数 ,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(YEAR, os.QyQsDate, @var_date) = 0 THEN os.QyAmount ELSE 0 END) / 10000.0 AS 数字营销准产成品本年签约金额 ,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(YEAR, os.QyQsDate, @var_date) = 0 THEN r.BldArea ELSE 0 END) AS 数字营销准产成品本年签约面积,
+                SUM(CASE WHEN  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(YEAR, os.QyQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 数字营销准产成品本年签约套数
         INTO    #szyx
         FROM    data_wide_s_OnlineSaleRoomDtl os
                 INNER JOIN data_wide_s_RoomoVerride r ON os.roomguid = r.roomguid
@@ -567,7 +964,27 @@ AS
                 SUM(CASE WHEN YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  r.Status = '签约' AND   YEAR(r.QsDate) = YEAR(@var_date) THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 数字营销其他业绩产成品本年签约金额 ,
                 SUM(CASE WHEN YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  r.Status = '签约' AND   YEAR(r.QsDate) = YEAR(@var_date) THEN 1 ELSE 0 END) AS 数字营销其他业绩产成品本年签约套数 ,
                 SUM(CASE WHEN YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  r.Status = '签约' AND   DATEDIFF(MONTH, r.QsDate, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 数字营销其他业绩产成品本月签约金额 ,
-                SUM(CASE WHEN YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  r.Status = '签约' AND   DATEDIFF(MONTH, r.QsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 数字营销其他业绩产成品本月签约套数
+                SUM(CASE WHEN YEAR(bld.FactFinishDate) < CONVERT(VARCHAR(4), YEAR(@var_date)) AND  r.Status = '签约' AND   DATEDIFF(MONTH, r.QsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 数字营销其他业绩产成品本月签约套数,
+                -- 准产成品
+				SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(DAY, r.RgQsDate, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 数字营销其他业绩准产成品本日认购金额 ,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(DAY, r.RgQsDate, @var_date) = 0 THEN r.BldArea ELSE 0 END) AS 数字营销其他业绩准产成品本日认购面积,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(DAY, r.RgQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 数字营销其他业绩准产成品本日认购套数 ,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 AND (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 数字营销其他业绩准产成品本周认购金额 ,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 AND (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) THEN r.BldArea ELSE 0 END) AS 数字营销其他业绩准产成品本周认购面积,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND   DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 AND (r.RgQsDate BETWEEN @bzSDate AND @bzEDate) THEN 1 ELSE 0 END) AS 数字营销其他业绩准产成品本周认购套数 ,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 数字营销其他业绩准产成品本月认购金额 ,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 THEN r.BldArea ELSE 0 END) AS 数字营销其他业绩准产成品本月认购面积,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  DATEDIFF(MONTH, r.RgQsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 数字营销其他业绩准产成品本月认购套数 ,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  YEAR(r.QsDate) = YEAR(@var_date) THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 数字营销其他业绩准产成品本年认购金额 ,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  YEAR(r.QsDate) = YEAR(@var_date) THEN r.BldArea ELSE 0 END)  AS 数字营销其他业绩准产成品本年认购面积 ,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  YEAR(r.QsDate) = YEAR(@var_date) THEN 1 ELSE 0 END) AS 数字营销其他业绩准产成品本年认购套数 ,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  r.Status = '签约' AND   YEAR(r.QsDate) = YEAR(@var_date) THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 数字营销其他业绩准产成品本年签约金额 ,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  r.Status = '签约' AND   YEAR(r.QsDate) = YEAR(@var_date) THEN r.BldArea ELSE 0 END) AS 数字营销其他业绩准产成品本年签约面积,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  r.Status = '签约' AND   YEAR(r.QsDate) = YEAR(@var_date) THEN 1 ELSE 0 END) AS 数字营销其他业绩准产成品本年签约套数 ,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  r.Status = '签约' AND   DATEDIFF(MONTH, r.QsDate, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 数字营销其他业绩准产成品本月签约金额 ,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  r.Status = '签约' AND   DATEDIFF(MONTH, r.QsDate, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 数字营销其他业绩准产成品本月签约面积,
+                SUM(CASE WHEN (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL)) AND  r.Status = '签约' AND   DATEDIFF(MONTH, r.QsDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 数字营销其他业绩准产成品本月签约套数
+
         INTO    #szqtqy
         FROM    data_wide_s_SpecialPerformance a
                 INNER JOIN data_wide_s_OnlineSaleRoomDtl os ON os.roomguid = a.roomguid
@@ -618,8 +1035,8 @@ AS
 				tb.投管编码 ,
 				tb.项目负责人 ,
 				p.BeginDate AS 项目获取日期 ,
-																																--pt.FactFinishDate AS  实际竣备日期,
-																																--CASE WHEN  YEAR(pt.FactFinishDate)  < YEAR(@var_date) THEN  '是' ELSE  '否' END  AS 是否产成品,
+				--pt.FactFinishDate AS  实际竣备日期,
+				--CASE WHEN  YEAR(pt.FactFinishDate)  < YEAR(@var_date) THEN  '是' ELSE  '否' END  AS 是否产成品,
 				pt.存量增量 ,
 				ISNULL(rs.本日认购金额, 0) + ISNULL(rg.本日认购金额, 0) + ISNULL(qt.其他业绩本日认购金额, 0) AS 本日认购金额 ,                              -- 全口径
 				ISNULL(rs.本日认购套数, 0) + ISNULL(rg.本日认购套数, 0) + ISNULL(qt.其他业绩本日认购套数, 0) AS 本日认购套数 ,
@@ -664,7 +1081,8 @@ AS
 				ISNULL(rw.本月存量任务, 0) AS 本月存量任务 ,
 				ISNULL(rw.本月增量任务, 0) AS 本月增量任务 ,
 				ISNULL(rw.本月新增量任务, 0) AS 本月新增量任务 ,
-																																-- 产成品
+				-- 产成品 计算逻辑为现产成品
+                -- 注意 数据库里存的 产成品月度任务 为现产成品任务
 				ISNULL(rs.本日产成品认购金额, 0) + ISNULL(rg.本日产成品认购金额, 0) + ISNULL(qt.其他业绩产成品本日认购金额, 0) AS 本日产成品认购金额 ,
 				ISNULL(rs.本日产成品认购套数, 0) + ISNULL(rg.本日产成品认购套数, 0) + ISNULL(qt.其他业绩产成品本日认购套数, 0) AS 本日产成品认购套数 ,
 				ISNULL(s.本日产成品签约金额全口径, 0) AS 本日产成品签约金额 ,
@@ -694,7 +1112,8 @@ AS
 				ISNULL(qt.其他业绩产成品本年签约套数, 0) AS 其他业绩产成品本年签约套数 ,
 				CASE WHEN ISNULL(rw.产成品年度任务, 0) = 0 THEN 0 ELSE ISNULL(s.本年产成品签约金额全口径, 0) / ISNULL(rw.产成品年度任务, 0)END AS 本年产成品签约完成率 ,
 				CASE WHEN ISNULL(rw.产成品年度任务, 0) = 0 THEN 0 ELSE (ISNULL(s.本年产成品签约金额全口径, 0) + ISNULL(qt.其他业绩产成品本年签约金额, 0)) / ISNULL(rw.产成品年度任务, 0)END AS 本年产成品签约完成率_含其他业绩 ,
-				ISNULL(rw.非项目本年实际签约金额, 0) AS 非项目本年实际签约金额 ,
+				
+                ISNULL(rw.非项目本年实际签约金额, 0) AS 非项目本年实际签约金额 ,
 				ISNULL(rw.非项目本月实际签约金额, 0) AS 非项目本月实际签约金额 ,
 				ISNULL(rw.非项目本年实际认购金额, 0) AS 非项目本年实际认购金额 ,
 				ISNULL(rw.非项目本月实际认购金额, 0) AS 非项目本月实际认购金额 ,
@@ -723,35 +1142,146 @@ AS
 				ISNULL(rs.本年产成品认购面积, 0) + ISNULL(rg.本年产成品认购面积, 0) + ISNULL(qt.其他业绩产成品本年认购面积, 0) AS 本年产成品认购面积 ,
 				ISNULL(s.本年产成品签约面积全口径,0) AS 本年产成品签约面积 ,
 				ISNULL(qt.其他业绩产成品本年签约面积,0 ) AS 其他业绩产成品本年签约面积,
-                @wideTableDateText  as 宽表最后清洗日期 
-			    /*0 AS 本日认购面积 ,
-				0 AS 本日签约面积 ,
-				0 AS 本周认购面积 ,
-				0 AS 本周签约套数 ,
-				0 AS 本周签约面积 ,
-				0 AS 本周签约金额 ,
-				0 AS 本月认购面积 ,
-				0 AS 本月签约面积 ,
-				0 AS 其他业绩本月认购面积 ,
-				0 AS 其他业绩本月签约面积 ,
-				0 AS 本月产成品认购面积 ,
-				0 AS 本月产成品签约面积 ,
-				0 AS 其他业绩产成品本月签约面积 ,
-				0 AS 已认购未签约签约面积 ,
-				0 AS 本年认购面积 ,
-				0 AS 本年签约面积 ,
-				0 AS 其他业绩本年认购套数 ,
-				0 AS 其他业绩本年认购面积 ,
-				0 AS 其他业绩本年认购金额 ,
-				0 AS 其他业绩本年签约面积 ,
-				0 AS 本年产成品认购面积 ,
-				0 AS 本年产成品签约面积 ,
-				0 AS 其他业绩产成品本年签约面积*/
+                @wideTableDateText  as 宽表最后清洗日期,
+
+                --大户型
+                ISNULL(rs.本日大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本日认购金额, 0) as 本日大户型认购金额,
+                ISNULL(rs.本日大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本日认购面积, 0)  as 本日大户型认购面积,
+                ISNULL(rs.本日大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本日认购套数, 0)  as 本日大户型认购套数,
+                ISNULL(dhx.本日大户型签约金额全口径, 0)   as 本日大户型签约金额,
+                ISNULL(dhx.本日大户型签约面积全口径, 0)  as 本日大户型签约面积,
+                ISNULL(dhx.本日大户型签约套数全口径, 0)  as 本日大户型签约套数,
+
+                ISNULL(rs.本周大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本周认购金额, 0) as 本周大户型认购金额,
+                ISNULL(rs.本周大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本周认购面积, 0) as 本周大户型认购面积,
+                ISNULL(rs.本周大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本周认购套数, 0) as 本周大户型认购套数,
+                ISNULL(dhx.本周大户型签约金额全口径, 0) as 本周大户型签约金额,
+                ISNULL(dhx.本周大户型签约面积全口径, 0) as 本周大户型签约面积,
+                ISNULL(dhx.本周大户型签约套数全口径, 0) as 本周大户型签约套数,
+
+                ISNULL(rs.本月大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本月认购金额, 0) as 本月大户型认购金额,
+                ISNULL(rs.本月大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本月认购面积, 0) as 本月大户型认购面积,
+                ISNULL(rs.本月大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本月认购套数, 0) as 本月大户型认购套数,
+                ISNULL(dhx.本月大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本月签约金额,0) as 本月大户型签约金额,
+                ISNULL(dhx.本月大户型签约面积全口径,0) + ISNULL(qt.其他业绩大户型本月签约面积,0) as 本月大户型签约面积,
+                ISNULL(dhx.本月大户型签约套数全口径,0) + ISNULL(qt.其他业绩大户型本月签约套数,0) as 本月大户型签约套数,
+
+                ISNULL(rs.本年大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本年认购金额, 0) as 本年大户型认购金额,
+                ISNULL(rs.本年大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本年认购面积, 0) as 本年大户型认购面积,
+                ISNULL(rs.本年大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本年认购套数, 0) as 本年大户型认购套数,
+                ISNULL(dhx.本年大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本年签约金额,0) as 本年大户型签约金额,
+                ISNULL(dhx.本年大户型签约面积全口径,0) + ISNULL(qt.其他业绩大户型本年签约面积,0) as 本年大户型签约面积,
+                ISNULL(dhx.本年大户型签约套数全口径,0) + ISNULL(qt.其他业绩大户型本年签约套数,0) as 本年大户型签约套数,
+
+                ISNULL(rs.累计大户型已认购未签约金额,0) as 累计大户型已认购未签约金额,
+                ISNULL(rs.累计大户型已认购未签约面积,0) as 累计大户型已认购未签约面积,
+                ISNULL(rs.累计大户型已认购未签约套数,0) as 累计大户型已认购未签约套数,
+                ISNULL(rs.本年大户型已认购未签约金额,0) as 本年大户型已认购未签约金额,
+                ISNULL(rs.本年大户型已认购未签约套数,0) as 本年大户型已认购未签约套数,
+                ISNULL(rs.本月大户型已认购未签约金额,0) as 本月大户型已认购未签约金额,
+                ISNULL(rs.本月大户型已认购未签约套数,0) as 本月大户型已认购未签约套数,
+
+                --联动房
+                ISNULL(rs.本日联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本日认购金额, 0) as 本日联动房认购金额,
+                ISNULL(rs.本日联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本日认购面积, 0)  as 本日联动房认购面积,
+                ISNULL(rs.本日联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本日认购套数, 0)  as 本日联动房认购套数,
+                ISNULL(dhx.本日联动房签约金额全口径, 0)   as 本日联动房签约金额,
+                ISNULL(dhx.本日联动房签约面积全口径, 0)  as 本日联动房签约面积,
+                ISNULL(dhx.本日联动房签约套数全口径, 0)  as 本日联动房签约套数,
+
+                ISNULL(rs.本周联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本周认购金额, 0) as 本周联动房认购金额,
+                ISNULL(rs.本周联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本周认购面积, 0) as 本周联动房认购面积,
+                ISNULL(rs.本周联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本周认购套数, 0) as 本周联动房认购套数,
+                ISNULL(dhx.本周联动房签约金额全口径, 0) as 本周联动房签约金额,
+                ISNULL(dhx.本周联动房签约面积全口径, 0) as 本周联动房签约面积,
+                ISNULL(dhx.本周联动房签约套数全口径, 0) as 本周联动房签约套数,
+
+                ISNULL(rs.本月联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本月认购金额, 0) as 本月联动房认购金额,
+                ISNULL(rs.本月联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本月认购面积, 0) as 本月联动房认购面积,
+                ISNULL(rs.本月联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本月认购套数, 0) as 本月联动房认购套数,
+                ISNULL(dhx.本月联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本月签约金额,0) as 本月联动房签约金额,
+                ISNULL(dhx.本月联动房签约面积全口径,0) + ISNULL(qt.其他业绩联动房本月签约面积,0) as 本月联动房签约面积,
+                ISNULL(dhx.本月联动房签约套数全口径,0) + ISNULL(qt.其他业绩联动房本月签约套数,0) as 本月联动房签约套数,
+
+                ISNULL(rs.本年联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本年认购金额, 0) as 本年联动房认购金额,
+                ISNULL(rs.本年联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本年认购面积, 0) as 本年联动房认购面积,
+                ISNULL(rs.本年联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本年认购套数, 0) as 本年联动房认购套数,
+                ISNULL(dhx.本年联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本年签约金额,0) as 本年联动房签约金额,
+                ISNULL(dhx.本年联动房签约面积全口径,0) + ISNULL(qt.其他业绩联动房本年签约面积,0) as 本年联动房签约面积,
+                ISNULL(dhx.本年联动房签约套数全口径,0) + ISNULL(qt.其他业绩联动房本年签约套数,0) as 本年联动房签约套数,
+
+                ISNULL(rs.累计联动房已认购未签约金额,0) AS 累计联动房已认购未签约金额,
+                ISNULL(rs.累计联动房已认购未签约面积,0) AS 累计联动房已认购未签约面积,
+                ISNULL(rs.累计联动房已认购未签约套数,0) AS 累计联动房已认购未签约套数,
+                ISNULL(rs.本年联动房已认购未签约金额,0) AS 本年联动房已认购未签约金额,
+                ISNULL(rs.本年联动房已认购未签约套数,0) AS 本年联动房已认购未签约套数,
+                ISNULL(rs.本月联动房已认购未签约金额,0) AS 本月联动房已认购未签约金额,
+                ISNULL(rs.本月联动房已认购未签约套数,0) AS 本月联动房已认购未签约套数,
+
+                ISNULL(qt.其他业绩大户型本月签约金额,0) as 其他业绩大户型本月签约金额,
+                ISNULL(qt.其他业绩大户型本月签约面积,0) as 其他业绩大户型本月签约面积,
+                ISNULL(qt.其他业绩大户型本月签约套数,0) as 其他业绩大户型本月签约套数,
+                ISNULL(qt.其他业绩大户型本年签约金额,0) as 其他业绩大户型本年签约金额,
+                ISNULL(qt.其他业绩大户型本年签约面积,0) as 其他业绩大户型本年签约面积,
+                ISNULL(qt.其他业绩大户型本年签约套数,0) as 其他业绩大户型本年签约套数,
+
+                -- 准产成品
+				ISNULL(rs.本日准产成品认购金额, 0) + ISNULL(rg.本日准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本日认购金额, 0) AS 本日准产成品认购金额,
+                ISNULL(rs.本日准产成品认购面积, 0) + ISNULL(rg.本日准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本日认购面积, 0) AS 本日准产成品认购面积,
+				ISNULL(rs.本日准产成品认购套数, 0) + ISNULL(rg.本日准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本日认购套数, 0) AS 本日准产成品认购套数 ,
+
+				ISNULL(s.本日准产成品签约金额全口径, 0) AS 本日准产成品签约金额 ,
+                ISNULL(s.本日准产成品签约面积全口径, 0) AS 本日准产成品签约面积 ,
+				ISNULL(s.本日准产成品签约套数全口径, 0) AS 本日准产成品签约套数 ,
+
+				ISNULL(rs.本周准产成品认购金额, 0) + ISNULL(rg.本周准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本周认购金额, 0) AS 本周准产成品认购金额 ,
+                ISNULL(rs.本周准产成品认购面积, 0) + ISNULL(rg.本周准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本周认购面积, 0) AS 本周准产成品认购面积 ,
+				ISNULL(rs.本周准产成品认购套数, 0) + ISNULL(rg.本周准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本周认购套数, 0) AS 本周准产成品认购套数 ,
+
+				ISNULL(rs.本月准产成品认购金额, 0) + ISNULL(rg.本月准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本月认购金额, 0) AS 本月准产成品认购金额 ,
+                ISNULL(rs.本月准产成品认购面积, 0) + ISNULL(rg.本月准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本月认购面积, 0) AS 本月准产成品认购面积 ,
+				ISNULL(rs.本月准产成品认购套数, 0) + ISNULL(rg.本月准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本月认购套数, 0) AS 本月准产成品认购套数 ,
+
+				ISNULL(qt.其他业绩准产成品本月认购金额, 0) AS 其他业绩准产成品本月认购金额 ,
+                ISNULL(qt.其他业绩准产成品本月认购面积, 0) AS 其他业绩准产成品本月认购面积 ,
+				ISNULL(qt.其他业绩准产成品本月认购套数, 0) AS 其他业绩准产成品本月认购套数 ,
+
+				ISNULL(本月准产成品签约金额全口径, 0) AS 本月准产成品签约金额 ,
+                ISNULL(本月准产成品签约面积全口径, 0) AS 本月准产成品签约面积 ,
+				ISNULL(本月准产成品签约套数全口径, 0) AS 本月准产成品签约套数 ,
+
+				ISNULL(qt.其他业绩准产成品本月签约金额, 0) AS 其他业绩准产成品本月签约金额 ,
+                ISNULL(qt.其他业绩准产成品本月签约面积, 0) AS 其他业绩准产成品本月签约面积 ,
+				ISNULL(qt.其他业绩准产成品本月签约套数, 0) AS 其他业绩准产成品本月签约套数 ,
+
+				ISNULL(rs.累计准产成品已认购未签约金额, 0) AS 累计准产成品已认购未签约金额 ,
+                ISNULL(rs.累计准产成品已认购未签约面积, 0) AS 累计准产成品已认购未签约面积 ,
+				ISNULL(rs.累计准产成品已认购未签约套数, 0) AS 累计准产成品已认购未签约套数 ,
+
+				ISNULL(rs.本年准产成品认购金额, 0) + ISNULL(rg.本年准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本年认购金额, 0) AS 本年准产成品认购金额 ,
+                ISNULL(rs.本年准产成品认购面积, 0) + ISNULL(rg.本年准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本年认购面积, 0) AS 本年准产成品认购面积 ,
+				ISNULL(rs.本年准产成品认购套数, 0) + ISNULL(rg.本年准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本年认购套数, 0) AS 本年准产成品认购套数 ,
+
+				ISNULL(s.本年准产成品签约金额全口径, 0) AS 本年准产成品签约金额 ,
+                ISNULL(s.本年准产成品签约面积全口径, 0) AS 本年准产成品签约面积 ,
+				ISNULL(s.本年准产成品签约套数全口径, 0) AS 本年准产成品签约套数 ,
+
+				ISNULL(qt.其他业绩准产成品本年签约金额, 0) AS 其他业绩准产成品本年签约金额 ,
+                ISNULL(qt.其他业绩准产成品本年签约面积, 0) AS 其他业绩准产成品本年签约面积 ,                
+				ISNULL(qt.其他业绩准产成品本年签约套数, 0) AS 其他业绩准产成品本年签约套数 ,
+
+                --补充现产成品任务和大户型任务@20250630
+                ISNULL(rw.准产成品月度任务, 0) AS 准产成品月度任务,
+                ISNULL(rw.准产成品年度任务, 0) AS 准产成品年度任务,
+                ISNULL(rw.大户型月度任务, 0)   AS 大户型月度任务,
+                ISNULL(rw.大户型年度任务, 0)   AS 大户型年度任务
+
 		FROM    data_wide_dws_mdm_Project p
 				INNER JOIN #TopProduct pt ON pt.ParentProjGUID = p.ProjGUID
 				LEFT JOIN data_tb_hnyx_jdfxtb rw ON rw.projguid = p.ProjGUID AND   rw.业态 = pt.TopProductTypeName
 				LEFT JOIN data_tb_hn_yxpq tb ON p.ProjGUID = tb.项目GUID
 				LEFT JOIN #projsale s ON p.ProjGUID = s.orgguid AND pt.TopProductTypeName = s.TopProductTypeName
+                LEFT JOIN #projsale_ldf_dhx dhx on p.ProjGUID = dhx.orgguid AND pt.TopProductTypeName = dhx.TopProductTypeName
 				LEFT JOIN #rsale rs ON rs.ProjGUID = p.ProjGUID AND pt.TopProductTypeName = rs.TopProductTypeName
 				LEFT JOIN #rg rg ON rg.ProjGUID = p.ProjGUID AND   pt.TopProductTypeName = rg.TopProductTypeName
 				LEFT JOIN #qtqy qt ON qt.projguid = p.projguid AND pt.TopProductTypeName = qt.TopProductTypeName
@@ -883,12 +1413,143 @@ AS
 				0 AS 本年产成品认购面积 ,
 				0 AS 本年产成品签约面积 ,
 				0 AS 其他业绩产成品本年签约面积,
-                @wideTableDateText  as 宽表最后清洗日期 
+                @wideTableDateText  as 宽表最后清洗日期,
+                --大户型
+                0 as 本日大户型认购金额,
+                0 as 本日大户型认购面积,
+                0 as 本日大户型认购套数,
+                0 as 本日大户型签约金额,
+                0 as 本日大户型签约面积,
+                0 as 本日大户型签约套数,
+
+                0 as 本周大户型认购金额,
+                0 as 本周大户型认购面积,
+                0 as 本周大户型认购套数,
+                0 as 本周大户型签约金额,
+                0 as 本周大户型签约面积,
+                0 as 本周大户型签约套数,
+
+                0 as 本月大户型认购金额,
+                0 as 本月大户型认购面积,
+                0 as 本月大户型认购套数,
+                0 as 本月大户型签约金额,
+                0 as 本月大户型签约面积,
+                0 as 本月大户型签约套数,
+
+                0 as 本年大户型认购金额,
+                0 as 本年大户型认购面积,
+                0 as 本年大户型认购套数,
+                0 as 本年大户型签约金额,
+                0 as 本年大户型签约面积,
+                0 as 本年大户型签约套数,
+
+                0 as 累计大户型已认购未签约金额,
+                0 as 累计大户型已认购未签约面积,
+                0 as 累计大户型已认购未签约套数,
+                0 as 本年大户型已认购未签约金额,
+                0 as 本年大户型已认购未签约套数,
+                0 as 本月大户型已认购未签约金额,
+                0 as 本月大户型已认购未签约套数,
+
+                --联动房
+                0 as 本日联动房认购金额,
+                0 as 本日联动房认购面积,
+                0 as 本日联动房认购套数,
+                0 as 本日联动房签约金额,
+                0 as 本日联动房签约面积,
+                0 as 本日联动房签约套数,
+
+                0 as 本周联动房认购金额,
+                0 as 本周联动房认购面积,
+                0 as 本周联动房认购套数,
+                0 as 本周联动房签约金额,
+                0 as 本周联动房签约面积,
+                0 as 本周联动房签约套数,
+
+                0 as 本月联动房认购金额,
+                0 as 本月联动房认购面积,
+                0 as 本月联动房认购套数,
+                0 as 本月联动房签约金额,
+                0 as 本月联动房签约面积,
+                0 as 本月联动房签约套数,
+
+                0 as 本年联动房认购金额,
+                0 as 本年联动房认购面积,
+                0 as 本年联动房认购套数,
+                0 as 本年联动房签约金额,
+                0 as 本年联动房签约面积,
+                0 as 本年联动房签约套数,
+
+                0 AS 累计联动房已认购未签约金额,
+                0 AS 累计联动房已认购未签约面积,
+                0 AS 累计联动房已认购未签约套数,
+                0 AS 本年联动房已认购未签约金额,
+                0 AS 本年联动房已认购未签约套数,
+                0 AS 本月联动房已认购未签约金额,
+                0 AS 本月联动房已认购未签约套数,
+
+                0 as 其他业绩大户型本月签约金额,
+                0 as 其他业绩大户型本月签约面积,
+                0 as 其他业绩大户型本月签约套数,
+                0 as 其他业绩大户型本年签约金额,
+                0 as 其他业绩大户型本年签约面积,
+                0 as 其他业绩大户型本年签约套数,
+
+                --准产成品
+                0 AS 本日准产成品认购金额,
+                0 AS 本日准产成品认购面积,
+                0 AS 本日准产成品认购套数,
+
+                0 AS 本日准产成品签约金额 ,
+                0 AS 本日准产成品签约面积 ,
+                0 AS 本日准产成品签约套数 ,
+
+                0 AS 本周准产成品认购金额 ,
+                0 AS 本周准产成品认购面积 ,
+                0 AS 本周准产成品认购套数 ,
+
+                0 AS 本月准产成品认购金额 ,
+                0 AS 本月准产成品认购面积 ,
+                0 AS 本月准产成品认购套数 ,
+
+                0 AS 其他业绩准产成品本月认购金额 ,
+                0 AS 其他业绩准产成品本月认购面积 ,
+                0 AS 其他业绩准产成品本月认购套数 ,
+
+                0 AS 本月准产成品签约金额 ,
+                0 AS 本月准产成品签约面积 ,
+                0 AS 本月准产成品签约套数 ,
+
+                0 AS 其他业绩准产成品本月签约金额 ,
+                0 AS 其他业绩准产成品本月签约面积 ,
+                0 AS 其他业绩准产成品本月签约套数 ,
+
+                0 AS 累计准产成品已认购未签约金额 ,
+                0 AS 累计准产成品已认购未签约面积 ,
+                0 AS 累计准产成品已认购未签约套数 ,
+
+                0 AS 本年准产成品认购金额 ,
+                0 AS 本年准产成品认购面积 ,
+                0 AS 本年准产成品认购套数 ,
+
+                0 AS 本年准产成品签约金额 ,
+                0 AS 本年准产成品签约面积 ,
+                0 AS 本年准产成品签约套数 ,
+                0 AS 其他业绩准产成品本年签约金额 ,
+                0 AS 其他业绩准产成品本年签约面积 ,                
+                0 AS 其他业绩准产成品本年签约套数 ,
+
+                --补充现产成品任务和大户型任务@20250630
+                0 AS 准产成品月度任务,
+                0 AS 准产成品年度任务,
+                0 AS 大户型月度任务,
+                0 AS 大户型年度任务
         FROM    data_wide_dws_mdm_Project p
                 INNER JOIN #TopProduct pt ON pt.ParentProjGUID = p.ProjGUID
                 LEFT JOIN data_tb_hnyx_jdfxtb rw ON rw.projguid = p.ProjGUID AND   rw.业态 = pt.TopProductTypeName
                 LEFT JOIN data_tb_hn_yxpq tb ON p.ProjGUID = tb.项目GUID
                 LEFT JOIN #projsale s ON p.ProjGUID = s.orgguid AND pt.TopProductTypeName = s.TopProductTypeName
+                LEFT JOIN #projsale_ldf_dhx dhx on p.ProjGUID = dhx.orgguid AND pt.TopProductTypeName = dhx.TopProductTypeName
                 LEFT JOIN #rsale rs ON rs.ProjGUID = p.ProjGUID AND pt.TopProductTypeName = rs.TopProductTypeName
                 LEFT JOIN #rg rg ON rg.ProjGUID = p.ProjGUID AND   pt.TopProductTypeName = rg.TopProductTypeName
                 LEFT JOIN #qtqy qt ON qt.projguid = p.projguid AND pt.TopProductTypeName = qt.TopProductTypeName
@@ -1017,12 +1678,143 @@ AS
 				0 AS 本年产成品认购面积 ,
 				0 AS 本年产成品签约面积 ,
 				0 AS 其他业绩产成品本年签约面积,
-                @wideTableDateText  as 宽表最后清洗日期 
+                @wideTableDateText  as 宽表最后清洗日期,
+                --大户型
+                ISNULL(rs.本日大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本日认购金额, 0) as 本日大户型认购金额,
+                ISNULL(rs.本日大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本日认购面积, 0)  as 本日大户型认购面积,
+                ISNULL(rs.本日大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本日认购套数, 0)  as 本日大户型认购套数,
+                ISNULL(dhx.本日大户型签约金额全口径, 0)   as 本日大户型签约金额,
+                ISNULL(dhx.本日大户型签约面积全口径, 0)  as 本日大户型签约面积,
+                ISNULL(dhx.本日大户型签约套数全口径, 0)  as 本日大户型签约套数,
+
+                ISNULL(rs.本周大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本周认购金额, 0) as 本周大户型认购金额,
+                ISNULL(rs.本周大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本周认购面积, 0) as 本周大户型认购面积,
+                ISNULL(rs.本周大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本周认购套数, 0) as 本周大户型认购套数,
+                ISNULL(dhx.本周大户型签约金额全口径, 0) as 本周大户型签约金额,
+                ISNULL(dhx.本周大户型签约面积全口径, 0) as 本周大户型签约面积,
+                ISNULL(dhx.本周大户型签约套数全口径, 0) as 本周大户型签约套数,
+
+                ISNULL(rs.本月大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本月认购金额, 0) as 本月大户型认购金额,
+                ISNULL(rs.本月大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本月认购面积, 0) as 本月大户型认购面积,
+                ISNULL(rs.本月大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本月认购套数, 0) as 本月大户型认购套数,
+                ISNULL(dhx.本月大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本月签约金额,0) as 本月大户型签约金额,
+                ISNULL(dhx.本月大户型签约面积全口径,0) + ISNULL(qt.其他业绩大户型本月签约面积,0) as 本月大户型签约面积,
+                ISNULL(dhx.本月大户型签约套数全口径,0) + ISNULL(qt.其他业绩大户型本月签约套数,0) as 本月大户型签约套数,
+
+                ISNULL(rs.本年大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本年认购金额, 0) as 本年大户型认购金额,
+                ISNULL(rs.本年大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本年认购面积, 0) as 本年大户型认购面积,
+                ISNULL(rs.本年大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本年认购套数, 0) as 本年大户型认购套数,
+                ISNULL(dhx.本年大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本年签约金额,0) as 本年大户型签约金额,
+                ISNULL(dhx.本年大户型签约面积全口径,0) + ISNULL(qt.其他业绩大户型本年签约面积,0) as 本年大户型签约面积,
+                ISNULL(dhx.本年大户型签约套数全口径,0) + ISNULL(qt.其他业绩大户型本年签约套数,0) as 本年大户型签约套数,
+
+                ISNULL(rs.累计大户型已认购未签约金额,0) as 累计大户型已认购未签约金额,
+                ISNULL(rs.累计大户型已认购未签约面积,0) as 累计大户型已认购未签约面积,
+                ISNULL(rs.累计大户型已认购未签约套数,0) as 累计大户型已认购未签约套数,
+                ISNULL(rs.本年大户型已认购未签约金额,0) as 本年大户型已认购未签约金额,
+                ISNULL(rs.本年大户型已认购未签约套数,0) as 本年大户型已认购未签约套数,
+                ISNULL(rs.本月大户型已认购未签约金额,0) as 本月大户型已认购未签约金额,
+                ISNULL(rs.本月大户型已认购未签约套数,0) as 本月大户型已认购未签约套数,
+
+                --联动房
+                ISNULL(rs.本日联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本日认购金额, 0) as 本日联动房认购金额,
+                ISNULL(rs.本日联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本日认购面积, 0)  as 本日联动房认购面积,
+                ISNULL(rs.本日联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本日认购套数, 0)  as 本日联动房认购套数,
+                ISNULL(dhx.本日联动房签约金额全口径, 0)   as 本日联动房签约金额,
+                ISNULL(dhx.本日联动房签约面积全口径, 0)  as 本日联动房签约面积,
+                ISNULL(dhx.本日联动房签约套数全口径, 0)  as 本日联动房签约套数,
+
+                ISNULL(rs.本周联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本周认购金额, 0) as 本周联动房认购金额,
+                ISNULL(rs.本周联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本周认购面积, 0) as 本周联动房认购面积,
+                ISNULL(rs.本周联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本周认购套数, 0) as 本周联动房认购套数,
+                ISNULL(dhx.本周联动房签约金额全口径, 0) as 本周联动房签约金额,
+                ISNULL(dhx.本周联动房签约面积全口径, 0) as 本周联动房签约面积,
+                ISNULL(dhx.本周联动房签约套数全口径, 0) as 本周联动房签约套数,
+
+                ISNULL(rs.本月联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本月认购金额, 0) as 本月联动房认购金额,
+                ISNULL(rs.本月联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本月认购面积, 0) as 本月联动房认购面积,
+                ISNULL(rs.本月联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本月认购套数, 0) as 本月联动房认购套数,
+                ISNULL(dhx.本月联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本月签约金额,0) as 本月联动房签约金额,
+                ISNULL(dhx.本月联动房签约面积全口径,0) + ISNULL(qt.其他业绩联动房本月签约面积,0) as 本月联动房签约面积,
+                ISNULL(dhx.本月联动房签约套数全口径,0) + ISNULL(qt.其他业绩联动房本月签约套数,0) as 本月联动房签约套数,
+
+                ISNULL(rs.本年联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本年认购金额, 0) as 本年联动房认购金额,
+                ISNULL(rs.本年联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本年认购面积, 0) as 本年联动房认购面积,
+                ISNULL(rs.本年联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本年认购套数, 0) as 本年联动房认购套数,
+                ISNULL(dhx.本年联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本年签约金额,0) as 本年联动房签约金额,
+                ISNULL(dhx.本年联动房签约面积全口径,0) + ISNULL(qt.其他业绩联动房本年签约面积,0) as 本年联动房签约面积,
+                ISNULL(dhx.本年联动房签约套数全口径,0) + ISNULL(qt.其他业绩联动房本年签约套数,0) as 本年联动房签约套数,
+
+                ISNULL(rs.累计联动房已认购未签约金额,0) AS 累计联动房已认购未签约金额,
+                ISNULL(rs.累计联动房已认购未签约面积,0) AS 累计联动房已认购未签约面积,
+                ISNULL(rs.累计联动房已认购未签约套数,0) AS 累计联动房已认购未签约套数,
+                ISNULL(rs.本年联动房已认购未签约金额,0) AS 本年联动房已认购未签约金额,
+                ISNULL(rs.本年联动房已认购未签约套数,0) AS 本年联动房已认购未签约套数,
+                ISNULL(rs.本月联动房已认购未签约金额,0) AS 本月联动房已认购未签约金额,
+                ISNULL(rs.本月联动房已认购未签约套数,0) AS 本月联动房已认购未签约套数,
+
+                ISNULL(qt.其他业绩大户型本月签约金额,0) as 其他业绩大户型本月签约金额,
+                ISNULL(qt.其他业绩大户型本月签约面积,0) as 其他业绩大户型本月签约面积,
+                ISNULL(qt.其他业绩大户型本月签约套数,0) as 其他业绩大户型本月签约套数,
+                ISNULL(qt.其他业绩大户型本年签约金额,0) as 其他业绩大户型本年签约金额,
+                ISNULL(qt.其他业绩大户型本年签约面积,0) as 其他业绩大户型本年签约面积,
+                ISNULL(qt.其他业绩大户型本年签约套数,0) as 其他业绩大户型本年签约套数,
+
+                --准产成品
+                ISNULL(rs.本日准产成品认购金额, 0) + ISNULL(rg.本日准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本日认购金额, 0) AS 本日准产成品认购金额,
+                ISNULL(rs.本日准产成品认购面积, 0) + ISNULL(rg.本日准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本日认购面积, 0) AS 本日准产成品认购面积,
+                ISNULL(rs.本日准产成品认购套数, 0) + ISNULL(rg.本日准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本日认购套数, 0) AS 本日准产成品认购套数 ,
+
+                ISNULL(s.本日准产成品签约金额全口径, 0) AS 本日准产成品签约金额 ,
+                ISNULL(s.本日准产成品签约面积全口径, 0) AS 本日准产成品签约面积 ,
+                ISNULL(s.本日准产成品签约套数全口径, 0) AS 本日准产成品签约套数 ,
+
+                ISNULL(rs.本周准产成品认购金额, 0) + ISNULL(rg.本周准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本周认购金额, 0) AS 本周准产成品认购金额 ,
+                ISNULL(rs.本周准产成品认购面积, 0) + ISNULL(rg.本周准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本周认购面积, 0) AS 本周准产成品认购面积 ,
+                ISNULL(rs.本周准产成品认购套数, 0) + ISNULL(rg.本周准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本周认购套数, 0) AS 本周准产成品认购套数 ,
+
+                ISNULL(rs.本月准产成品认购金额, 0) + ISNULL(rg.本月准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本月认购金额, 0) AS 本月准产成品认购金额 ,
+                ISNULL(rs.本月准产成品认购面积, 0) + ISNULL(rg.本月准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本月认购面积, 0) AS 本月准产成品认购面积 ,
+                ISNULL(rs.本月准产成品认购套数, 0) + ISNULL(rg.本月准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本月认购套数, 0) AS 本月准产成品认购套数 ,
+
+                ISNULL(qt.其他业绩准产成品本月认购金额, 0) AS 其他业绩准产成品本月认购金额 ,
+                ISNULL(qt.其他业绩准产成品本月认购面积, 0) AS 其他业绩准产成品本月认购面积 ,
+                ISNULL(qt.其他业绩准产成品本月认购套数, 0) AS 其他业绩准产成品本月认购套数 ,
+
+                ISNULL(本月准产成品签约金额全口径, 0) AS 本月准产成品签约金额 ,
+                ISNULL(本月准产成品签约面积全口径, 0) AS 本月准产成品签约面积 ,
+                ISNULL(本月准产成品签约套数全口径, 0) AS 本月准产成品签约套数 ,
+
+                ISNULL(qt.其他业绩准产成品本月签约金额, 0) AS 其他业绩准产成品本月签约金额 ,
+                ISNULL(qt.其他业绩准产成品本月签约面积, 0) AS 其他业绩准产成品本月签约面积 ,
+                ISNULL(qt.其他业绩准产成品本月签约套数, 0) AS 其他业绩准产成品本月签约套数 ,
+
+                ISNULL(rs.累计准产成品已认购未签约金额, 0) AS 累计准产成品已认购未签约金额 ,
+                ISNULL(rs.累计准产成品已认购未签约面积, 0) AS 累计准产成品已认购未签约面积 ,
+                ISNULL(rs.累计准产成品已认购未签约套数, 0) AS 累计准产成品已认购未签约套数 ,
+
+                ISNULL(rs.本年准产成品认购金额, 0) + ISNULL(rg.本年准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本年认购金额, 0) AS 本年准产成品认购金额 ,
+                ISNULL(rs.本年准产成品认购面积, 0) + ISNULL(rg.本年准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本年认购面积, 0) AS 本年准产成品认购面积 ,
+                ISNULL(rs.本年准产成品认购套数, 0) + ISNULL(rg.本年准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本年认购套数, 0) AS 本年准产成品认购套数 ,
+
+                ISNULL(s.本年准产成品签约金额全口径, 0) AS 本年准产成品签约金额 ,
+                ISNULL(s.本年准产成品签约面积全口径, 0) AS 本年准产成品签约面积 ,
+                ISNULL(s.本年准产成品签约套数全口径, 0) AS 本年准产成品签约套数 ,
+                ISNULL(qt.其他业绩准产成品本年签约金额, 0) AS 其他业绩准产成品本年签约金额 ,
+                ISNULL(qt.其他业绩准产成品本年签约面积, 0) AS 其他业绩准产成品本年签约面积 ,                
+                ISNULL(qt.其他业绩准产成品本年签约套数, 0) AS 其他业绩准产成品本年签约套数 ,
+
+                --补充现产成品任务和大户型任务@20250630
+                ISNULL(rw.准产成品月度任务, 0) AS 准产成品月度任务,
+                ISNULL(rw.准产成品年度任务, 0) AS 准产成品年度任务,
+                ISNULL(rw.大户型月度任务, 0)   AS 大户型月度任务,
+                ISNULL(rw.大户型年度任务, 0)   AS 大户型年度任务
         FROM    data_wide_dws_mdm_Project p
                 INNER JOIN #TopProduct pt ON pt.ParentProjGUID = p.ProjGUID
                 LEFT JOIN data_tb_hnyx_jdfxtb rw ON rw.projguid = p.ProjGUID AND   rw.业态 = pt.TopProductTypeName
                 LEFT JOIN data_tb_hn_yxpq tb ON p.ProjGUID = tb.项目GUID
                 LEFT JOIN #projsale s ON p.ProjGUID = s.orgguid AND pt.TopProductTypeName = s.TopProductTypeName
+                LEFT JOIN #projsale_ldf_dhx dhx on p.ProjGUID = dhx.orgguid AND pt.TopProductTypeName = dhx.TopProductTypeName
                 LEFT JOIN #rsale rs ON rs.ProjGUID = p.ProjGUID AND pt.TopProductTypeName = rs.TopProductTypeName
                 LEFT JOIN #rg rg ON rg.ProjGUID = p.ProjGUID AND   pt.TopProductTypeName = rg.TopProductTypeName
                 LEFT JOIN #qtqy qt ON qt.projguid = p.projguid AND pt.TopProductTypeName = qt.TopProductTypeName
@@ -1058,7 +1850,7 @@ AS
                 ISNULL(rs.本周认购金额, 0) + ISNULL(rg.本周认购金额, 0) + ISNULL(qt.其他业绩本周认购金额, 0) AS 本周认购金额 ,
                 ISNULL(rs.本周认购套数, 0) + ISNULL(rg.本周认购套数, 0) + ISNULL(qt.其他业绩本周认购套数, 0) AS 本周认购套数 ,
                 rw.月度签约任务 AS 本月任务 ,
-               ISNULL(rs.本月认购金额, 0) + ISNULL(rg.本月认购金额, 0) + ISNULL(qt.其他业绩本月认购金额, 0) + ISNULL(rw.非项目本月实际认购金额,0)  AS 本月认购金额 ,
+                ISNULL(rs.本月认购金额, 0) + ISNULL(rg.本月认购金额, 0) + ISNULL(qt.其他业绩本月认购金额, 0) + ISNULL(rw.非项目本月实际认购金额,0)  AS 本月认购金额 ,
                 ISNULL(rs.本月认购套数, 0) + ISNULL(rg.本月认购套数, 0) + ISNULL(qt.其他业绩本月认购套数, 0) AS 本月认购套数 ,
 				ISNULL(qt.其他业绩本月认购金额, 0) AS 其他业绩本月认购金额,
 				ISNULL(qt.其他业绩本月认购套数, 0) AS 其他业绩本月认购套数,
@@ -1152,12 +1944,143 @@ AS
 				ISNULL(rs.本年产成品认购面积, 0) + ISNULL(rg.本年产成品认购面积, 0) + ISNULL(qt.其他业绩产成品本年认购面积, 0) AS 本年产成品认购面积 ,
 				ISNULL(s.本年产成品签约面积全口径,0) AS 本年产成品签约面积 ,
 				ISNULL(qt.其他业绩产成品本年签约面积,0 ) AS 其他业绩产成品本年签约面积,
-                @wideTableDateText  as 宽表最后清洗日期 
+                @wideTableDateText  as 宽表最后清洗日期,
+                --大户型
+                ISNULL(rs.本日大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本日认购金额, 0) as 本日大户型认购金额,
+                ISNULL(rs.本日大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本日认购面积, 0)  as 本日大户型认购面积,
+                ISNULL(rs.本日大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本日认购套数, 0)  as 本日大户型认购套数,
+                ISNULL(dhx.本日大户型签约金额全口径, 0)   as 本日大户型签约金额,
+                ISNULL(dhx.本日大户型签约面积全口径, 0)  as 本日大户型签约面积,
+                ISNULL(dhx.本日大户型签约套数全口径, 0)  as 本日大户型签约套数,
+
+                ISNULL(rs.本周大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本周认购金额, 0) as 本周大户型认购金额,
+                ISNULL(rs.本周大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本周认购面积, 0) as 本周大户型认购面积,
+                ISNULL(rs.本周大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本周认购套数, 0) as 本周大户型认购套数,
+                ISNULL(dhx.本周大户型签约金额全口径, 0) as 本周大户型签约金额,
+                ISNULL(dhx.本周大户型签约面积全口径, 0) as 本周大户型签约面积,
+                ISNULL(dhx.本周大户型签约套数全口径, 0) as 本周大户型签约套数,
+
+                ISNULL(rs.本月大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本月认购金额, 0) as 本月大户型认购金额,
+                ISNULL(rs.本月大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本月认购面积, 0) as 本月大户型认购面积,
+                ISNULL(rs.本月大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本月认购套数, 0) as 本月大户型认购套数,
+                ISNULL(dhx.本月大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本月签约金额,0) as 本月大户型签约金额,
+                ISNULL(dhx.本月大户型签约面积全口径,0) + ISNULL(qt.其他业绩大户型本月签约面积,0) as 本月大户型签约面积,
+                ISNULL(dhx.本月大户型签约套数全口径,0) + ISNULL(qt.其他业绩大户型本月签约套数,0) as 本月大户型签约套数,
+
+                ISNULL(rs.本年大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本年认购金额, 0) as 本年大户型认购金额,
+                ISNULL(rs.本年大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本年认购面积, 0) as 本年大户型认购面积,
+                ISNULL(rs.本年大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本年认购套数, 0) as 本年大户型认购套数,
+                ISNULL(dhx.本年大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本年签约金额,0) as 本年大户型签约金额,
+                ISNULL(dhx.本年大户型签约面积全口径,0) + ISNULL(qt.其他业绩大户型本年签约面积,0) as 本年大户型签约面积,
+                ISNULL(dhx.本年大户型签约套数全口径,0) + ISNULL(qt.其他业绩大户型本年签约套数,0) as 本年大户型签约套数,
+
+                ISNULL(rs.累计大户型已认购未签约金额,0) as 累计大户型已认购未签约金额,
+                ISNULL(rs.累计大户型已认购未签约面积,0) as 累计大户型已认购未签约面积,
+                ISNULL(rs.累计大户型已认购未签约套数,0) as 累计大户型已认购未签约套数,
+                ISNULL(rs.本年大户型已认购未签约金额,0) as 本年大户型已认购未签约金额,
+                ISNULL(rs.本年大户型已认购未签约套数,0) as 本年大户型已认购未签约套数,
+                ISNULL(rs.本月大户型已认购未签约金额,0) as 本月大户型已认购未签约金额,
+                ISNULL(rs.本月大户型已认购未签约套数,0) as 本月大户型已认购未签约套数,
+
+                --联动房
+                ISNULL(rs.本日联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本日认购金额, 0) as 本日联动房认购金额,
+                ISNULL(rs.本日联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本日认购面积, 0)  as 本日联动房认购面积,
+                ISNULL(rs.本日联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本日认购套数, 0)  as 本日联动房认购套数,
+                ISNULL(dhx.本日联动房签约金额全口径, 0)   as 本日联动房签约金额,
+                ISNULL(dhx.本日联动房签约面积全口径, 0)  as 本日联动房签约面积,
+                ISNULL(dhx.本日联动房签约套数全口径, 0)  as 本日联动房签约套数,
+
+                ISNULL(rs.本周联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本周认购金额, 0) as 本周联动房认购金额,
+                ISNULL(rs.本周联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本周认购面积, 0) as 本周联动房认购面积,
+                ISNULL(rs.本周联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本周认购套数, 0) as 本周联动房认购套数,
+                ISNULL(dhx.本周联动房签约金额全口径, 0) as 本周联动房签约金额,
+                ISNULL(dhx.本周联动房签约面积全口径, 0) as 本周联动房签约面积,
+                ISNULL(dhx.本周联动房签约套数全口径, 0) as 本周联动房签约套数,
+
+                ISNULL(rs.本月联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本月认购金额, 0) as 本月联动房认购金额,
+                ISNULL(rs.本月联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本月认购面积, 0) as 本月联动房认购面积,
+                ISNULL(rs.本月联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本月认购套数, 0) as 本月联动房认购套数,
+                ISNULL(dhx.本月联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本月签约金额,0) as 本月联动房签约金额,
+                ISNULL(dhx.本月联动房签约面积全口径,0) + ISNULL(qt.其他业绩联动房本月签约面积,0) as 本月联动房签约面积,
+                ISNULL(dhx.本月联动房签约套数全口径,0) + ISNULL(qt.其他业绩联动房本月签约套数,0) as 本月联动房签约套数,
+
+                ISNULL(rs.本年联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本年认购金额, 0) as 本年联动房认购金额,
+                ISNULL(rs.本年联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本年认购面积, 0) as 本年联动房认购面积,
+                ISNULL(rs.本年联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本年认购套数, 0) as 本年联动房认购套数,
+                ISNULL(dhx.本年联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本年签约金额,0) as 本年联动房签约金额,
+                ISNULL(dhx.本年联动房签约面积全口径,0) + ISNULL(qt.其他业绩联动房本年签约面积,0) as 本年联动房签约面积,
+                ISNULL(dhx.本年联动房签约套数全口径,0) + ISNULL(qt.其他业绩联动房本年签约套数,0) as 本年联动房签约套数,
+
+                ISNULL(rs.累计联动房已认购未签约金额,0) AS 累计联动房已认购未签约金额,
+                ISNULL(rs.累计联动房已认购未签约面积,0) AS 累计联动房已认购未签约面积,
+                ISNULL(rs.累计联动房已认购未签约套数,0) AS 累计联动房已认购未签约套数,
+                ISNULL(rs.本年联动房已认购未签约金额,0) AS 本年联动房已认购未签约金额,
+                ISNULL(rs.本年联动房已认购未签约套数,0) AS 本年联动房已认购未签约套数,
+                ISNULL(rs.本月联动房已认购未签约金额,0) AS 本月联动房已认购未签约金额,
+                ISNULL(rs.本月联动房已认购未签约套数,0) AS 本月联动房已认购未签约套数,
+
+                ISNULL(qt.其他业绩大户型本月签约金额,0) as 其他业绩大户型本月签约金额,
+                ISNULL(qt.其他业绩大户型本月签约面积,0) as 其他业绩大户型本月签约面积,
+                ISNULL(qt.其他业绩大户型本月签约套数,0) as 其他业绩大户型本月签约套数,
+                ISNULL(qt.其他业绩大户型本年签约金额,0) as 其他业绩大户型本年签约金额,
+                ISNULL(qt.其他业绩大户型本年签约面积,0) as 其他业绩大户型本年签约面积,
+                ISNULL(qt.其他业绩大户型本年签约套数,0) as 其他业绩大户型本年签约套数,
+
+                --准产成品
+                ISNULL(rs.本日准产成品认购金额, 0) + ISNULL(rg.本日准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本日认购金额, 0) AS 本日准产成品认购金额,
+                ISNULL(rs.本日准产成品认购面积, 0) + ISNULL(rg.本日准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本日认购面积, 0) AS 本日准产成品认购面积,
+                ISNULL(rs.本日准产成品认购套数, 0) + ISNULL(rg.本日准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本日认购套数, 0) AS 本日准产成品认购套数 ,
+
+                ISNULL(s.本日准产成品签约金额全口径, 0) AS 本日准产成品签约金额 ,
+                ISNULL(s.本日准产成品签约面积全口径, 0) AS 本日准产成品签约面积 ,
+                ISNULL(s.本日准产成品签约套数全口径, 0) AS 本日准产成品签约套数 ,
+
+                ISNULL(rs.本周准产成品认购金额, 0) + ISNULL(rg.本周准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本周认购金额, 0) AS 本周准产成品认购金额 ,
+                ISNULL(rs.本周准产成品认购面积, 0) + ISNULL(rg.本周准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本周认购面积, 0) AS 本周准产成品认购面积 ,
+                ISNULL(rs.本周准产成品认购套数, 0) + ISNULL(rg.本周准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本周认购套数, 0) AS 本周准产成品认购套数 ,
+
+                ISNULL(rs.本月准产成品认购金额, 0) + ISNULL(rg.本月准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本月认购金额, 0) AS 本月准产成品认购金额 ,
+                ISNULL(rs.本月准产成品认购面积, 0) + ISNULL(rg.本月准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本月认购面积, 0) AS 本月准产成品认购面积 ,
+                ISNULL(rs.本月准产成品认购套数, 0) + ISNULL(rg.本月准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本月认购套数, 0) AS 本月准产成品认购套数 ,
+
+                ISNULL(qt.其他业绩准产成品本月认购金额, 0) AS 其他业绩准产成品本月认购金额 ,
+                ISNULL(qt.其他业绩准产成品本月认购面积, 0) AS 其他业绩准产成品本月认购面积 ,
+                ISNULL(qt.其他业绩准产成品本月认购套数, 0) AS 其他业绩准产成品本月认购套数 ,
+
+                ISNULL(本月准产成品签约金额全口径, 0) AS 本月准产成品签约金额 ,
+                ISNULL(本月准产成品签约面积全口径, 0) AS 本月准产成品签约面积 ,
+                ISNULL(本月准产成品签约套数全口径, 0) AS 本月准产成品签约套数 ,
+
+                ISNULL(qt.其他业绩准产成品本月签约金额, 0) AS 其他业绩准产成品本月签约金额 ,
+                ISNULL(qt.其他业绩准产成品本月签约面积, 0) AS 其他业绩准产成品本月签约面积 ,
+                ISNULL(qt.其他业绩准产成品本月签约套数, 0) AS 其他业绩准产成品本月签约套数 ,
+
+                ISNULL(rs.累计准产成品已认购未签约金额, 0) AS 累计准产成品已认购未签约金额 ,
+                ISNULL(rs.累计准产成品已认购未签约面积, 0) AS 累计准产成品已认购未签约面积 ,
+                ISNULL(rs.累计准产成品已认购未签约套数, 0) AS 累计准产成品已认购未签约套数 ,
+
+                ISNULL(rs.本年准产成品认购金额, 0) + ISNULL(rg.本年准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本年认购金额, 0) AS 本年准产成品认购金额 ,
+                ISNULL(rs.本年准产成品认购面积, 0) + ISNULL(rg.本年准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本年认购面积, 0) AS 本年准产成品认购面积 ,
+                ISNULL(rs.本年准产成品认购套数, 0) + ISNULL(rg.本年准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本年认购套数, 0) AS 本年准产成品认购套数 ,
+
+                ISNULL(s.本年准产成品签约金额全口径, 0) AS 本年准产成品签约金额 ,
+                ISNULL(s.本年准产成品签约面积全口径, 0) AS 本年准产成品签约面积 ,
+                ISNULL(s.本年准产成品签约套数全口径, 0) AS 本年准产成品签约套数 ,
+                ISNULL(qt.其他业绩准产成品本年签约金额, 0) AS 其他业绩准产成品本年签约金额 ,
+                ISNULL(qt.其他业绩准产成品本年签约面积, 0) AS 其他业绩准产成品本年签约面积 ,                
+                ISNULL(qt.其他业绩准产成品本年签约套数, 0) AS 其他业绩准产成品本年签约套数 ,
+
+                --补充现产成品任务和大户型任务@20250630
+                ISNULL(rw.准产成品月度任务, 0) AS 准产成品月度任务,
+                ISNULL(rw.准产成品年度任务, 0) AS 准产成品年度任务,
+                ISNULL(rw.大户型月度任务, 0)   AS 大户型月度任务,
+                ISNULL(rw.大户型年度任务, 0)   AS 大户型年度任务
         FROM    data_wide_dws_mdm_Project p
                 INNER JOIN #TopProduct pt ON pt.ParentProjGUID = p.ProjGUID
                 LEFT JOIN data_tb_hnyx_jdfxtb rw ON rw.projguid = p.ProjGUID AND   rw.业态 = pt.TopProductTypeName
                 LEFT JOIN data_tb_hn_yxpq tb ON p.ProjGUID = tb.项目GUID
                 LEFT JOIN #projsale s ON p.ProjGUID = s.orgguid AND pt.TopProductTypeName = s.TopProductTypeName
+                LEFT JOIN #projsale_ldf_dhx dhx on p.ProjGUID = dhx.orgguid AND pt.TopProductTypeName = dhx.TopProductTypeName
                 LEFT JOIN #rsale rs ON rs.ProjGUID = p.ProjGUID AND pt.TopProductTypeName = rs.TopProductTypeName
                 LEFT JOIN #rg rg ON rg.ProjGUID = p.ProjGUID AND   pt.TopProductTypeName = rg.TopProductTypeName
                 LEFT JOIN #qtqy qt ON qt.projguid = p.projguid AND pt.TopProductTypeName = qt.TopProductTypeName
@@ -1285,7 +2208,140 @@ AS
 				0 AS 本年产成品认购面积 ,
 				0 AS 本年产成品签约面积 ,
 				0 AS 其他业绩产成品本年签约面积,
-                @wideTableDateText  as 宽表最后清洗日期 
+                @wideTableDateText  as 宽表最后清洗日期, 
+                --大户型
+                0 as 本日大户型认购金额,
+                0 as 本日大户型认购面积,
+                0 as 本日大户型认购套数,
+                0 as 本日大户型签约金额,
+                0 as 本日大户型签约面积,
+                0 as 本日大户型签约套数,
+
+                0 as 本周大户型认购金额,
+                0 as 本周大户型认购面积,
+                0 as 本周大户型认购套数,
+                0 as 本周大户型签约金额,
+                0 as 本周大户型签约面积,
+                0 as 本周大户型签约套数,
+
+                0 as 本月大户型认购金额,
+                0 as 本月大户型认购面积,
+                0 as 本月大户型认购套数,
+                0 as 本月大户型签约金额,
+                0 as 本月大户型签约面积,
+                0 as 本月大户型签约套数,
+
+                0 as 本年大户型认购金额,
+                0 as 本年大户型认购面积,
+                0 as 本年大户型认购套数,
+                0 as 本年大户型签约金额,
+                0 as 本年大户型签约面积,
+                0 as 本年大户型签约套数,
+
+                0 as 累计大户型已认购未签约金额,
+                0 as 累计大户型已认购未签约面积,
+                0 as 累计大户型已认购未签约套数,
+                0 as 本年大户型已认购未签约金额,
+                0 as 本年大户型已认购未签约套数,
+                0 as 本月大户型已认购未签约金额,
+                0 as 本月大户型已认购未签约套数,
+
+                --联动房
+                0 as 本日联动房认购金额,
+                0 as 本日联动房认购面积,
+                0 as 本日联动房认购套数,
+                0 as 本日联动房签约金额,
+                0 as 本日联动房签约面积,
+                0 as 本日联动房签约套数,
+
+                0 as 本周联动房认购金额,
+                0 as 本周联动房认购面积,
+                0 as 本周联动房认购套数,
+                0 as 本周联动房签约金额,
+                0 as 本周联动房签约面积,
+                0 as 本周联动房签约套数,
+
+                0 as 本月联动房认购金额,
+                0 as 本月联动房认购面积,
+                0 as 本月联动房认购套数,
+                0 as 本月联动房签约金额,
+                0 as 本月联动房签约面积,
+                0 as 本月联动房签约套数,
+
+                0 as 本年联动房认购金额,
+                0 as 本年联动房认购面积,
+                0 as 本年联动房认购套数,
+                0 as 本年联动房签约金额,
+                0 as 本年联动房签约面积,
+                0 as 本年联动房签约套数,
+
+                0 AS 累计联动房已认购未签约金额,
+                0 AS 累计联动房已认购未签约面积,
+                0 AS 累计联动房已认购未签约套数,
+                0 AS 本年联动房已认购未签约金额,
+                0 AS 本年联动房已认购未签约套数,
+                0 AS 本月联动房已认购未签约金额,
+                0 AS 本月联动房已认购未签约套数,
+
+                0 as 其他业绩大户型本月签约金额,
+                0 as 其他业绩大户型本月签约面积,
+                0 as 其他业绩大户型本月签约套数,
+                0 as 其他业绩大户型本年签约金额,
+                0 as 其他业绩大户型本年签约面积,
+                0 as 其他业绩大户型本年签约套数,
+
+                --准产成品
+                ISNULL(sz.数字营销准产成品本日认购金额, 0) + ISNULL(qt.数字营销其他业绩准产成品本日认购金额, 0)  as 本日准产成品认购金额  , 
+                ISNULL(sz.数字营销准产成品本日认购面积, 0) + ISNULL(qt.数字营销其他业绩准产成品本日认购面积, 0)  as 本日准产成品认购面积  ,
+				ISNULL(sz.数字营销准产成品本日认购套数, 0) + ISNULL(qt.数字营销其他业绩准产成品本日认购套数, 0)  as 本日准产成品认购套数  ,
+
+				ISNULL(sz.数字营销准产成品本日签约金额, 0) as 本日准产成品签约金额  ,
+                ISNULL(sz.数字营销准产成品本日签约面积, 0) as 本日准产成品签约面积  ,
+				ISNULL(sz.数字营销准产成品本日签约套数, 0) as 本日准产成品签约套数  ,
+
+				ISNULL(sz.数字营销准产成品本周认购金额, 0) + ISNULL(qt.数字营销其他业绩准产成品本周认购金额, 0) as 本周准产成品认购金额  ,
+                ISNULL(sz.数字营销准产成品本周认购面积, 0) + ISNULL(qt.数字营销其他业绩准产成品本周认购面积, 0) as 本周准产成品认购面积  ,
+				ISNULL(sz.数字营销准产成品本周认购套数, 0) + ISNULL(qt.数字营销其他业绩准产成品本周认购套数, 0) as 本周准产成品认购套数  ,
+
+				ISNULL(sz.数字营销准产成品本月认购金额, 0) + ISNULL(qt.数字营销其他业绩准产成品本月认购金额, 0) as 本月准产成品认购金额  ,
+                ISNULL(sz.数字营销准产成品本月认购面积, 0) + ISNULL(qt.数字营销其他业绩准产成品本月认购面积, 0) as 本月准产成品认购面积  ,
+				ISNULL(sz.数字营销准产成品本月认购套数, 0) + ISNULL(qt.数字营销其他业绩准产成品本月认购套数, 0) as 本月准产成品认购套数  ,
+
+				ISNULL(qt.数字营销其他业绩准产成品本月认购金额, 0) as 其他业绩准产成品本月认购金额  ,
+                ISNULL(qt.数字营销其他业绩准产成品本月认购面积, 0) as 其他业绩准产成品本月认购面积  ,
+				ISNULL(qt.数字营销其他业绩准产成品本月认购套数, 0) as 其他业绩准产成品本月认购套数  ,
+
+				ISNULL(sz.数字营销准产成品本月签约金额, 0) as 本月准产成品签约金额  ,
+                ISNULL(sz.数字营销准产成品本月签约面积, 0) as 本月准产成品签约面积  ,
+				ISNULL(sz.数字营销准产成品本月签约套数, 0) as 本月准产成品签约套数  ,
+
+				ISNULL(qt.数字营销其他业绩准产成品本月签约金额, 0) as 其他业绩准产成品本月签约金额  ,  
+                ISNULL(qt.数字营销其他业绩准产成品本月签约面积, 0) as 其他业绩准产成品本月签约面积  ,
+				ISNULL(qt.数字营销其他业绩准产成品本月签约套数, 0) as 其他业绩准产成品本月签约套数  ,
+
+				ISNULL(sz.数字营销准产成品已认购未签约金额, 0) as 累计准产成品已认购未签约金额  ,
+                ISNULL(sz.数字营销准产成品已认购未签约面积, 0) as 累计准产成品已认购未签约面积  ,
+				ISNULL(sz.数字营销准产成品已认购未签约套数, 0) as 累计准产成品已认购未签约套数  ,
+
+				ISNULL(sz.数字营销准产成品本年认购金额, 0) + ISNULL(qt.数字营销其他业绩准产成品本年认购金额, 0) as 本年准产成品认购金额  ,
+                ISNULL(sz.数字营销准产成品本年认购面积, 0) + ISNULL(qt.数字营销其他业绩准产成品本年认购面积, 0) as 本年准产成品认购面积  ,
+				ISNULL(sz.数字营销准产成品本年认购套数, 0) + ISNULL(qt.数字营销其他业绩准产成品本年认购套数, 0) as 本年准产成品认购套数  ,
+
+				ISNULL(sz.数字营销准产成品本年签约金额, 0) as 本年准产成品签约金额  ,
+                ISNULL(sz.数字营销准产成品本年签约面积, 0) as 本年准产成品签约面积  ,
+				ISNULL(sz.数字营销准产成品本年签约套数, 0) as 本年准产成品签约套数  ,
+
+				ISNULL(qt.数字营销其他业绩准产成品本年签约金额, 0)  as 其他业绩准产成品本年签约金额  ,
+                ISNULL(qt.数字营销其他业绩准产成品本年签约面积, 0)  as 其他业绩准产成品本年签约面积  ,
+				ISNULL(qt.数字营销其他业绩准产成品本年签约套数, 0)  as 其他业绩准产成品本年签约套数  ,
+
+                --补充现产成品任务和大户型任务@20250630
+                ISNULL(rw.准产成品月度任务, 0) AS 准产成品月度任务,
+                ISNULL(rw.准产成品年度任务, 0) AS 准产成品年度任务,
+                0 AS 大户型月度任务,
+                0 AS 大户型年度任务
+
+
         FROM    data_wide_dws_mdm_Project p
                 INNER JOIN #TopProduct pt ON pt.ParentProjGUID = p.ProjGUID
                 LEFT JOIN data_tb_hnyx_jdfxtb rw ON rw.projguid = p.ProjGUID AND   rw.业态 = pt.TopProductTypeName
@@ -1416,7 +2472,140 @@ AS
 				0 AS 本年产成品认购面积 ,
 				0 AS 本年产成品签约面积 ,
 				0 AS 其他业绩产成品本年签约面积,
-                @wideTableDateText  as 宽表最后清洗日期 
+                @wideTableDateText  as 宽表最后清洗日期,
+                --大户型
+                0 as 本日大户型认购金额,
+                0 as 本日大户型认购面积,
+                0 as 本日大户型认购套数,
+                0 as 本日大户型签约金额,
+                0 as 本日大户型签约面积,
+                0 as 本日大户型签约套数,
+
+                0 as 本周大户型认购金额,
+                0 as 本周大户型认购面积,
+                0 as 本周大户型认购套数,
+                0 as 本周大户型签约金额,
+                0 as 本周大户型签约面积,
+                0 as 本周大户型签约套数,
+
+                0 as 本月大户型认购金额,
+                0 as 本月大户型认购面积,
+                0 as 本月大户型认购套数,
+                0 as 本月大户型签约金额,
+                0 as 本月大户型签约面积,
+                0 as 本月大户型签约套数,
+
+                0 as 本年大户型认购金额,
+                0 as 本年大户型认购面积,
+                0 as 本年大户型认购套数,
+                0 as 本年大户型签约金额,
+                0 as 本年大户型签约面积,
+                0 as 本年大户型签约套数,
+
+                0 as 累计大户型已认购未签约金额,
+                0 as 累计大户型已认购未签约面积,
+                0 as 累计大户型已认购未签约套数,
+                0 as 本年大户型已认购未签约金额,
+                0 as 本年大户型已认购未签约套数,
+                0 as 本月大户型已认购未签约金额,
+                0 as 本月大户型已认购未签约套数,
+
+                --联动房
+                0 as 本日联动房认购金额,
+                0 as 本日联动房认购面积,
+                0 as 本日联动房认购套数,
+                0 as 本日联动房签约金额,
+                0 as 本日联动房签约面积,
+                0 as 本日联动房签约套数,
+
+                0 as 本周联动房认购金额,
+                0 as 本周联动房认购面积,
+                0 as 本周联动房认购套数,
+                0 as 本周联动房签约金额,
+                0 as 本周联动房签约面积,
+                0 as 本周联动房签约套数,
+
+                0 as 本月联动房认购金额,
+                0 as 本月联动房认购面积,
+                0 as 本月联动房认购套数,
+                0 as 本月联动房签约金额,
+                0 as 本月联动房签约面积,
+                0 as 本月联动房签约套数,
+
+                0 as 本年联动房认购金额,
+                0 as 本年联动房认购面积,
+                0 as 本年联动房认购套数,
+                0 as 本年联动房签约金额,
+                0 as 本年联动房签约面积,
+                0 as 本年联动房签约套数,
+
+                0 AS 累计联动房已认购未签约金额,
+                0 AS 累计联动房已认购未签约面积,
+                0 AS 累计联动房已认购未签约套数,
+                0 AS 本年联动房已认购未签约金额,
+                0 AS 本年联动房已认购未签约套数,
+                0 AS 本月联动房已认购未签约金额,
+                0 AS 本月联动房已认购未签约套数,
+
+                0 as 其他业绩大户型本月签约金额,
+                0 as 其他业绩大户型本月签约面积,
+                0 as 其他业绩大户型本月签约套数,
+                0 as 其他业绩大户型本年签约金额,
+                0 as 其他业绩大户型本年签约面积,
+                0 as 其他业绩大户型本年签约套数,
+
+                --准产成品
+                -(ISNULL(sz.数字营销准产成品本日认购金额, 0) + ISNULL(qt.数字营销其他业绩准产成品本日认购金额, 0))  as 本日准产成品认购金额  , 
+                -(ISNULL(sz.数字营销准产成品本日认购面积, 0) + ISNULL(qt.数字营销其他业绩准产成品本日认购面积, 0))  as 本日准产成品认购面积  ,
+				-(ISNULL(sz.数字营销准产成品本日认购套数, 0) + ISNULL(qt.数字营销其他业绩准产成品本日认购套数, 0))  as 本日准产成品认购套数  ,
+
+				-(ISNULL(sz.数字营销准产成品本日签约金额, 0)) as 本日准产成品签约金额  ,
+                -(ISNULL(sz.数字营销准产成品本日签约面积, 0)) as 本日准产成品签约面积  ,
+				-(ISNULL(sz.数字营销准产成品本日签约套数, 0)) as 本日准产成品签约套数  ,
+
+				-(ISNULL(sz.数字营销准产成品本周认购金额, 0) + ISNULL(qt.数字营销其他业绩准产成品本周认购金额, 0)) as 本周准产成品认购金额  ,
+                -(ISNULL(sz.数字营销准产成品本周认购面积, 0) + ISNULL(qt.数字营销其他业绩准产成品本周认购面积, 0)) as 本周准产成品认购面积  ,
+				-(ISNULL(sz.数字营销准产成品本周认购套数, 0) + ISNULL(qt.数字营销其他业绩准产成品本周认购套数, 0)) as 本周准产成品认购套数  ,
+
+				-(ISNULL(sz.数字营销准产成品本月认购金额, 0) + ISNULL(qt.数字营销其他业绩准产成品本月认购金额, 0)) as 本月准产成品认购金额  ,
+                -(ISNULL(sz.数字营销准产成品本月认购面积, 0) + ISNULL(qt.数字营销其他业绩准产成品本月认购面积, 0)) as 本月准产成品认购面积  ,
+				-(ISNULL(sz.数字营销准产成品本月认购套数, 0) + ISNULL(qt.数字营销其他业绩准产成品本月认购套数, 0)) as 本月准产成品认购套数  ,
+
+				-(ISNULL(qt.数字营销其他业绩准产成品本月认购金额, 0)) as 其他业绩准产成品本月认购金额  ,
+                -(ISNULL(qt.数字营销其他业绩准产成品本月认购面积, 0)) as 其他业绩准产成品本月认购面积  ,
+				-(ISNULL(qt.数字营销其他业绩准产成品本月认购套数, 0)) as 其他业绩准产成品本月认购套数  ,
+
+				-(ISNULL(sz.数字营销准产成品本月签约金额, 0)) as 本月准产成品签约金额  ,
+                -(ISNULL(sz.数字营销准产成品本月签约面积, 0)) as 本月准产成品签约面积  ,
+				-(ISNULL(sz.数字营销准产成品本月签约套数, 0)) as 本月准产成品签约套数  ,
+
+				-(ISNULL(qt.数字营销其他业绩准产成品本月签约金额, 0)) as 其他业绩准产成品本月签约金额  ,  
+                -(ISNULL(qt.数字营销其他业绩准产成品本月签约面积, 0)) as 其他业绩准产成品本月签约面积  ,
+				-(ISNULL(qt.数字营销其他业绩准产成品本月签约套数, 0)) as 其他业绩准产成品本月签约套数  ,
+
+				-(ISNULL(sz.数字营销准产成品已认购未签约金额, 0)) as 累计准产成品已认购未签约金额  ,
+                -(ISNULL(sz.数字营销准产成品已认购未签约面积, 0)) as 累计准产成品已认购未签约面积  ,
+				-(ISNULL(sz.数字营销准产成品已认购未签约套数, 0)) as 累计准产成品已认购未签约套数  ,
+
+				-(ISNULL(sz.数字营销准产成品本年认购金额, 0) + ISNULL(qt.数字营销其他业绩准产成品本年认购金额, 0)) as 本年准产成品认购金额  ,
+                -(ISNULL(sz.数字营销准产成品本年认购面积, 0) + ISNULL(qt.数字营销其他业绩准产成品本年认购面积, 0)) as 本年准产成品认购面积  ,
+				-(ISNULL(sz.数字营销准产成品本年认购套数, 0) + ISNULL(qt.数字营销其他业绩准产成品本年认购套数, 0)) as 本年准产成品认购套数  ,
+
+				-(ISNULL(sz.数字营销准产成品本年签约金额, 0)) as 本年准产成品签约金额  ,
+                -(ISNULL(sz.数字营销准产成品本年签约面积, 0)) as 本年准产成品签约面积  ,
+				-(ISNULL(sz.数字营销准产成品本年签约套数, 0)) as 本年准产成品签约套数  ,
+
+				-(ISNULL(qt.数字营销其他业绩准产成品本年签约金额, 0))  as 其他业绩准产成品本年签约金额  ,
+                -(ISNULL(qt.数字营销其他业绩准产成品本年签约面积, 0))  as 其他业绩准产成品本年签约面积  ,
+				-(ISNULL(qt.数字营销其他业绩准产成品本年签约套数, 0))  as 其他业绩准产成品本年签约套数  ,
+
+                --补充现产成品任务和大户型任务@20250630
+                -ISNULL(rw.准产成品月度任务, 0) AS 准产成品月度任务,
+                -ISNULL(rw.准产成品年度任务, 0) AS 准产成品年度任务,
+                0 AS 大户型月度任务,
+                0 AS 大户型年度任务
+
+
         FROM    data_wide_dws_mdm_Project p
                 INNER JOIN #TopProduct pt ON pt.ParentProjGUID = p.ProjGUID
                 LEFT JOIN data_tb_hnyx_jdfxtb rw ON rw.projguid = p.ProjGUID AND   rw.业态 = pt.TopProductTypeName
@@ -1548,12 +2737,143 @@ AS
 				0 AS 本年产成品认购面积 ,
 				0 AS 本年产成品签约面积 ,
 				0 AS 其他业绩产成品本年签约面积,
-                @wideTableDateText  as 宽表最后清洗日期 
+                @wideTableDateText  as 宽表最后清洗日期,
+                --大户型
+                ISNULL(rs.本日大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本日认购金额, 0) as 本日大户型认购金额,
+                ISNULL(rs.本日大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本日认购面积, 0)  as 本日大户型认购面积,
+                ISNULL(rs.本日大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本日认购套数, 0)  as 本日大户型认购套数,
+                ISNULL(dhx.本日大户型签约金额全口径, 0)   as 本日大户型签约金额,
+                ISNULL(dhx.本日大户型签约面积全口径, 0)  as 本日大户型签约面积,
+                ISNULL(dhx.本日大户型签约套数全口径, 0)  as 本日大户型签约套数,
+
+                ISNULL(rs.本周大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本周认购金额, 0) as 本周大户型认购金额,
+                ISNULL(rs.本周大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本周认购面积, 0) as 本周大户型认购面积,
+                ISNULL(rs.本周大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本周认购套数, 0) as 本周大户型认购套数,
+                ISNULL(dhx.本周大户型签约金额全口径, 0) as 本周大户型签约金额,
+                ISNULL(dhx.本周大户型签约面积全口径, 0) as 本周大户型签约面积,
+                ISNULL(dhx.本周大户型签约套数全口径, 0) as 本周大户型签约套数,
+
+                ISNULL(rs.本月大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本月认购金额, 0) as 本月大户型认购金额,
+                ISNULL(rs.本月大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本月认购面积, 0) as 本月大户型认购面积,
+                ISNULL(rs.本月大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本月认购套数, 0) as 本月大户型认购套数,
+                ISNULL(dhx.本月大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本月签约金额,0) as 本月大户型签约金额,
+                ISNULL(dhx.本月大户型签约面积全口径,0) + ISNULL(qt.其他业绩大户型本月签约面积,0) as 本月大户型签约面积,
+                ISNULL(dhx.本月大户型签约套数全口径,0) + ISNULL(qt.其他业绩大户型本月签约套数,0) as 本月大户型签约套数,
+
+                ISNULL(rs.本年大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本年认购金额, 0) as 本年大户型认购金额,
+                ISNULL(rs.本年大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本年认购面积, 0) as 本年大户型认购面积,
+                ISNULL(rs.本年大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本年认购套数, 0) as 本年大户型认购套数,
+                ISNULL(dhx.本年大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本年签约金额,0) as 本年大户型签约金额,
+                ISNULL(dhx.本年大户型签约面积全口径,0) + ISNULL(qt.其他业绩大户型本年签约面积,0) as 本年大户型签约面积,
+                ISNULL(dhx.本年大户型签约套数全口径,0) + ISNULL(qt.其他业绩大户型本年签约套数,0) as 本年大户型签约套数,
+
+                ISNULL(rs.累计大户型已认购未签约金额,0) as 累计大户型已认购未签约金额,
+                ISNULL(rs.累计大户型已认购未签约面积,0) as 累计大户型已认购未签约面积,
+                ISNULL(rs.累计大户型已认购未签约套数,0) as 累计大户型已认购未签约套数,
+                ISNULL(rs.本年大户型已认购未签约金额,0) as 本年大户型已认购未签约金额,
+                ISNULL(rs.本年大户型已认购未签约套数,0) as 本年大户型已认购未签约套数,
+                ISNULL(rs.本月大户型已认购未签约金额,0) as 本月大户型已认购未签约金额,
+                ISNULL(rs.本月大户型已认购未签约套数,0) as 本月大户型已认购未签约套数,
+
+                --联动房
+                ISNULL(rs.本日联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本日认购金额, 0) as 本日联动房认购金额,
+                ISNULL(rs.本日联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本日认购面积, 0)  as 本日联动房认购面积,
+                ISNULL(rs.本日联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本日认购套数, 0)  as 本日联动房认购套数,
+                ISNULL(dhx.本日联动房签约金额全口径, 0)   as 本日联动房签约金额,
+                ISNULL(dhx.本日联动房签约面积全口径, 0)  as 本日联动房签约面积,
+                ISNULL(dhx.本日联动房签约套数全口径, 0)  as 本日联动房签约套数,
+
+                ISNULL(rs.本周联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本周认购金额, 0) as 本周联动房认购金额,
+                ISNULL(rs.本周联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本周认购面积, 0) as 本周联动房认购面积,
+                ISNULL(rs.本周联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本周认购套数, 0) as 本周联动房认购套数,
+                ISNULL(dhx.本周联动房签约金额全口径, 0) as 本周联动房签约金额,
+                ISNULL(dhx.本周联动房签约面积全口径, 0) as 本周联动房签约面积,
+                ISNULL(dhx.本周联动房签约套数全口径, 0) as 本周联动房签约套数,
+
+                ISNULL(rs.本月联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本月认购金额, 0) as 本月联动房认购金额,
+                ISNULL(rs.本月联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本月认购面积, 0) as 本月联动房认购面积,
+                ISNULL(rs.本月联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本月认购套数, 0) as 本月联动房认购套数,
+                ISNULL(dhx.本月联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本月签约金额,0) as 本月联动房签约金额,
+                ISNULL(dhx.本月联动房签约面积全口径,0) + ISNULL(qt.其他业绩联动房本月签约面积,0) as 本月联动房签约面积,
+                ISNULL(dhx.本月联动房签约套数全口径,0) + ISNULL(qt.其他业绩联动房本月签约套数,0) as 本月联动房签约套数,
+
+                ISNULL(rs.本年联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本年认购金额, 0) as 本年联动房认购金额,
+                ISNULL(rs.本年联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本年认购面积, 0) as 本年联动房认购面积,
+                ISNULL(rs.本年联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本年认购套数, 0) as 本年联动房认购套数,
+                ISNULL(dhx.本年联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本年签约金额,0) as 本年联动房签约金额,
+                ISNULL(dhx.本年联动房签约面积全口径,0) + ISNULL(qt.其他业绩联动房本年签约面积,0) as 本年联动房签约面积,
+                ISNULL(dhx.本年联动房签约套数全口径,0) + ISNULL(qt.其他业绩联动房本年签约套数,0) as 本年联动房签约套数,
+
+                ISNULL(rs.累计联动房已认购未签约金额,0) AS 累计联动房已认购未签约金额,
+                ISNULL(rs.累计联动房已认购未签约面积,0) AS 累计联动房已认购未签约面积,
+                ISNULL(rs.累计联动房已认购未签约套数,0) AS 累计联动房已认购未签约套数,
+                ISNULL(rs.本年联动房已认购未签约金额,0) AS 本年联动房已认购未签约金额,
+                ISNULL(rs.本年联动房已认购未签约套数,0) AS 本年联动房已认购未签约套数,
+                ISNULL(rs.本月联动房已认购未签约金额,0) AS 本月联动房已认购未签约金额,
+                ISNULL(rs.本月联动房已认购未签约套数,0) AS 本月联动房已认购未签约套数,
+
+                ISNULL(qt.其他业绩大户型本月签约金额,0) as 其他业绩大户型本月签约金额,
+                ISNULL(qt.其他业绩大户型本月签约面积,0) as 其他业绩大户型本月签约面积,
+                ISNULL(qt.其他业绩大户型本月签约套数,0) as 其他业绩大户型本月签约套数,
+                ISNULL(qt.其他业绩大户型本年签约金额,0) as 其他业绩大户型本年签约金额,
+                ISNULL(qt.其他业绩大户型本年签约面积,0) as 其他业绩大户型本年签约面积,
+                ISNULL(qt.其他业绩大户型本年签约套数,0) as 其他业绩大户型本年签约套数,
+
+                --准产成品
+                ISNULL(rs.本日准产成品认购金额, 0) + ISNULL(rg.本日准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本日认购金额, 0) AS 本日准产成品认购金额,
+                ISNULL(rs.本日准产成品认购面积, 0) + ISNULL(rg.本日准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本日认购面积, 0) AS 本日准产成品认购面积,
+                ISNULL(rs.本日准产成品认购套数, 0) + ISNULL(rg.本日准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本日认购套数, 0) AS 本日准产成品认购套数 ,
+
+                ISNULL(s.本日准产成品签约金额全口径, 0) AS 本日准产成品签约金额 ,
+                ISNULL(s.本日准产成品签约面积全口径, 0) AS 本日准产成品签约面积 ,
+                ISNULL(s.本日准产成品签约套数全口径, 0) AS 本日准产成品签约套数 ,
+
+                ISNULL(rs.本周准产成品认购金额, 0) + ISNULL(rg.本周准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本周认购金额, 0) AS 本周准产成品认购金额 ,
+                ISNULL(rs.本周准产成品认购面积, 0) + ISNULL(rg.本周准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本周认购面积, 0) AS 本周准产成品认购面积 ,
+                ISNULL(rs.本周准产成品认购套数, 0) + ISNULL(rg.本周准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本周认购套数, 0) AS 本周准产成品认购套数 ,
+
+                ISNULL(rs.本月准产成品认购金额, 0) + ISNULL(rg.本月准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本月认购金额, 0) AS 本月准产成品认购金额 ,
+                ISNULL(rs.本月准产成品认购面积, 0) + ISNULL(rg.本月准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本月认购面积, 0) AS 本月准产成品认购面积 ,
+                ISNULL(rs.本月准产成品认购套数, 0) + ISNULL(rg.本月准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本月认购套数, 0) AS 本月准产成品认购套数 ,
+
+                ISNULL(qt.其他业绩准产成品本月认购金额, 0) AS 其他业绩准产成品本月认购金额 ,
+                ISNULL(qt.其他业绩准产成品本月认购面积, 0) AS 其他业绩准产成品本月认购面积 ,
+                ISNULL(qt.其他业绩准产成品本月认购套数, 0) AS 其他业绩准产成品本月认购套数 ,
+
+                ISNULL(本月准产成品签约金额全口径, 0) AS 本月准产成品签约金额 ,
+                ISNULL(本月准产成品签约面积全口径, 0) AS 本月准产成品签约面积 ,
+                ISNULL(本月准产成品签约套数全口径, 0) AS 本月准产成品签约套数 ,
+
+                ISNULL(qt.其他业绩准产成品本月签约金额, 0) AS 其他业绩准产成品本月签约金额 ,
+                ISNULL(qt.其他业绩准产成品本月签约面积, 0) AS 其他业绩准产成品本月签约面积 ,
+                ISNULL(qt.其他业绩准产成品本月签约套数, 0) AS 其他业绩准产成品本月签约套数 ,
+
+                ISNULL(rs.累计准产成品已认购未签约金额, 0) AS 累计准产成品已认购未签约金额 ,
+                ISNULL(rs.累计准产成品已认购未签约面积, 0) AS 累计准产成品已认购未签约面积 ,
+                ISNULL(rs.累计准产成品已认购未签约套数, 0) AS 累计准产成品已认购未签约套数 ,
+
+                ISNULL(rs.本年准产成品认购金额, 0) + ISNULL(rg.本年准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本年认购金额, 0) AS 本年准产成品认购金额 ,
+                ISNULL(rs.本年准产成品认购面积, 0) + ISNULL(rg.本年准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本年认购面积, 0) AS 本年准产成品认购面积 ,
+                ISNULL(rs.本年准产成品认购套数, 0) + ISNULL(rg.本年准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本年认购套数, 0) AS 本年准产成品认购套数 ,
+
+                ISNULL(s.本年准产成品签约金额全口径, 0) AS 本年准产成品签约金额 ,
+                ISNULL(s.本年准产成品签约面积全口径, 0) AS 本年准产成品签约面积 ,
+                ISNULL(s.本年准产成品签约套数全口径, 0) AS 本年准产成品签约套数 ,
+                ISNULL(qt.其他业绩准产成品本年签约金额, 0) AS 其他业绩准产成品本年签约金额 ,
+                ISNULL(qt.其他业绩准产成品本年签约面积, 0) AS 其他业绩准产成品本年签约面积 ,                
+                ISNULL(qt.其他业绩准产成品本年签约套数, 0) AS 其他业绩准产成品本年签约套数 ,
+
+                --补充现产成品任务和大户型任务@20250630
+                ISNULL(rw.准产成品月度任务, 0) AS 准产成品月度任务,
+                ISNULL(rw.准产成品年度任务, 0) AS 准产成品年度任务,
+                ISNULL(rw.大户型月度任务, 0)   AS 大户型月度任务,
+                ISNULL(rw.大户型年度任务, 0)   AS 大户型年度任务
         FROM    data_wide_dws_mdm_Project p
                 INNER JOIN #TopProduct pt ON pt.ParentProjGUID = p.ProjGUID
                 LEFT JOIN data_tb_hnyx_jdfxtb rw ON rw.projguid = p.ProjGUID AND   rw.业态 = pt.TopProductTypeName
                 LEFT JOIN data_tb_hn_yxpq tb ON p.ProjGUID = tb.项目GUID
                 LEFT JOIN #projsale s ON p.ProjGUID = s.orgguid AND pt.TopProductTypeName = s.TopProductTypeName
+                LEFT JOIN #projsale_ldf_dhx dhx on p.ProjGUID = dhx.orgguid AND pt.TopProductTypeName = dhx.TopProductTypeName
                 LEFT JOIN #rsale rs ON rs.ProjGUID = p.ProjGUID AND pt.TopProductTypeName = rs.TopProductTypeName
                 LEFT JOIN #rg rg ON rg.ProjGUID = p.ProjGUID AND   pt.TopProductTypeName = rg.TopProductTypeName
                 LEFT JOIN #qtqy qt ON qt.projguid = p.projguid AND pt.TopProductTypeName = qt.TopProductTypeName
@@ -1681,7 +3001,138 @@ AS
 				0 AS 本年产成品认购面积 ,
 				0 AS 本年产成品签约面积 ,
 				0 AS 其他业绩产成品本年签约面积,
-                @wideTableDateText  as 宽表最后清洗日期 
+                @wideTableDateText  as 宽表最后清洗日期 ,
+                --大户型
+                0 as 本日大户型认购金额,
+                0 as 本日大户型认购面积,
+                0 as 本日大户型认购套数,
+                0 as 本日大户型签约金额,
+                0 as 本日大户型签约面积,
+                0 as 本日大户型签约套数,
+
+                0 as 本周大户型认购金额,
+                0 as 本周大户型认购面积,
+                0 as 本周大户型认购套数,
+                0 as 本周大户型签约金额,
+                0 as 本周大户型签约面积,
+                0 as 本周大户型签约套数,
+
+                0 as 本月大户型认购金额,
+                0 as 本月大户型认购面积,
+                0 as 本月大户型认购套数,
+                0 as 本月大户型签约金额,
+                0 as 本月大户型签约面积,
+                0 as 本月大户型签约套数,
+
+                0 as 本年大户型认购金额,
+                0 as 本年大户型认购面积,
+                0 as 本年大户型认购套数,
+                0 as 本年大户型签约金额,
+                0 as 本年大户型签约面积,
+                0 as 本年大户型签约套数,
+
+                0 as 累计大户型已认购未签约金额,
+                0 as 累计大户型已认购未签约面积,
+                0 as 累计大户型已认购未签约套数,
+                0 as 本年大户型已认购未签约金额,
+                0 as 本年大户型已认购未签约套数,
+                0 as 本月大户型已认购未签约金额,
+                0 as 本月大户型已认购未签约套数,
+
+                --联动房
+                0 as 本日联动房认购金额,
+                0 as 本日联动房认购面积,
+                0 as 本日联动房认购套数,
+                0 as 本日联动房签约金额,
+                0 as 本日联动房签约面积,
+                0 as 本日联动房签约套数,
+
+                0 as 本周联动房认购金额,
+                0 as 本周联动房认购面积,
+                0 as 本周联动房认购套数,
+                0 as 本周联动房签约金额,
+                0 as 本周联动房签约面积,
+                0 as 本周联动房签约套数,
+
+                0 as 本月联动房认购金额,
+                0 as 本月联动房认购面积,
+                0 as 本月联动房认购套数,
+                0 as 本月联动房签约金额,
+                0 as 本月联动房签约面积,
+                0 as 本月联动房签约套数,
+
+                0 as 本年联动房认购金额,
+                0 as 本年联动房认购面积,
+                0 as 本年联动房认购套数,
+                0 as 本年联动房签约金额,
+                0 as 本年联动房签约面积,
+                0 as 本年联动房签约套数,
+
+                0 AS 累计联动房已认购未签约金额,
+                0 AS 累计联动房已认购未签约面积,
+                0 AS 累计联动房已认购未签约套数,
+                0 AS 本年联动房已认购未签约金额,
+                0 AS 本年联动房已认购未签约套数,
+                0 AS 本月联动房已认购未签约金额,
+                0 AS 本月联动房已认购未签约套数,
+
+                0 as 其他业绩大户型本月签约金额,
+                0 as 其他业绩大户型本月签约面积,
+                0 as 其他业绩大户型本月签约套数,
+                0 as 其他业绩大户型本年签约金额,
+                0 as 其他业绩大户型本年签约面积,
+                0 as 其他业绩大户型本年签约套数,
+
+                --准产成品
+                ISNULL(sz.数字营销准产成品本日认购金额, 0) + ISNULL(qt.数字营销其他业绩准产成品本日认购金额, 0)  as 本日准产成品认购金额  , 
+                ISNULL(sz.数字营销准产成品本日认购面积, 0) + ISNULL(qt.数字营销其他业绩准产成品本日认购面积, 0)  as 本日准产成品认购面积  ,
+				ISNULL(sz.数字营销准产成品本日认购套数, 0) + ISNULL(qt.数字营销其他业绩准产成品本日认购套数, 0)  as 本日准产成品认购套数  ,
+
+				ISNULL(sz.数字营销准产成品本日签约金额, 0) as 本日准产成品签约金额  ,
+                ISNULL(sz.数字营销准产成品本日签约面积, 0) as 本日准产成品签约面积  ,
+				ISNULL(sz.数字营销准产成品本日签约套数, 0) as 本日准产成品签约套数  ,
+
+				ISNULL(sz.数字营销准产成品本周认购金额, 0) + ISNULL(qt.数字营销其他业绩准产成品本周认购金额, 0) as 本周准产成品认购金额  ,
+                ISNULL(sz.数字营销准产成品本周认购面积, 0) + ISNULL(qt.数字营销其他业绩准产成品本周认购面积, 0) as 本周准产成品认购面积  ,
+				ISNULL(sz.数字营销准产成品本周认购套数, 0) + ISNULL(qt.数字营销其他业绩准产成品本周认购套数, 0) as 本周准产成品认购套数  ,
+
+				ISNULL(sz.数字营销准产成品本月认购金额, 0) + ISNULL(qt.数字营销其他业绩准产成品本月认购金额, 0) as 本月准产成品认购金额  ,
+                ISNULL(sz.数字营销准产成品本月认购面积, 0) + ISNULL(qt.数字营销其他业绩准产成品本月认购面积, 0) as 本月准产成品认购面积  ,
+				ISNULL(sz.数字营销准产成品本月认购套数, 0) + ISNULL(qt.数字营销其他业绩准产成品本月认购套数, 0) as 本月准产成品认购套数  ,
+
+				ISNULL(qt.数字营销其他业绩准产成品本月认购金额, 0) as 其他业绩准产成品本月认购金额  ,
+                ISNULL(qt.数字营销其他业绩准产成品本月认购面积, 0) as 其他业绩准产成品本月认购面积  ,
+				ISNULL(qt.数字营销其他业绩准产成品本月认购套数, 0) as 其他业绩准产成品本月认购套数  ,
+
+				ISNULL(sz.数字营销准产成品本月签约金额, 0) as 本月准产成品签约金额  ,
+                ISNULL(sz.数字营销准产成品本月签约面积, 0) as 本月准产成品签约面积  ,
+				ISNULL(sz.数字营销准产成品本月签约套数, 0) as 本月准产成品签约套数  ,
+
+				ISNULL(qt.数字营销其他业绩准产成品本月签约金额, 0) as 其他业绩准产成品本月签约金额  ,  
+                ISNULL(qt.数字营销其他业绩准产成品本月签约面积, 0) as 其他业绩准产成品本月签约面积  ,
+				ISNULL(qt.数字营销其他业绩准产成品本月签约套数, 0) as 其他业绩准产成品本月签约套数  ,
+
+				ISNULL(sz.数字营销准产成品已认购未签约金额, 0) as 累计准产成品已认购未签约金额  ,
+                ISNULL(sz.数字营销准产成品已认购未签约面积, 0) as 累计准产成品已认购未签约面积  ,
+				ISNULL(sz.数字营销准产成品已认购未签约套数, 0) as 累计准产成品已认购未签约套数  ,
+
+				ISNULL(sz.数字营销准产成品本年认购金额, 0) + ISNULL(qt.数字营销其他业绩准产成品本年认购金额, 0) as 本年准产成品认购金额  ,
+                ISNULL(sz.数字营销准产成品本年认购面积, 0) + ISNULL(qt.数字营销其他业绩准产成品本年认购面积, 0) as 本年准产成品认购面积  ,
+				ISNULL(sz.数字营销准产成品本年认购套数, 0) + ISNULL(qt.数字营销其他业绩准产成品本年认购套数, 0) as 本年准产成品认购套数  ,
+
+				ISNULL(sz.数字营销准产成品本年签约金额, 0) as 本年准产成品签约金额  ,
+                ISNULL(sz.数字营销准产成品本年签约面积, 0) as 本年准产成品签约面积  ,
+				ISNULL(sz.数字营销准产成品本年签约套数, 0) as 本年准产成品签约套数  ,
+
+				ISNULL(qt.数字营销其他业绩准产成品本年签约金额, 0)  as 其他业绩准产成品本年签约金额  ,
+                ISNULL(qt.数字营销其他业绩准产成品本年签约面积, 0)  as 其他业绩准产成品本年签约面积  ,
+				ISNULL(qt.数字营销其他业绩准产成品本年签约套数, 0)  as 其他业绩准产成品本年签约套数  ,
+
+                --补充现产成品任务和大户型任务@20250630
+                ISNULL(rw.准产成品月度任务, 0) AS 准产成品月度任务,
+                ISNULL(rw.准产成品年度任务, 0) AS 准产成品年度任务,
+                0 AS 大户型月度任务,
+                0 AS 大户型年度任务
         FROM    data_wide_dws_mdm_Project p
                 INNER JOIN #TopProduct pt ON pt.ParentProjGUID = p.ProjGUID
                 LEFT JOIN data_tb_hnyx_jdfxtb rw ON rw.projguid = p.ProjGUID AND   rw.业态 = pt.TopProductTypeName
@@ -1815,12 +3266,143 @@ AS
 				ISNULL(rs.本年产成品认购面积, 0) + ISNULL(rg.本年产成品认购面积, 0) + ISNULL(qt.其他业绩产成品本年认购面积, 0) AS 本年产成品认购面积 ,
 				ISNULL(s.本年产成品签约面积全口径,0) AS 本年产成品签约面积 ,
 				ISNULL(qt.其他业绩产成品本年签约面积,0 ) AS 其他业绩产成品本年签约面积,
-                @wideTableDateText  as 宽表最后清洗日期 
+                @wideTableDateText  as 宽表最后清洗日期 ,
+                --大户型
+                ISNULL(rs.本日大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本日认购金额, 0) as 本日大户型认购金额,
+                ISNULL(rs.本日大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本日认购面积, 0)  as 本日大户型认购面积,
+                ISNULL(rs.本日大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本日认购套数, 0)  as 本日大户型认购套数,
+                ISNULL(dhx.本日大户型签约金额全口径, 0)   as 本日大户型签约金额,
+                ISNULL(dhx.本日大户型签约面积全口径, 0)  as 本日大户型签约面积,
+                ISNULL(dhx.本日大户型签约套数全口径, 0)  as 本日大户型签约套数,
+
+                ISNULL(rs.本周大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本周认购金额, 0) as 本周大户型认购金额,
+                ISNULL(rs.本周大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本周认购面积, 0) as 本周大户型认购面积,
+                ISNULL(rs.本周大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本周认购套数, 0) as 本周大户型认购套数,
+                ISNULL(dhx.本周大户型签约金额全口径, 0) as 本周大户型签约金额,
+                ISNULL(dhx.本周大户型签约面积全口径, 0) as 本周大户型签约面积,
+                ISNULL(dhx.本周大户型签约套数全口径, 0) as 本周大户型签约套数,
+
+                ISNULL(rs.本月大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本月认购金额, 0) as 本月大户型认购金额,
+                ISNULL(rs.本月大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本月认购面积, 0) as 本月大户型认购面积,
+                ISNULL(rs.本月大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本月认购套数, 0) as 本月大户型认购套数,
+                ISNULL(dhx.本月大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本月签约金额,0) as 本月大户型签约金额,
+                ISNULL(dhx.本月大户型签约面积全口径,0) + ISNULL(qt.其他业绩大户型本月签约面积,0) as 本月大户型签约面积,
+                ISNULL(dhx.本月大户型签约套数全口径,0) + ISNULL(qt.其他业绩大户型本月签约套数,0) as 本月大户型签约套数,
+
+                ISNULL(rs.本年大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本年认购金额, 0) as 本年大户型认购金额,
+                ISNULL(rs.本年大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本年认购面积, 0) as 本年大户型认购面积,
+                ISNULL(rs.本年大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本年认购套数, 0) as 本年大户型认购套数,
+                ISNULL(dhx.本年大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本年签约金额,0) as 本年大户型签约金额,
+                ISNULL(dhx.本年大户型签约面积全口径,0) + ISNULL(qt.其他业绩大户型本年签约面积,0) as 本年大户型签约面积,
+                ISNULL(dhx.本年大户型签约套数全口径,0) + ISNULL(qt.其他业绩大户型本年签约套数,0) as 本年大户型签约套数,
+
+                ISNULL(rs.累计大户型已认购未签约金额,0) as 累计大户型已认购未签约金额,
+                ISNULL(rs.累计大户型已认购未签约面积,0) as 累计大户型已认购未签约面积,
+                ISNULL(rs.累计大户型已认购未签约套数,0) as 累计大户型已认购未签约套数,
+                ISNULL(rs.本年大户型已认购未签约金额,0) as 本年大户型已认购未签约金额,
+                ISNULL(rs.本年大户型已认购未签约套数,0) as 本年大户型已认购未签约套数,
+                ISNULL(rs.本月大户型已认购未签约金额,0) as 本月大户型已认购未签约金额,
+                ISNULL(rs.本月大户型已认购未签约套数,0) as 本月大户型已认购未签约套数,
+
+                --联动房
+                ISNULL(rs.本日联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本日认购金额, 0) as 本日联动房认购金额,
+                ISNULL(rs.本日联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本日认购面积, 0)  as 本日联动房认购面积,
+                ISNULL(rs.本日联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本日认购套数, 0)  as 本日联动房认购套数,
+                ISNULL(dhx.本日联动房签约金额全口径, 0)   as 本日联动房签约金额,
+                ISNULL(dhx.本日联动房签约面积全口径, 0)  as 本日联动房签约面积,
+                ISNULL(dhx.本日联动房签约套数全口径, 0)  as 本日联动房签约套数,
+
+                ISNULL(rs.本周联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本周认购金额, 0) as 本周联动房认购金额,
+                ISNULL(rs.本周联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本周认购面积, 0) as 本周联动房认购面积,
+                ISNULL(rs.本周联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本周认购套数, 0) as 本周联动房认购套数,
+                ISNULL(dhx.本周联动房签约金额全口径, 0) as 本周联动房签约金额,
+                ISNULL(dhx.本周联动房签约面积全口径, 0) as 本周联动房签约面积,
+                ISNULL(dhx.本周联动房签约套数全口径, 0) as 本周联动房签约套数,
+
+                ISNULL(rs.本月联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本月认购金额, 0) as 本月联动房认购金额,
+                ISNULL(rs.本月联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本月认购面积, 0) as 本月联动房认购面积,
+                ISNULL(rs.本月联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本月认购套数, 0) as 本月联动房认购套数,
+                ISNULL(dhx.本月联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本月签约金额,0) as 本月联动房签约金额,
+                ISNULL(dhx.本月联动房签约面积全口径,0) + ISNULL(qt.其他业绩联动房本月签约面积,0) as 本月联动房签约面积,
+                ISNULL(dhx.本月联动房签约套数全口径,0) + ISNULL(qt.其他业绩联动房本月签约套数,0) as 本月联动房签约套数,
+
+                ISNULL(rs.本年联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本年认购金额, 0) as 本年联动房认购金额,
+                ISNULL(rs.本年联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本年认购面积, 0) as 本年联动房认购面积,
+                ISNULL(rs.本年联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本年认购套数, 0) as 本年联动房认购套数,
+                ISNULL(dhx.本年联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本年签约金额,0) as 本年联动房签约金额,
+                ISNULL(dhx.本年联动房签约面积全口径,0) + ISNULL(qt.其他业绩联动房本年签约面积,0) as 本年联动房签约面积,
+                ISNULL(dhx.本年联动房签约套数全口径,0) + ISNULL(qt.其他业绩联动房本年签约套数,0) as 本年联动房签约套数,
+
+                ISNULL(rs.累计联动房已认购未签约金额,0) AS 累计联动房已认购未签约金额,
+                ISNULL(rs.累计联动房已认购未签约面积,0) AS 累计联动房已认购未签约面积,
+                ISNULL(rs.累计联动房已认购未签约套数,0) AS 累计联动房已认购未签约套数,
+                ISNULL(rs.本年联动房已认购未签约金额,0) AS 本年联动房已认购未签约金额,
+                ISNULL(rs.本年联动房已认购未签约套数,0) AS 本年联动房已认购未签约套数,
+                ISNULL(rs.本月联动房已认购未签约金额,0) AS 本月联动房已认购未签约金额,
+                ISNULL(rs.本月联动房已认购未签约套数,0) AS 本月联动房已认购未签约套数,
+
+                ISNULL(qt.其他业绩大户型本月签约金额,0) as 其他业绩大户型本月签约金额,
+                ISNULL(qt.其他业绩大户型本月签约面积,0) as 其他业绩大户型本月签约面积,
+                ISNULL(qt.其他业绩大户型本月签约套数,0) as 其他业绩大户型本月签约套数,
+                ISNULL(qt.其他业绩大户型本年签约金额,0) as 其他业绩大户型本年签约金额,
+                ISNULL(qt.其他业绩大户型本年签约面积,0) as 其他业绩大户型本年签约面积,
+                ISNULL(qt.其他业绩大户型本年签约套数,0) as 其他业绩大户型本年签约套数,
+
+                --准产成品
+                ISNULL(rs.本日准产成品认购金额, 0) + ISNULL(rg.本日准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本日认购金额, 0) AS 本日准产成品认购金额,
+                ISNULL(rs.本日准产成品认购面积, 0) + ISNULL(rg.本日准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本日认购面积, 0) AS 本日准产成品认购面积,
+                ISNULL(rs.本日准产成品认购套数, 0) + ISNULL(rg.本日准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本日认购套数, 0) AS 本日准产成品认购套数 ,
+
+                ISNULL(s.本日准产成品签约金额全口径, 0) AS 本日准产成品签约金额 ,
+                ISNULL(s.本日准产成品签约面积全口径, 0) AS 本日准产成品签约面积 ,
+                ISNULL(s.本日准产成品签约套数全口径, 0) AS 本日准产成品签约套数 ,
+
+                ISNULL(rs.本周准产成品认购金额, 0) + ISNULL(rg.本周准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本周认购金额, 0) AS 本周准产成品认购金额 ,
+                ISNULL(rs.本周准产成品认购面积, 0) + ISNULL(rg.本周准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本周认购面积, 0) AS 本周准产成品认购面积 ,
+                ISNULL(rs.本周准产成品认购套数, 0) + ISNULL(rg.本周准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本周认购套数, 0) AS 本周准产成品认购套数 ,
+
+                ISNULL(rs.本月准产成品认购金额, 0) + ISNULL(rg.本月准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本月认购金额, 0) AS 本月准产成品认购金额 ,
+                ISNULL(rs.本月准产成品认购面积, 0) + ISNULL(rg.本月准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本月认购面积, 0) AS 本月准产成品认购面积 ,
+                ISNULL(rs.本月准产成品认购套数, 0) + ISNULL(rg.本月准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本月认购套数, 0) AS 本月准产成品认购套数 ,
+
+                ISNULL(qt.其他业绩准产成品本月认购金额, 0) AS 其他业绩准产成品本月认购金额 ,
+                ISNULL(qt.其他业绩准产成品本月认购面积, 0) AS 其他业绩准产成品本月认购面积 ,
+                ISNULL(qt.其他业绩准产成品本月认购套数, 0) AS 其他业绩准产成品本月认购套数 ,
+
+                ISNULL(本月准产成品签约金额全口径, 0) AS 本月准产成品签约金额 ,
+                ISNULL(本月准产成品签约面积全口径, 0) AS 本月准产成品签约面积 ,
+                ISNULL(本月准产成品签约套数全口径, 0) AS 本月准产成品签约套数 ,
+
+                ISNULL(qt.其他业绩准产成品本月签约金额, 0) AS 其他业绩准产成品本月签约金额 ,
+                ISNULL(qt.其他业绩准产成品本月签约面积, 0) AS 其他业绩准产成品本月签约面积 ,
+                ISNULL(qt.其他业绩准产成品本月签约套数, 0) AS 其他业绩准产成品本月签约套数 ,
+
+                ISNULL(rs.累计准产成品已认购未签约金额, 0) AS 累计准产成品已认购未签约金额 ,
+                ISNULL(rs.累计准产成品已认购未签约面积, 0) AS 累计准产成品已认购未签约面积 ,
+                ISNULL(rs.累计准产成品已认购未签约套数, 0) AS 累计准产成品已认购未签约套数 ,
+
+                ISNULL(rs.本年准产成品认购金额, 0) + ISNULL(rg.本年准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本年认购金额, 0) AS 本年准产成品认购金额 ,
+                ISNULL(rs.本年准产成品认购面积, 0) + ISNULL(rg.本年准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本年认购面积, 0) AS 本年准产成品认购面积 ,
+                ISNULL(rs.本年准产成品认购套数, 0) + ISNULL(rg.本年准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本年认购套数, 0) AS 本年准产成品认购套数 ,
+
+                ISNULL(s.本年准产成品签约金额全口径, 0) AS 本年准产成品签约金额 ,
+                ISNULL(s.本年准产成品签约面积全口径, 0) AS 本年准产成品签约面积 ,
+                ISNULL(s.本年准产成品签约套数全口径, 0) AS 本年准产成品签约套数 ,
+                ISNULL(qt.其他业绩准产成品本年签约金额, 0) AS 其他业绩准产成品本年签约金额 ,
+                ISNULL(qt.其他业绩准产成品本年签约面积, 0) AS 其他业绩准产成品本年签约面积 ,                
+                ISNULL(qt.其他业绩准产成品本年签约套数, 0) AS 其他业绩准产成品本年签约套数 ,
+
+                --补充现产成品任务和大户型任务@20250630
+                ISNULL(rw.准产成品月度任务, 0) AS 准产成品月度任务,
+                ISNULL(rw.准产成品年度任务, 0) AS 准产成品年度任务,
+                ISNULL(rw.大户型月度任务, 0)   AS 大户型月度任务,
+                ISNULL(rw.大户型年度任务, 0)   AS 大户型年度任务
         FROM    data_wide_dws_mdm_Project p
                 INNER JOIN #TopProduct pt ON pt.ParentProjGUID = p.ProjGUID
                 LEFT JOIN data_tb_hnyx_jdfxtb rw ON rw.projguid = p.ProjGUID AND   rw.业态 = pt.TopProductTypeName
                 LEFT JOIN data_tb_hn_yxpq tb ON p.ProjGUID = tb.项目GUID
                 LEFT JOIN #projsale s ON p.ProjGUID = s.orgguid AND pt.TopProductTypeName = s.TopProductTypeName
+                LEFT JOIN #projsale_ldf_dhx dhx on p.ProjGUID = dhx.orgguid AND pt.TopProductTypeName = dhx.TopProductTypeName
                 LEFT JOIN #rsale rs ON rs.ProjGUID = p.ProjGUID AND pt.TopProductTypeName = rs.TopProductTypeName
                 LEFT JOIN #rg rg ON rg.ProjGUID = p.ProjGUID AND   pt.TopProductTypeName = rg.TopProductTypeName
                 LEFT JOIN #qtqy qt ON qt.projguid = p.projguid AND pt.TopProductTypeName = qt.TopProductTypeName
@@ -1949,12 +3531,144 @@ AS
 				0 AS 本年产成品认购面积 ,
 				0 AS 本年产成品签约面积 ,
 				0 AS 其他业绩产成品本年签约面积,
-                @wideTableDateText  as 宽表最后清洗日期 
+                @wideTableDateText  as 宽表最后清洗日期 ,
+                --大户型
+                0 as 本日大户型认购金额,
+                0 as 本日大户型认购面积,
+                0 as 本日大户型认购套数,
+                0 as 本日大户型签约金额,
+                0 as 本日大户型签约面积,
+                0 as 本日大户型签约套数,
+
+                0 as 本周大户型认购金额,
+                0 as 本周大户型认购面积,
+                0 as 本周大户型认购套数,
+                0 as 本周大户型签约金额,
+                0 as 本周大户型签约面积,
+                0 as 本周大户型签约套数,
+
+                0 as 本月大户型认购金额,
+                0 as 本月大户型认购面积,
+                0 as 本月大户型认购套数,
+                0 as 本月大户型签约金额,
+                0 as 本月大户型签约面积,
+                0 as 本月大户型签约套数,
+
+                0 as 本年大户型认购金额,
+                0 as 本年大户型认购面积,
+                0 as 本年大户型认购套数,
+                0 as 本年大户型签约金额,
+                0 as 本年大户型签约面积,
+                0 as 本年大户型签约套数,
+
+                0 as 累计大户型已认购未签约金额,
+                0 as 累计大户型已认购未签约面积,
+                0 as 累计大户型已认购未签约套数,
+                0 as 本年大户型已认购未签约金额,
+                0 as 本年大户型已认购未签约套数,
+                0 as 本月大户型已认购未签约金额,
+                0 as 本月大户型已认购未签约套数,
+
+                --联动房
+                0 as 本日联动房认购金额,
+                0 as 本日联动房认购面积,
+                0 as 本日联动房认购套数,
+                0 as 本日联动房签约金额,
+                0 as 本日联动房签约面积,
+                0 as 本日联动房签约套数,
+
+                0 as 本周联动房认购金额,
+                0 as 本周联动房认购面积,
+                0 as 本周联动房认购套数,
+                0 as 本周联动房签约金额,
+                0 as 本周联动房签约面积,
+                0 as 本周联动房签约套数,
+
+                0 as 本月联动房认购金额,
+                0 as 本月联动房认购面积,
+                0 as 本月联动房认购套数,
+                0 as 本月联动房签约金额,
+                0 as 本月联动房签约面积,
+                0 as 本月联动房签约套数,
+
+                0 as 本年联动房认购金额,
+                0 as 本年联动房认购面积,
+                0 as 本年联动房认购套数,
+                0 as 本年联动房签约金额,
+                0 as 本年联动房签约面积,
+                0 as 本年联动房签约套数,
+
+                0 AS 累计联动房已认购未签约金额,
+                0 AS 累计联动房已认购未签约面积,
+                0 AS 累计联动房已认购未签约套数,
+                0 AS 本年联动房已认购未签约金额,
+                0 AS 本年联动房已认购未签约套数,
+                0 AS 本月联动房已认购未签约金额,
+                0 AS 本月联动房已认购未签约套数,
+
+                0 as 其他业绩大户型本月签约金额,
+                0 as 其他业绩大户型本月签约面积,
+                0 as 其他业绩大户型本月签约套数,
+                0 as 其他业绩大户型本年签约金额,
+                0 as 其他业绩大户型本年签约面积,
+                0 as 其他业绩大户型本年签约套数,
+
+                --准产成品
+                0 AS 本日准产成品认购金额,
+                0 AS 本日准产成品认购面积,
+                0 AS 本日准产成品认购套数,
+
+                0 AS 本日准产成品签约金额 ,
+                0 AS 本日准产成品签约面积 ,
+                0 AS 本日准产成品签约套数 ,
+
+                0 AS 本周准产成品认购金额 ,
+                0 AS 本周准产成品认购面积 ,
+                0 AS 本周准产成品认购套数 ,
+
+                0 AS 本月准产成品认购金额 ,
+                0 AS 本月准产成品认购面积 ,
+                0 AS 本月准产成品认购套数 ,
+
+                0 AS 其他业绩准产成品本月认购金额 ,
+                0 AS 其他业绩准产成品本月认购面积 ,
+                0 AS 其他业绩准产成品本月认购套数 ,
+
+                0 AS 本月准产成品签约金额 ,
+                0 AS 本月准产成品签约面积 ,
+                0 AS 本月准产成品签约套数 ,
+
+                0 AS 其他业绩准产成品本月签约金额 ,
+                0 AS 其他业绩准产成品本月签约面积 ,
+                0 AS 其他业绩准产成品本月签约套数 ,
+
+                0 AS 累计准产成品已认购未签约金额 ,
+                0 AS 累计准产成品已认购未签约面积 ,
+                0 AS 累计准产成品已认购未签约套数 ,
+
+                0 AS 本年准产成品认购金额 ,
+                0 AS 本年准产成品认购面积 ,
+                0 AS 本年准产成品认购套数 ,
+
+                0 AS 本年准产成品签约金额 ,
+                0 AS 本年准产成品签约面积 ,
+                0 AS 本年准产成品签约套数 ,
+
+                0 AS 其他业绩准产成品本年签约金额 ,
+                0 AS 其他业绩准产成品本年签约面积 ,                
+                0 AS 其他业绩准产成品本年签约套数 ,
+
+                --补充现产成品任务和大户型任务@20250630
+                0 AS 准产成品月度任务,
+                0 AS 准产成品年度任务,
+                0 AS 大户型月度任务,
+                0 AS 大户型年度任务
         FROM    data_wide_dws_mdm_Project p
                 INNER JOIN #TopProduct pt ON pt.ParentProjGUID = p.ProjGUID
                 LEFT JOIN data_tb_hnyx_jdfxtb rw ON rw.projguid = p.ProjGUID AND   rw.业态 = pt.TopProductTypeName
                 LEFT JOIN data_tb_hn_yxpq tb ON p.ProjGUID = tb.项目GUID
                 LEFT JOIN #projsale s ON p.ProjGUID = s.orgguid AND pt.TopProductTypeName = s.TopProductTypeName
+                LEFT JOIN #projsale_ldf_dhx dhx on p.ProjGUID = dhx.orgguid AND pt.TopProductTypeName = dhx.TopProductTypeName
                 LEFT JOIN #rsale rs ON rs.ProjGUID = p.ProjGUID AND pt.TopProductTypeName = rs.TopProductTypeName
                 LEFT JOIN #rg rg ON rg.ProjGUID = p.ProjGUID AND   pt.TopProductTypeName = rg.TopProductTypeName
                 LEFT JOIN #qtqy qt ON qt.projguid = p.projguid AND pt.TopProductTypeName = qt.TopProductTypeName
@@ -2083,25 +3797,160 @@ AS
 				0 AS 本年产成品认购面积 ,
 				0 AS 本年产成品签约面积 ,
 				0 AS 其他业绩产成品本年签约面积,
-                @wideTableDateText  as 宽表最后清洗日期 
+                @wideTableDateText  as 宽表最后清洗日期 ,
+                --大户型
+                ISNULL(rs.本日大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本日认购金额, 0) as 本日大户型认购金额,
+                ISNULL(rs.本日大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本日认购面积, 0)  as 本日大户型认购面积,
+                ISNULL(rs.本日大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本日认购套数, 0)  as 本日大户型认购套数,
+                ISNULL(dhx.本日大户型签约金额全口径, 0)   as 本日大户型签约金额,
+                ISNULL(dhx.本日大户型签约面积全口径, 0)  as 本日大户型签约面积,
+                ISNULL(dhx.本日大户型签约套数全口径, 0)  as 本日大户型签约套数,
+
+                ISNULL(rs.本周大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本周认购金额, 0) as 本周大户型认购金额,
+                ISNULL(rs.本周大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本周认购面积, 0) as 本周大户型认购面积,
+                ISNULL(rs.本周大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本周认购套数, 0) as 本周大户型认购套数,
+                ISNULL(dhx.本周大户型签约金额全口径, 0) as 本周大户型签约金额,
+                ISNULL(dhx.本周大户型签约面积全口径, 0) as 本周大户型签约面积,
+                ISNULL(dhx.本周大户型签约套数全口径, 0) as 本周大户型签约套数,
+
+                ISNULL(rs.本月大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本月认购金额, 0) as 本月大户型认购金额,
+                ISNULL(rs.本月大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本月认购面积, 0) as 本月大户型认购面积,
+                ISNULL(rs.本月大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本月认购套数, 0) as 本月大户型认购套数,
+                ISNULL(dhx.本月大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本月签约金额,0) as 本月大户型签约金额,
+                ISNULL(dhx.本月大户型签约面积全口径,0) + ISNULL(qt.其他业绩大户型本月签约面积,0) as 本月大户型签约面积,
+                ISNULL(dhx.本月大户型签约套数全口径,0) + ISNULL(qt.其他业绩大户型本月签约套数,0) as 本月大户型签约套数,
+
+                ISNULL(rs.本年大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本年认购金额, 0) as 本年大户型认购金额,
+                ISNULL(rs.本年大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本年认购面积, 0) as 本年大户型认购面积,
+                ISNULL(rs.本年大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本年认购套数, 0) as 本年大户型认购套数,
+                ISNULL(dhx.本年大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本年签约金额,0) as 本年大户型签约金额,
+                ISNULL(dhx.本年大户型签约面积全口径,0) + ISNULL(qt.其他业绩大户型本年签约面积,0) as 本年大户型签约面积,
+                ISNULL(dhx.本年大户型签约套数全口径,0) + ISNULL(qt.其他业绩大户型本年签约套数,0) as 本年大户型签约套数,
+
+                ISNULL(rs.累计大户型已认购未签约金额,0) as 累计大户型已认购未签约金额,
+                ISNULL(rs.累计大户型已认购未签约面积,0) as 累计大户型已认购未签约面积,
+                ISNULL(rs.累计大户型已认购未签约套数,0) as 累计大户型已认购未签约套数,
+                ISNULL(rs.本年大户型已认购未签约金额,0) as 本年大户型已认购未签约金额,
+                ISNULL(rs.本年大户型已认购未签约套数,0) as 本年大户型已认购未签约套数,
+                ISNULL(rs.本月大户型已认购未签约金额,0) as 本月大户型已认购未签约金额,
+                ISNULL(rs.本月大户型已认购未签约套数,0) as 本月大户型已认购未签约套数,
+
+                --联动房
+                ISNULL(rs.本日联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本日认购金额, 0) as 本日联动房认购金额,
+                ISNULL(rs.本日联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本日认购面积, 0)  as 本日联动房认购面积,
+                ISNULL(rs.本日联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本日认购套数, 0)  as 本日联动房认购套数,
+                ISNULL(dhx.本日联动房签约金额全口径, 0)   as 本日联动房签约金额,
+                ISNULL(dhx.本日联动房签约面积全口径, 0)  as 本日联动房签约面积,
+                ISNULL(dhx.本日联动房签约套数全口径, 0)  as 本日联动房签约套数,
+
+                ISNULL(rs.本周联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本周认购金额, 0) as 本周联动房认购金额,
+                ISNULL(rs.本周联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本周认购面积, 0) as 本周联动房认购面积,
+                ISNULL(rs.本周联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本周认购套数, 0) as 本周联动房认购套数,
+                ISNULL(dhx.本周联动房签约金额全口径, 0) as 本周联动房签约金额,
+                ISNULL(dhx.本周联动房签约面积全口径, 0) as 本周联动房签约面积,
+                ISNULL(dhx.本周联动房签约套数全口径, 0) as 本周联动房签约套数,
+
+                ISNULL(rs.本月联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本月认购金额, 0) as 本月联动房认购金额,
+                ISNULL(rs.本月联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本月认购面积, 0) as 本月联动房认购面积,
+                ISNULL(rs.本月联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本月认购套数, 0) as 本月联动房认购套数,
+                ISNULL(dhx.本月联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本月签约金额,0) as 本月联动房签约金额,
+                ISNULL(dhx.本月联动房签约面积全口径,0) + ISNULL(qt.其他业绩联动房本月签约面积,0) as 本月联动房签约面积,
+                ISNULL(dhx.本月联动房签约套数全口径,0) + ISNULL(qt.其他业绩联动房本月签约套数,0) as 本月联动房签约套数,
+
+                ISNULL(rs.本年联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本年认购金额, 0) as 本年联动房认购金额,
+                ISNULL(rs.本年联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本年认购面积, 0) as 本年联动房认购面积,
+                ISNULL(rs.本年联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本年认购套数, 0) as 本年联动房认购套数,
+                ISNULL(dhx.本年联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本年签约金额,0) as 本年联动房签约金额,
+                ISNULL(dhx.本年联动房签约面积全口径,0) + ISNULL(qt.其他业绩联动房本年签约面积,0) as 本年联动房签约面积,
+                ISNULL(dhx.本年联动房签约套数全口径,0) + ISNULL(qt.其他业绩联动房本年签约套数,0) as 本年联动房签约套数,
+
+                ISNULL(rs.累计联动房已认购未签约金额,0) AS 累计联动房已认购未签约金额,
+                ISNULL(rs.累计联动房已认购未签约面积,0) AS 累计联动房已认购未签约面积,
+                ISNULL(rs.累计联动房已认购未签约套数,0) AS 累计联动房已认购未签约套数,
+                ISNULL(rs.本年联动房已认购未签约金额,0) AS 本年联动房已认购未签约金额,
+                ISNULL(rs.本年联动房已认购未签约套数,0) AS 本年联动房已认购未签约套数,
+                ISNULL(rs.本月联动房已认购未签约金额,0) AS 本月联动房已认购未签约金额,
+                ISNULL(rs.本月联动房已认购未签约套数,0) AS 本月联动房已认购未签约套数,
+
+                ISNULL(qt.其他业绩大户型本月签约金额,0) as 其他业绩大户型本月签约金额,
+                ISNULL(qt.其他业绩大户型本月签约面积,0) as 其他业绩大户型本月签约面积,
+                ISNULL(qt.其他业绩大户型本月签约套数,0) as 其他业绩大户型本月签约套数,
+                ISNULL(qt.其他业绩大户型本年签约金额,0) as 其他业绩大户型本年签约金额,
+                ISNULL(qt.其他业绩大户型本年签约面积,0) as 其他业绩大户型本年签约面积,
+                ISNULL(qt.其他业绩大户型本年签约套数,0) as 其他业绩大户型本年签约套数,
+
+                --准产成品
+                ISNULL(rs.本日准产成品认购金额, 0) + ISNULL(rg.本日准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本日认购金额, 0) AS 本日准产成品认购金额,
+                ISNULL(rs.本日准产成品认购面积, 0) + ISNULL(rg.本日准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本日认购面积, 0) AS 本日准产成品认购面积,
+                ISNULL(rs.本日准产成品认购套数, 0) + ISNULL(rg.本日准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本日认购套数, 0) AS 本日准产成品认购套数 ,
+
+                ISNULL(s.本日准产成品签约金额全口径, 0) AS 本日准产成品签约金额 ,
+                ISNULL(s.本日准产成品签约面积全口径, 0) AS 本日准产成品签约面积 ,
+                ISNULL(s.本日准产成品签约套数全口径, 0) AS 本日准产成品签约套数 ,
+
+                ISNULL(rs.本周准产成品认购金额, 0) + ISNULL(rg.本周准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本周认购金额, 0) AS 本周准产成品认购金额 ,
+                ISNULL(rs.本周准产成品认购面积, 0) + ISNULL(rg.本周准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本周认购面积, 0) AS 本周准产成品认购面积 ,
+                ISNULL(rs.本周准产成品认购套数, 0) + ISNULL(rg.本周准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本周认购套数, 0) AS 本周准产成品认购套数 ,
+
+                ISNULL(rs.本月准产成品认购金额, 0) + ISNULL(rg.本月准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本月认购金额, 0) AS 本月准产成品认购金额 ,
+                ISNULL(rs.本月准产成品认购面积, 0) + ISNULL(rg.本月准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本月认购面积, 0) AS 本月准产成品认购面积 ,
+                ISNULL(rs.本月准产成品认购套数, 0) + ISNULL(rg.本月准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本月认购套数, 0) AS 本月准产成品认购套数 ,
+
+                ISNULL(qt.其他业绩准产成品本月认购金额, 0) AS 其他业绩准产成品本月认购金额 ,
+                ISNULL(qt.其他业绩准产成品本月认购面积, 0) AS 其他业绩准产成品本月认购面积 ,
+                ISNULL(qt.其他业绩准产成品本月认购套数, 0) AS 其他业绩准产成品本月认购套数 ,
+
+                ISNULL(本月准产成品签约金额全口径, 0) AS 本月准产成品签约金额 ,
+                ISNULL(本月准产成品签约面积全口径, 0) AS 本月准产成品签约面积 ,
+                ISNULL(本月准产成品签约套数全口径, 0) AS 本月准产成品签约套数 ,
+
+                ISNULL(qt.其他业绩准产成品本月签约金额, 0) AS 其他业绩准产成品本月签约金额 ,
+                ISNULL(qt.其他业绩准产成品本月签约面积, 0) AS 其他业绩准产成品本月签约面积 ,
+                ISNULL(qt.其他业绩准产成品本月签约套数, 0) AS 其他业绩准产成品本月签约套数 ,
+
+                ISNULL(rs.累计准产成品已认购未签约金额, 0) AS 累计准产成品已认购未签约金额 ,
+                ISNULL(rs.累计准产成品已认购未签约面积, 0) AS 累计准产成品已认购未签约面积 ,
+                ISNULL(rs.累计准产成品已认购未签约套数, 0) AS 累计准产成品已认购未签约套数 ,
+
+                ISNULL(rs.本年准产成品认购金额, 0) + ISNULL(rg.本年准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本年认购金额, 0) AS 本年准产成品认购金额 ,
+                ISNULL(rs.本年准产成品认购面积, 0) + ISNULL(rg.本年准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本年认购面积, 0) AS 本年准产成品认购面积 ,
+                ISNULL(rs.本年准产成品认购套数, 0) + ISNULL(rg.本年准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本年认购套数, 0) AS 本年准产成品认购套数 ,
+
+                ISNULL(s.本年准产成品签约金额全口径, 0) AS 本年准产成品签约金额 ,
+                ISNULL(s.本年准产成品签约面积全口径, 0) AS 本年准产成品签约面积 ,
+                ISNULL(s.本年准产成品签约套数全口径, 0) AS 本年准产成品签约套数 ,
+                ISNULL(qt.其他业绩准产成品本年签约金额, 0) AS 其他业绩准产成品本年签约金额 ,
+                ISNULL(qt.其他业绩准产成品本年签约面积, 0) AS 其他业绩准产成品本年签约面积 ,                
+                ISNULL(qt.其他业绩准产成品本年签约套数, 0) AS 其他业绩准产成品本年签约套数 ,
+
+                --补充现产成品任务和大户型任务@20250630
+                ISNULL(rw.准产成品月度任务, 0) AS 准产成品月度任务,
+                ISNULL(rw.准产成品年度任务, 0) AS 准产成品年度任务,
+                ISNULL(rw.大户型月度任务, 0)   AS 大户型月度任务,
+                ISNULL(rw.大户型年度任务, 0)   AS 大户型年度任务
         FROM    data_wide_dws_mdm_Project p
-                INNER JOIN #TopProduct pt ON pt.ParentProjGUID = p.ProjGUID
-                LEFT JOIN data_tb_hnyx_jdfxtb rw ON rw.projguid = p.ProjGUID AND   rw.业态 = pt.TopProductTypeName
-                LEFT JOIN data_tb_hn_yxpq tb ON p.ProjGUID = tb.项目GUID
-                LEFT JOIN #projsale s ON p.ProjGUID = s.orgguid AND pt.TopProductTypeName = s.TopProductTypeName
-                LEFT JOIN #rsale rs ON rs.ProjGUID = p.ProjGUID AND pt.TopProductTypeName = rs.TopProductTypeName
-                LEFT JOIN #rg rg ON rg.ProjGUID = p.ProjGUID AND   pt.TopProductTypeName = rg.TopProductTypeName
-                LEFT JOIN #qtqy qt ON qt.projguid = p.projguid AND pt.TopProductTypeName = qt.TopProductTypeName
+        INNER JOIN #TopProduct pt ON pt.ParentProjGUID = p.ProjGUID
+        LEFT JOIN data_tb_hnyx_jdfxtb rw ON rw.projguid = p.ProjGUID AND   rw.业态 = pt.TopProductTypeName
+        LEFT JOIN data_tb_hn_yxpq tb ON p.ProjGUID = tb.项目GUID
+        LEFT JOIN #projsale s ON p.ProjGUID = s.orgguid AND pt.TopProductTypeName = s.TopProductTypeName
+        LEFT JOIN #projsale_ldf_dhx dhx on p.ProjGUID = dhx.orgguid AND pt.TopProductTypeName = dhx.TopProductTypeName
+        LEFT JOIN #rsale rs ON rs.ProjGUID = p.ProjGUID AND pt.TopProductTypeName = rs.TopProductTypeName
+        LEFT JOIN #rg rg ON rg.ProjGUID = p.ProjGUID AND   pt.TopProductTypeName = rg.TopProductTypeName
+        LEFT JOIN #qtqy qt ON qt.projguid = p.projguid AND pt.TopProductTypeName = qt.TopProductTypeName
         WHERE   Level = 2 AND   p.buguid = '70DD6DF4-47F7-46AF-B470-BC18EE57D8FF';
 
         --输出查询结果
         SELECT  * FROM  s_hnyxxp_projSaleNew WHERE  DATEDIFF(DAY, 数据清洗日期, @var_date) = 0;
 
         --删除临时表
-        DROP TABLE #projsale;
+        DROP TABLE #projsale,#projsale_ldf_dhx;
         DROP TABLE #rg;
         DROP TABLE #rsale;
         DROP TABLE #TopProduct;
         DROP TABLE #qtqy;
         DROP TABLE #qtyj;
     END;
+
+
+
+

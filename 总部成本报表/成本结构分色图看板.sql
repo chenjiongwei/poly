@@ -1,6 +1,6 @@
 USE [MyCost_Erp352]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_cost_structure_color_board]    Script Date: 2025/5/4 16:58:12 ******/
+/****** Object:  StoredProcedure [dbo].[usp_cost_structure_color_board]    Script Date: 2025/6/10 8:16:24 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -8,7 +8,7 @@ GO
 /*
 -- 成本结构分色图看板
 -- 2025-04-27 chenjw
-exec usp_cost_structure_color_board '455FC380-B609-4A5A-9AAC-EE0F84C7F1B8','2025-04-28'
+exec usp_cost_structure_color_board '455FC380-B609-4A5A-9AAC-EE0F84C7F1B8','2025-05-13'
 */
 
 ALTER proc [dbo].[usp_cost_structure_color_board]
@@ -20,7 +20,7 @@ as
 Begin 
     declare @buguidList  varchar(max)=null -- 公司GUID列表
      -- 调用成本结构表清洗存储过程
-     exec usp_cb_CostStructureReport_Clean @buguid,@qxDate
+     -- exec [172.16.4.129].[MyCost_Erp352].dbo.usp_cb_CostStructureReport_Clean @buguid,@qxDate
 
     -- declare @buguid  varchar(max)=null -- 公司GUID
     -- declare @qxDate datetime=getdate() --  查询日期
@@ -39,6 +39,95 @@ Begin
      else  
         select @buguidList = @buguid
      
+  -- 剔除不统计项目 投管代码包括如下列表
+     -- 创建临时表存储符合条件的项目信息
+    select p.ProjGUID, p.ProjName, p.ProjCode
+    into #projectFlag
+    from p_Project p 
+    where p.level = 2 and not exists (
+        select 1 from erp25.dbo.vmdm_projectFlag flg
+        where flg.ProjGUID = p.projguid and flg.投管代码 in ( 
+            -- 以下是需要剔除的投管代码列表
+            '5401', '5401', '5401', '5401', -- 重复代码
+            '3912', '3901', '1319', '3114',
+            '10001', '1822', '1818', '1817',
+            '1813', '1838', '713', '711',
+            '711', '707', '1823', '2924',
+            '2924', '2932', '2928', '2928',
+            '2928', '2941', '1330', '1327',
+            '1328', '11502', '8609', '2802',
+            '2802', '1990027', '1990011', '4801',
+            '4801', '4801', '5106', '5102',
+            '5102', '5101', '244', '5101',
+            '5104', '5104', '5103', '5103',
+            '515', '517', '429', '423',
+            '423', '425', '425', '425',
+            '424', '422', '1299', '1299',
+            '2925', '2925', '2925', '2925',
+            '2910', '2910', '2919', '1261',
+            '2708', '2705', '2705', '2705',
+            '9305', '2908', '2908', '2912',
+            '2929', '12101', '8001', '2923',
+            '41ZZ5', '413', '2937', '2958',
+            '2958', '2922', '2922', '2922',
+            '2940', '2935', '2934', '1417',
+            '4217', '6206', '4209', '4209',
+            '4209', '3131', '3115', '3130',
+            '4910', '4910', '616', '6303',
+            '2422', '2014', '4401', '9302',
+            '1990029', '2306', '1128', '608',
+            '3324', '4602', '4602', '4602',
+            '4602', '4701', '4701', '4701',
+            '4701', '4701', '4705', '1703',
+            '1703', '1703', '1702', '9602',
+            '9602', '6205', '6211', '6217',
+            '4801', '4801', '9502', '2972',
+            '4204', '2916', '2950', '2920',
+            '2920', '2951', '2957', '2946',
+            '4201', '5807', '5807', '5807',
+            '5808', '4606', '4601', '4601',
+            '4601', '4602', '4602', '616',
+            '6401', '1702', '1702', '1702',
+            '1702', '1704', '4802', '4802',
+            '4004', '4004', '4004', '2956',
+            '5801', '5801', '5805', '5805',
+            '5805', '6001', '6001', '6002',
+            '4902', '708', '708', '2004',
+            '803', '802', '1816', 'lc1833',
+            '1815', '4909', '4904', '4904',
+            '4904', '4905', '4905', '4903',
+            '4908', '4906', '4901', '4901',
+            '1617', '1839', '713', '710',
+            '710', '710', '2413', '1245',
+            '2926', '2926', '2926', '2926',
+            '2921', '2921', '2927', '2927',
+            '9502', '9502', '2917', '5001',
+            '4201', '4201', '4201', '4201',
+            '1504', '511', '405', '5401',
+            '412', '429', '1516', '3135',
+            '3135', '3132', '3133', '1904',
+            '5508', '5508', 'lc4014', '5812',
+            '5806', '4604', '4702', '4702',
+            '4702', '4703', '4703', '4701',
+            '4701', '4701', '4701', '1266',
+            '5103', '1611', '1622', '6603'
+        )
+    )
+     
+    -- 一级项目
+    SELECT p.* 
+    into #p_project
+    FROM p_project p
+    INNER JOIN #projectFlag pf ON p.ProjGUID = pf.ProjGUID
+    WHERE p.level = 2
+    UNION ALL
+    -- 分期
+    SELECT p2.* 
+    FROM p_project p
+    INNER JOIN #projectFlag pf ON p.ProjGUID = pf.ProjGUID
+    LEFT JOIN p_project p2 ON p.ProjCode = p2.ParentCode AND p2.Level = 3
+    WHERE p.level = 2
+
 
      -- 判断该项目是否有动态成本拍照记录（不含系统给管理员）
      -- 1、获取动态成本拍照记录
@@ -51,7 +140,7 @@ Begin
                ELSE '否'
            END AS IsRecollect -- 是否存在拍照记录
         into  #ProjectRecollect
-       FROM   p_project p
+       FROM   #p_project p
        OUTER APPLY (
            SELECT TOP 1 
                t.ProjectGUID,
@@ -86,6 +175,8 @@ Begin
        INTO #cb_CostStructureReport_qx 
        FROM cb_CostStructureReport_qx 
        WHERE DATEDIFF(DAY, 清洗日期, @qxDate) = 0 AND 公司GUID in ( SELECT  Value FROM  [dbo].[fn_Split2](@buguidList, ',') )
+       and  总成本情况_动态成本 is not null 
+       and  项目GUID in (select ProjGUID from #p_project)
     
        -- 1、已竣备分期:[实际竣备时间]有数据
        select  
@@ -97,7 +188,7 @@ Begin
        into #已竣备分期1
        from  #ProjectRecollect proj
        inner join #cb_CostStructureReport_qx str on proj.ProjGUID = str.项目guid
-       where  str.实际竣备时间 is not null 
+       where  str.实际竣备时间 is not null  
        -- 2. 本年计划竣备分期:剔除[实际竣备时间]有数据，【计划竣备时间】在本年内    
        select 
        proj.ProjGUID,proj.ProjName,
@@ -203,6 +294,8 @@ Begin
            AND b.costcode NOT LIKE '5001.11%' 
            AND b.ytGUID ='00000000-0000-0000-0000-000000000000'
            AND cost.IfEndCost = 1
+           AND b.type ='科目'
+           and a.ProjectGUID in (select ProjGUID from #p_project)
        GROUP BY 
            a.ProjectGUID
 
@@ -234,6 +327,8 @@ Begin
            AND b.costcode NOT LIKE '5001.11%' 
            AND b.ytGUID ='00000000-0000-0000-0000-000000000000'
            AND cost.IfEndCost = 1
+           AND b.type ='科目'
+           and a.ProjectGUID in (select ProjGUID from #p_project)
        GROUP BY 
            a.ProjectGUID      
 
@@ -265,6 +360,8 @@ Begin
            AND b.costcode NOT LIKE '5001.11%' 
            AND b.ytGUID ='00000000-0000-0000-0000-000000000000'
            AND cost.IfEndCost = 1
+           AND b.type ='科目'
+           and a.ProjectGUID in (select ProjGUID from #p_project)
        GROUP BY 
            a.ProjectGUID         
 
@@ -296,6 +393,8 @@ Begin
            AND b.costcode NOT LIKE '5001.11%' 
            AND b.ytGUID ='00000000-0000-0000-0000-000000000000'
            AND cost.IfEndCost = 1
+           AND b.type ='科目'
+           and a.ProjectGUID in (select ProjGUID from #p_project)
        GROUP BY 
            a.ProjectGUID
       --- 历史拍照数据
@@ -326,6 +425,8 @@ Begin
            AND b.costcode NOT LIKE '5001.11%' 
            AND b.ytGUID ='00000000-0000-0000-0000-000000000000'
            AND cost.IfEndCost = 1
+           AND b.type ='科目'
+           and a.ProjectGUID in (select ProjGUID from #p_project)
        GROUP BY 
            a.ProjectGUID    
      
@@ -408,7 +509,7 @@ Begin
                 case when sum(isnull(cb.总成本情况_动态成本,0)) =0  then  0 
                 else  sum( case when  项目分期分类 ='本年计划竣备分期' then isnull(cb.总成本情况_动态成本,0) else  0  end )  / sum(isnull(cb.总成本情况_动态成本,0)) end   AS [本年计划竣备分期_除地价外直投不含非现金占比],
                 case when sum(isnull(cb.总成本情况_动态成本,0)) =0  then  0 
-                else  sum( case when  项目分期分类 ='已在建分期' then isnull(cb.总成本情况_动态成本,0) else  0  end )  / sum(isnull(cb.总成本情况_动态成本,0)) end   AS [在建分期_除地价外直投不含非现金占比],
+                else  sum( case when  项目分期分类 ='在建分期' then isnull(cb.总成本情况_动态成本,0) else  0  end )  / sum(isnull(cb.总成本情况_动态成本,0)) end   AS [在建分期_除地价外直投不含非现金占比],
                 case when sum(isnull(cb.总成本情况_动态成本,0)) =0  then  0 
                 else  sum( case when  项目分期分类 ='本年新开工' then isnull(cb.总成本情况_动态成本,0) else  0  end )  / sum(isnull(cb.总成本情况_动态成本,0)) end   AS [本年新开工_除地价外直投不含非现金占比],
                 case when sum(isnull(cb.总成本情况_动态成本,0)) =0  then  0 
@@ -563,12 +664,23 @@ Begin
                 sum( case when  项目分期分类 ='本年计划竣备分期' then isnull(cb.待签约_合约规划金额,0) else  0  end ) /100000000.0 AS [本年计划竣备分期_未签约_合约成本],
                 sum( case when  项目分期分类 ='在建分期' then isnull(cb.待签约_合约规划金额,0) else  0  end ) /100000000.0 AS [在建分期_未签约_合约成本],
                 sum( case when  项目分期分类 ='本年新开工' then isnull(cb.待签约_合约规划金额,0) else  0  end ) /100000000.0 AS [本年新开工_未签约_合约成本],
-                null AS [未开工_未签约_合约成本],
-                round(sum( case when  项目分期分类 <>'未开工' then isnull(cb.待签约_合约规划金额,0) else  0  end ) /100000000.0 ,0) as [未签约_合约成本合计], 
+                
+                
+                -- 未开工未签约合约成本 = 未开工_动态成本
+                sum( case when  项目分期分类 ='未开工' then isnull(cb.总成本情况_动态成本,0) else  0  end ) /100000000.0 AS [未开工_未签约_合约成本],
+                -- round(sum( case when  项目分期分类 <>'未开工' then isnull(cb.待签约_合约规划金额,0) else  0  end ) /100000000.0 ,0) as [未签约_合约成本合计], 
+                -- round( case when sum( case when  项目分期分类 is not null  then  isnull(cb.总成本情况_动态成本,0) else 0 end  )   =0  then  0 
+                --     else  sum( case when  项目分期分类 <>'未开工' then isnull(cb.待签约_合约规划金额,0) else  0  end )  
+                --     / sum( case when  项目分期分类 is not null  then  isnull(cb.总成本情况_动态成本,0) else 0 end  ) *100.0
+                -- end,0)   [未签约_合约成本占动态成本比例],
+                round(sum( case when  项目分期分类 <>'未开工' then isnull(cb.待签约_合约规划金额,0) else  0  end ) /100000000.0 + 
+                    sum( case when  项目分期分类 ='未开工' then isnull(cb.总成本情况_动态成本,0) else  0  end ) /100000000.0 ,0) as [未签约_合约成本合计], 
                 round( case when sum( case when  项目分期分类 is not null  then  isnull(cb.总成本情况_动态成本,0) else 0 end  )   =0  then  0 
-                    else  sum( case when  项目分期分类 <>'未开工' then isnull(cb.待签约_合约规划金额,0) else  0  end )  
-                    / sum( case when  项目分期分类 is not null  then  isnull(cb.总成本情况_动态成本,0) else 0 end  ) *100.0
-                end,0)   [未签约_合约成本占动态成本比例],
+                    else (
+                        sum( case when  项目分期分类 <>'未开工' then isnull(cb.待签约_合约规划金额,0) else  0  end )  + 
+                        sum( case when  项目分期分类 ='未开工' then isnull(cb.总成本情况_动态成本,0) else  0  end ) 
+                    ) / sum( case when  项目分期分类 is not null  then  isnull(cb.总成本情况_动态成本,0) else 0 end  ) *100.0
+                end,0)   [未签约_合约成本占动态成本比例],    
 
                 -- 未签约_预留成本
                 0 AS [已竣备分期_结算完成率等于100%_未签约_预留成本], -- 默认为0
@@ -604,13 +716,43 @@ Begin
                 
 
                 -- 预留金占比
-                sum( case when  项目分期分类 ='已竣备分期_结算完成率等于100%' then isnull(cb.预留金_待发生预留金,0) else  0  end ) /100000000.0 AS [已竣备分期_结算完成率等于100%_预留金占比],
-                sum( case when  项目分期分类 ='已竣备分期_结算完成率95%至100%' then isnull(cb.预留金_待发生预留金,0) else  0  end ) /100000000.0 AS [已竣备分期_结算完成率95%至100%_预留金占比],
-                sum( case when  项目分期分类 ='已竣备分期_结算完成率小于95%' then isnull(cb.预留金_待发生预留金,0) else  0  end ) /100000000.0 AS [已竣备分期_结算完成率小于95%_预留金占比],
-                sum( case when  项目分期分类 ='本年计划竣备分期' then isnull(cb.预留金_待发生预留金,0) else  0  end ) /100000000.0 AS [本年计划竣备分期_预留金占比],
-                sum( case when  项目分期分类 ='在建分期' then isnull(cb.预留金_待发生预留金,0) else  0  end ) /100000000.0 AS [在建分期_预留金占比],
-                sum( case when  项目分期分类 ='本年新开工' then isnull(cb.预留金_待发生预留金,0) else  0  end ) /100000000.0 AS [本年新开工_预留金占比],
-                sum( case when  项目分期分类 ='未开工' then isnull(cb.预留金_待发生预留金,0) else  0  end ) /100000000.0  AS [未开工_预留金占比],
+               case  when  sum( case when  项目分期分类 ='已竣备分期_结算完成率等于100%' then isnull(cb.总成本情况_动态成本,0) else  0  end ) =0  then 0 else    
+                    sum( case when  项目分期分类 ='已竣备分期_结算完成率等于100%' then 
+                                isnull(cb.总价合同_首次签约为总价包干_预留金待发生,0) 
+                                +isnull(cb.总价合同_首次签约为单价合同_目前已转总_预留金待发生,0) 
+                                + isnull(cb.单价合同_首次签约为单价合同且未完成转总_预留金待发生,0) else 0 end ) 
+                    /  sum( case when  项目分期分类 ='已竣备分期_结算完成率等于100%' then isnull(cb.总成本情况_动态成本,0) else  0  end ) end AS [已竣备分期_结算完成率等于100%_预留金占比],
+               case when  sum( case when  项目分期分类 ='已竣备分期_结算完成率95%至100%' then isnull(cb.总成本情况_动态成本,0) else  0  end )  =0 then 0 else  
+                     sum( case when  项目分期分类 ='已竣备分期_结算完成率95%至100%' then  
+                        isnull(cb.总价合同_首次签约为总价包干_预留金待发生,0) 
+                        +isnull(cb.总价合同_首次签约为单价合同_目前已转总_预留金待发生,0) 
+                        + isnull(cb.单价合同_首次签约为单价合同且未完成转总_预留金待发生,0) else  0  end ) 
+                    /  sum( case when  项目分期分类 ='已竣备分期_结算完成率95%至100%' then isnull(cb.总成本情况_动态成本,0) else  0  end ) end  AS [已竣备分期_结算完成率95%至100%_预留金占比],
+               case when  sum( case when  项目分期分类 ='已竣备分期_结算完成率小于95%' then isnull(cb.总成本情况_动态成本,0) else  0  end ) =0 then  0 else 
+                     sum( case when  项目分期分类 ='已竣备分期_结算完成率小于95%' then 
+                        isnull(cb.总价合同_首次签约为总价包干_预留金待发生,0) 
+                        +isnull(cb.总价合同_首次签约为单价合同_目前已转总_预留金待发生,0) 
+                        + isnull(cb.单价合同_首次签约为单价合同且未完成转总_预留金待发生,0)  else  0  end ) 
+                    / sum( case when  项目分期分类 ='已竣备分期_结算完成率小于95%' then isnull(cb.总成本情况_动态成本,0) else  0  end ) end  AS [已竣备分期_结算完成率小于95%_预留金占比],
+               case when  sum( case when  项目分期分类 ='本年计划竣备分期' then isnull(cb.总成本情况_动态成本,0) else  0  end ) =0 then 0 else  
+                    sum( case when  项目分期分类 ='本年计划竣备分期' then 
+                            isnull(cb.总价合同_首次签约为总价包干_预留金待发生,0) 
+                            +isnull(cb.总价合同_首次签约为单价合同_目前已转总_预留金待发生,0) 
+                            + isnull(cb.单价合同_首次签约为单价合同且未完成转总_预留金待发生,0)  else  0  end ) 
+                   / sum( case when  项目分期分类 ='本年计划竣备分期' then isnull(cb.总成本情况_动态成本,0) else  0  end ) end  AS [本年计划竣备分期_预留金占比],
+               case when  sum( case when  项目分期分类 ='在建分期' then isnull(cb.总成本情况_动态成本,0) else  0  end ) = 0  then  0 else   
+                      sum( case when  项目分期分类 ='在建分期' then 
+                         isnull(cb.总价合同_首次签约为总价包干_预留金待发生,0) 
+                        +isnull(cb.总价合同_首次签约为单价合同_目前已转总_预留金待发生,0) 
+                        + isnull(cb.单价合同_首次签约为单价合同且未完成转总_预留金待发生,0)  else  0  end ) 
+                   / sum( case when  项目分期分类 ='在建分期' then isnull(cb.总成本情况_动态成本,0) else  0  end ) end  AS [在建分期_预留金占比],
+               case when  sum( case when  项目分期分类 ='本年新开工' then isnull(cb.总成本情况_动态成本,0) else  0  end ) =0 then 0 else 
+                   sum( case when  项目分期分类 ='本年新开工' then 
+                        isnull(cb.总价合同_首次签约为总价包干_预留金待发生,0) 
+                        +isnull(cb.总价合同_首次签约为单价合同_目前已转总_预留金待发生,0) 
+                        + isnull(cb.单价合同_首次签约为单价合同且未完成转总_预留金待发生,0)  else  0  end ) 
+                   / sum( case when  项目分期分类 ='本年新开工' then isnull(cb.总成本情况_动态成本,0) else  0  end ) end  AS [本年新开工_预留金占比],
+                0 AS [未开工_预留金占比],
 
                 -- 余量池
                 sum( case when  项目分期分类 ='已竣备分期_结算完成率等于100%' then isnull(cb.总成本情况_余量池,0) else  0  end ) /100000000.0 AS [已竣备分期_结算完成率等于100%_余量池],
@@ -781,7 +923,7 @@ Begin
                         case when sum(isnull(cb.总成本情况_动态成本,0)) =0  then  0 
                         else  sum( case when  项目分期分类 ='本年计划竣备分期' then isnull(cb.总成本情况_动态成本,0) else  0  end )  / sum(isnull(cb.总成本情况_动态成本,0)) end   AS [本年计划竣备分期_除地价外直投不含非现金占比],
                         case when sum(isnull(cb.总成本情况_动态成本,0)) =0  then  0 
-                        else  sum( case when  项目分期分类 ='已在建分期' then isnull(cb.总成本情况_动态成本,0) else  0  end )  / sum(isnull(cb.总成本情况_动态成本,0)) end   AS [在建分期_除地价外直投不含非现金占比],
+                        else  sum( case when  项目分期分类 ='在建分期' then isnull(cb.总成本情况_动态成本,0) else  0  end )  / sum(isnull(cb.总成本情况_动态成本,0)) end   AS [在建分期_除地价外直投不含非现金占比],
                         case when sum(isnull(cb.总成本情况_动态成本,0)) =0  then  0 
                         else  sum( case when  项目分期分类 ='本年新开工' then isnull(cb.总成本情况_动态成本,0) else  0  end )  / sum(isnull(cb.总成本情况_动态成本,0)) end   AS [本年新开工_除地价外直投不含非现金占比],
                         case when sum(isnull(cb.总成本情况_动态成本,0)) =0  then  0 
@@ -936,12 +1078,21 @@ Begin
                         sum( case when  项目分期分类 ='本年计划竣备分期' then isnull(cb.待签约_合约规划金额,0) else  0  end ) /100000000.0 AS [本年计划竣备分期_未签约_合约成本],
                         sum( case when  项目分期分类 ='在建分期' then isnull(cb.待签约_合约规划金额,0) else  0  end ) /100000000.0 AS [在建分期_未签约_合约成本],
                         sum( case when  项目分期分类 ='本年新开工' then isnull(cb.待签约_合约规划金额,0) else  0  end ) /100000000.0 AS [本年新开工_未签约_合约成本],
-                        null AS [未开工_未签约_合约成本],
-                        round(sum( case when  项目分期分类 <>'未开工' then isnull(cb.待签约_合约规划金额,0) else  0  end ) /100000000.0 ,0) as [未签约_合约成本合计], 
+                        -- 未开工未签约合约成本 = 未开工_动态成本
+                        sum( case when  项目分期分类 ='未开工' then isnull(cb.总成本情况_动态成本,0) else  0  end ) /100000000.0 AS [未开工_未签约_合约成本],
+                        -- round(sum( case when  项目分期分类 <>'未开工' then isnull(cb.待签约_合约规划金额,0) else  0  end ) /100000000.0 ,0) as [未签约_合约成本合计], 
+                        -- round( case when sum( case when  项目分期分类 is not null  then  isnull(cb.总成本情况_动态成本,0) else 0 end  )   =0  then  0 
+                        --     else  sum( case when  项目分期分类 <>'未开工' then isnull(cb.待签约_合约规划金额,0) else  0  end )  
+                        --     / sum( case when  项目分期分类 is not null  then  isnull(cb.总成本情况_动态成本,0) else 0 end  ) *100.0
+                        -- end,0)   [未签约_合约成本占动态成本比例],
+                        round(sum( case when  项目分期分类 <>'未开工' then isnull(cb.待签约_合约规划金额,0) else  0  end ) /100000000.0 + 
+                            sum( case when  项目分期分类 ='未开工' then isnull(cb.总成本情况_动态成本,0) else  0  end ) /100000000.0 ,0) as [未签约_合约成本合计], 
                         round( case when sum( case when  项目分期分类 is not null  then  isnull(cb.总成本情况_动态成本,0) else 0 end  )   =0  then  0 
-                            else  sum( case when  项目分期分类 <>'未开工' then isnull(cb.待签约_合约规划金额,0) else  0  end )  
-                            / sum( case when  项目分期分类 is not null  then  isnull(cb.总成本情况_动态成本,0) else 0 end  ) *100.0
-                        end,0)   [未签约_合约成本占动态成本比例],
+                            else (
+                                sum( case when  项目分期分类 <>'未开工' then isnull(cb.待签约_合约规划金额,0) else  0  end )  + 
+                                sum( case when  项目分期分类 ='未开工' then isnull(cb.总成本情况_动态成本,0) else  0  end ) 
+                            ) / sum( case when  项目分期分类 is not null  then  isnull(cb.总成本情况_动态成本,0) else 0 end  ) *100.0
+                        end,0)   [未签约_合约成本占动态成本比例],                   
 
                         -- 未签约_预留成本
                         0 AS [已竣备分期_结算完成率等于100%_未签约_预留成本], -- 默认为0
@@ -977,13 +1128,43 @@ Begin
                         
 
                         -- 预留金占比
-                        sum( case when  项目分期分类 ='已竣备分期_结算完成率等于100%' then isnull(cb.预留金_待发生预留金,0) else  0  end ) /100000000.0 AS [已竣备分期_结算完成率等于100%_预留金占比],
-                        sum( case when  项目分期分类 ='已竣备分期_结算完成率95%至100%' then isnull(cb.预留金_待发生预留金,0) else  0  end ) /100000000.0 AS [已竣备分期_结算完成率95%至100%_预留金占比],
-                        sum( case when  项目分期分类 ='已竣备分期_结算完成率小于95%' then isnull(cb.预留金_待发生预留金,0) else  0  end ) /100000000.0 AS [已竣备分期_结算完成率小于95%_预留金占比],
-                        sum( case when  项目分期分类 ='本年计划竣备分期' then isnull(cb.预留金_待发生预留金,0) else  0  end ) /100000000.0 AS [本年计划竣备分期_预留金占比],
-                        sum( case when  项目分期分类 ='在建分期' then isnull(cb.预留金_待发生预留金,0) else  0  end ) /100000000.0 AS [在建分期_预留金占比],
-                        sum( case when  项目分期分类 ='本年新开工' then isnull(cb.预留金_待发生预留金,0) else  0  end ) /100000000.0 AS [本年新开工_预留金占比],
-                        sum( case when  项目分期分类 ='未开工' then isnull(cb.预留金_待发生预留金,0) else  0  end ) /100000000.0  AS [未开工_预留金占比],
+                        case  when  sum( case when  项目分期分类 ='已竣备分期_结算完成率等于100%' then isnull(cb.总成本情况_动态成本,0) else  0  end ) =0  then 0 else    
+                                sum( case when  项目分期分类 ='已竣备分期_结算完成率等于100%' then 
+                                            isnull(cb.总价合同_首次签约为总价包干_预留金待发生,0) 
+                                            +isnull(cb.总价合同_首次签约为单价合同_目前已转总_预留金待发生,0) 
+                                            + isnull(cb.单价合同_首次签约为单价合同且未完成转总_预留金待发生,0) else 0 end ) 
+                                /  sum( case when  项目分期分类 ='已竣备分期_结算完成率等于100%' then isnull(cb.总成本情况_动态成本,0) else  0  end ) end AS [已竣备分期_结算完成率等于100%_预留金占比],
+                        case when  sum( case when  项目分期分类 ='已竣备分期_结算完成率95%至100%' then isnull(cb.总成本情况_动态成本,0) else  0  end )  =0 then 0 else  
+                                sum( case when  项目分期分类 ='已竣备分期_结算完成率95%至100%' then  
+                                    isnull(cb.总价合同_首次签约为总价包干_预留金待发生,0) 
+                                    +isnull(cb.总价合同_首次签约为单价合同_目前已转总_预留金待发生,0) 
+                                    + isnull(cb.单价合同_首次签约为单价合同且未完成转总_预留金待发生,0) else  0  end ) 
+                                /  sum( case when  项目分期分类 ='已竣备分期_结算完成率95%至100%' then isnull(cb.总成本情况_动态成本,0) else  0  end ) end  AS [已竣备分期_结算完成率95%至100%_预留金占比],
+                        case when  sum( case when  项目分期分类 ='已竣备分期_结算完成率小于95%' then isnull(cb.总成本情况_动态成本,0) else  0  end ) =0 then  0 else 
+                                sum( case when  项目分期分类 ='已竣备分期_结算完成率小于95%' then 
+                                    isnull(cb.总价合同_首次签约为总价包干_预留金待发生,0) 
+                                    +isnull(cb.总价合同_首次签约为单价合同_目前已转总_预留金待发生,0) 
+                                    + isnull(cb.单价合同_首次签约为单价合同且未完成转总_预留金待发生,0)  else  0  end ) 
+                                / sum( case when  项目分期分类 ='已竣备分期_结算完成率小于95%' then isnull(cb.总成本情况_动态成本,0) else  0  end ) end  AS [已竣备分期_结算完成率小于95%_预留金占比],
+                        case when  sum( case when  项目分期分类 ='本年计划竣备分期' then isnull(cb.总成本情况_动态成本,0) else  0  end ) =0 then 0 else  
+                                sum( case when  项目分期分类 ='本年计划竣备分期' then 
+                                        isnull(cb.总价合同_首次签约为总价包干_预留金待发生,0) 
+                                        +isnull(cb.总价合同_首次签约为单价合同_目前已转总_预留金待发生,0) 
+                                        + isnull(cb.单价合同_首次签约为单价合同且未完成转总_预留金待发生,0)  else  0  end ) 
+                            / sum( case when  项目分期分类 ='本年计划竣备分期' then isnull(cb.总成本情况_动态成本,0) else  0  end ) end  AS [本年计划竣备分期_预留金占比],
+                        case when  sum( case when  项目分期分类 ='在建分期' then isnull(cb.总成本情况_动态成本,0) else  0  end ) = 0  then  0 else   
+                                sum( case when  项目分期分类 ='在建分期' then 
+                                    isnull(cb.总价合同_首次签约为总价包干_预留金待发生,0) 
+                                    +isnull(cb.总价合同_首次签约为单价合同_目前已转总_预留金待发生,0) 
+                                    + isnull(cb.单价合同_首次签约为单价合同且未完成转总_预留金待发生,0)  else  0  end ) 
+                            / sum( case when  项目分期分类 ='在建分期' then isnull(cb.总成本情况_动态成本,0) else  0  end ) end  AS [在建分期_预留金占比],
+                        case when  sum( case when  项目分期分类 ='本年新开工' then isnull(cb.总成本情况_动态成本,0) else  0  end ) =0 then 0 else 
+                            sum( case when  项目分期分类 ='本年新开工' then 
+                                    isnull(cb.总价合同_首次签约为总价包干_预留金待发生,0) 
+                                    +isnull(cb.总价合同_首次签约为单价合同_目前已转总_预留金待发生,0) 
+                                    + isnull(cb.单价合同_首次签约为单价合同且未完成转总_预留金待发生,0)  else  0  end ) 
+                            / sum( case when  项目分期分类 ='本年新开工' then isnull(cb.总成本情况_动态成本,0) else  0  end ) end  AS [本年新开工_预留金占比],
+                            0 AS [未开工_预留金占比],
 
                         -- 余量池
                         sum( case when  项目分期分类 ='已竣备分期_结算完成率等于100%' then isnull(cb.总成本情况_余量池,0) else  0  end ) /100000000.0 AS [已竣备分期_结算完成率等于100%_余量池],
@@ -1113,7 +1294,7 @@ Begin
         SELECT
             公司GUID AS [公司GUID],
             公司名称 AS [公司名称],
-        GETDATE() AS [清洗日期],
+             GETDATE() AS [清洗日期],
 
         -- 分期数
         sum( case when  项目分期分类 ='已竣备分期_结算完成率等于100%' then 1 else  0  end ) AS [已竣备分期_结算完成率等于100%_分期数],
@@ -1154,7 +1335,7 @@ Begin
         case when sum(isnull(cb.总成本情况_动态成本,0)) =0  then  0 
            else  sum( case when  项目分期分类 ='本年计划竣备分期' then isnull(cb.总成本情况_动态成本,0) else  0  end )  / sum(isnull(cb.总成本情况_动态成本,0)) end   AS [本年计划竣备分期_除地价外直投不含非现金占比],
         case when sum(isnull(cb.总成本情况_动态成本,0)) =0  then  0 
-           else  sum( case when  项目分期分类 ='已在建分期' then isnull(cb.总成本情况_动态成本,0) else  0  end )  / sum(isnull(cb.总成本情况_动态成本,0)) end   AS [在建分期_除地价外直投不含非现金占比],
+           else  sum( case when  项目分期分类 ='在建分期' then isnull(cb.总成本情况_动态成本,0) else  0  end )  / sum(isnull(cb.总成本情况_动态成本,0)) end   AS [在建分期_除地价外直投不含非现金占比],
         case when sum(isnull(cb.总成本情况_动态成本,0)) =0  then  0 
            else  sum( case when  项目分期分类 ='本年新开工' then isnull(cb.总成本情况_动态成本,0) else  0  end )  / sum(isnull(cb.总成本情况_动态成本,0)) end   AS [本年新开工_除地价外直投不含非现金占比],
         case when sum(isnull(cb.总成本情况_动态成本,0)) =0  then  0 
@@ -1309,11 +1490,16 @@ Begin
         sum( case when  项目分期分类 ='本年计划竣备分期' then isnull(cb.待签约_合约规划金额,0) else  0  end ) /100000000.0 AS [本年计划竣备分期_未签约_合约成本],
         sum( case when  项目分期分类 ='在建分期' then isnull(cb.待签约_合约规划金额,0) else  0  end ) /100000000.0 AS [在建分期_未签约_合约成本],
         sum( case when  项目分期分类 ='本年新开工' then isnull(cb.待签约_合约规划金额,0) else  0  end ) /100000000.0 AS [本年新开工_未签约_合约成本],
-        null AS [未开工_未签约_合约成本],
-        round(sum( case when  项目分期分类 <>'未开工' then isnull(cb.待签约_合约规划金额,0) else  0  end ) /100000000.0 ,0) as [未签约_合约成本合计], 
+        
+         -- 未开工未签约合约成本 = 未开工_动态成本
+        sum( case when  项目分期分类 ='未开工' then isnull(cb.总成本情况_动态成本,0) else  0  end ) /100000000.0 AS [未开工_未签约_合约成本],
+        round(sum( case when  项目分期分类 <>'未开工' then isnull(cb.待签约_合约规划金额,0) else  0  end ) /100000000.0 + 
+           sum( case when  项目分期分类 ='未开工' then isnull(cb.总成本情况_动态成本,0) else  0  end ) /100000000.0 ,0) as [未签约_合约成本合计], 
         round( case when sum( case when  项目分期分类 is not null  then  isnull(cb.总成本情况_动态成本,0) else 0 end  )   =0  then  0 
-            else  sum( case when  项目分期分类 <>'未开工' then isnull(cb.待签约_合约规划金额,0) else  0  end )  
-              / sum( case when  项目分期分类 is not null  then  isnull(cb.总成本情况_动态成本,0) else 0 end  ) *100.0
+            else (
+                sum( case when  项目分期分类 <>'未开工' then isnull(cb.待签约_合约规划金额,0) else  0  end )  + 
+                sum( case when  项目分期分类 ='未开工' then isnull(cb.总成本情况_动态成本,0) else  0  end ) 
+            ) / sum( case when  项目分期分类 is not null  then  isnull(cb.总成本情况_动态成本,0) else 0 end  ) *100.0
         end,0)   [未签约_合约成本占动态成本比例],
 
         -- 未签约_预留成本
@@ -1350,13 +1536,43 @@ Begin
         
 
         -- 预留金占比
-        sum( case when  项目分期分类 ='已竣备分期_结算完成率等于100%' then isnull(cb.预留金_待发生预留金,0) else  0  end ) /100000000.0 AS [已竣备分期_结算完成率等于100%_预留金占比],
-        sum( case when  项目分期分类 ='已竣备分期_结算完成率95%至100%' then isnull(cb.预留金_待发生预留金,0) else  0  end ) /100000000.0 AS [已竣备分期_结算完成率95%至100%_预留金占比],
-        sum( case when  项目分期分类 ='已竣备分期_结算完成率小于95%' then isnull(cb.预留金_待发生预留金,0) else  0  end ) /100000000.0 AS [已竣备分期_结算完成率小于95%_预留金占比],
-        sum( case when  项目分期分类 ='本年计划竣备分期' then isnull(cb.预留金_待发生预留金,0) else  0  end ) /100000000.0 AS [本年计划竣备分期_预留金占比],
-        sum( case when  项目分期分类 ='在建分期' then isnull(cb.预留金_待发生预留金,0) else  0  end ) /100000000.0 AS [在建分期_预留金占比],
-        sum( case when  项目分期分类 ='本年新开工' then isnull(cb.预留金_待发生预留金,0) else  0  end ) /100000000.0 AS [本年新开工_预留金占比],
-        sum( case when  项目分期分类 ='未开工' then isnull(cb.预留金_待发生预留金,0) else  0  end ) /100000000.0  AS [未开工_预留金占比],
+        case  when  sum( case when  项目分期分类 ='已竣备分期_结算完成率等于100%' then isnull(cb.总成本情况_动态成本,0) else  0  end ) =0  then 0 else    
+                sum( case when  项目分期分类 ='已竣备分期_结算完成率等于100%' then 
+                            isnull(cb.总价合同_首次签约为总价包干_预留金待发生,0) 
+                            +isnull(cb.总价合同_首次签约为单价合同_目前已转总_预留金待发生,0) 
+                            + isnull(cb.单价合同_首次签约为单价合同且未完成转总_预留金待发生,0) else 0 end ) 
+                /  sum( case when  项目分期分类 ='已竣备分期_结算完成率等于100%' then isnull(cb.总成本情况_动态成本,0) else  0  end ) end  AS [已竣备分期_结算完成率等于100%_预留金占比],
+        case when  sum( case when  项目分期分类 ='已竣备分期_结算完成率95%至100%' then isnull(cb.总成本情况_动态成本,0) else  0  end )  =0 then 0 else  
+                sum( case when  项目分期分类 ='已竣备分期_结算完成率95%至100%' then  
+                    isnull(cb.总价合同_首次签约为总价包干_预留金待发生,0) 
+                    +isnull(cb.总价合同_首次签约为单价合同_目前已转总_预留金待发生,0) 
+                    + isnull(cb.单价合同_首次签约为单价合同且未完成转总_预留金待发生,0) else  0  end ) 
+                /  sum( case when  项目分期分类 ='已竣备分期_结算完成率95%至100%' then isnull(cb.总成本情况_动态成本,0) else  0  end ) end  AS [已竣备分期_结算完成率95%至100%_预留金占比],
+        case when  sum( case when  项目分期分类 ='已竣备分期_结算完成率小于95%' then isnull(cb.总成本情况_动态成本,0) else  0  end ) =0 then  0 else 
+                sum( case when  项目分期分类 ='已竣备分期_结算完成率小于95%' then 
+                    isnull(cb.总价合同_首次签约为总价包干_预留金待发生,0) 
+                    +isnull(cb.总价合同_首次签约为单价合同_目前已转总_预留金待发生,0) 
+                    + isnull(cb.单价合同_首次签约为单价合同且未完成转总_预留金待发生,0)  else  0  end ) 
+                / sum( case when  项目分期分类 ='已竣备分期_结算完成率小于95%' then isnull(cb.总成本情况_动态成本,0) else  0  end ) end  AS [已竣备分期_结算完成率小于95%_预留金占比],
+        case when  sum( case when  项目分期分类 ='本年计划竣备分期' then isnull(cb.总成本情况_动态成本,0) else  0  end ) =0 then 0 else  
+                sum( case when  项目分期分类 ='本年计划竣备分期' then 
+                        isnull(cb.总价合同_首次签约为总价包干_预留金待发生,0) 
+                        +isnull(cb.总价合同_首次签约为单价合同_目前已转总_预留金待发生,0) 
+                        + isnull(cb.单价合同_首次签约为单价合同且未完成转总_预留金待发生,0)  else  0  end ) 
+            / sum( case when  项目分期分类 ='本年计划竣备分期' then isnull(cb.总成本情况_动态成本,0) else  0  end ) end  AS [本年计划竣备分期_预留金占比],
+        case when  sum( case when  项目分期分类 ='在建分期' then isnull(cb.总成本情况_动态成本,0) else  0  end ) = 0  then  0 else   
+                sum( case when  项目分期分类 ='在建分期' then 
+                    isnull(cb.总价合同_首次签约为总价包干_预留金待发生,0) 
+                    +isnull(cb.总价合同_首次签约为单价合同_目前已转总_预留金待发生,0) 
+                    + isnull(cb.单价合同_首次签约为单价合同且未完成转总_预留金待发生,0)  else  0  end ) 
+            / sum( case when  项目分期分类 ='在建分期' then isnull(cb.总成本情况_动态成本,0) else  0  end ) end  AS [在建分期_预留金占比],
+        case when  sum( case when  项目分期分类 ='本年新开工' then isnull(cb.总成本情况_动态成本,0) else  0  end ) =0 then 0 else 
+            sum( case when  项目分期分类 ='本年新开工' then 
+                    isnull(cb.总价合同_首次签约为总价包干_预留金待发生,0) 
+                    +isnull(cb.总价合同_首次签约为单价合同_目前已转总_预留金待发生,0) 
+                    + isnull(cb.单价合同_首次签约为单价合同且未完成转总_预留金待发生,0)  else  0  end ) 
+            / sum( case when  项目分期分类 ='本年新开工' then isnull(cb.总成本情况_动态成本,0) else  0  end ) end  AS [本年新开工_预留金占比],
+            0 AS [未开工_预留金占比],
 
         -- 余量池
         sum( case when  项目分期分类 ='已竣备分期_结算完成率等于100%' then isnull(cb.总成本情况_余量池,0) else  0  end ) /100000000.0 AS [已竣备分期_结算完成率等于100%_余量池],
@@ -1496,6 +1712,8 @@ Begin
    drop table #本月动态成本拍照数据
    drop table #今年最近一次拍照动态成本不含非现金
    drop table #历史拍照动态成本不含非现金
+   drop table #p_project
+   drop table #projectFlag
 
 
 end     

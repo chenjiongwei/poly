@@ -1,4 +1,5 @@
 --租赁数据库
 --禁用触发器
+
 ALTER TABLE p_room DISABLE TRIGGER ALL;
 ALTER TABLE myBusinessUnit DISABLE TRIGGER ALL;
