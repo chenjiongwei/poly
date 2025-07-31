@@ -107,18 +107,20 @@ into #ztfl
 FROM  (
     SELECT  tb.项目GUID, tb.项目编码, tb.推广名称 ,tb.营销事业部,tb.营销片区, tb.项目名称, tb.项目简称, tb.项目负责人, tb.组团负责人, tb.区域负责人, tr.费用分档,
             tr.目标费率 AS 目标费率, 
-            CASE WHEN ( ISNULL(qy.本年签约金额, 0) - isnull(ldf.联动房本年签约金额,0) ) = 0 THEN 0 
-            ELSE ISNULL(fy.已发生费用, 0) /(ISNULL(qy.本年签约金额, 0) - isnull(ldf.联动房本年签约金额,0)) END AS 实际费率, --  计算费率需要剔除掉联动房签约金额
+            CASE WHEN ( ISNULL(qy.本年签约金额, 0) + isnull(qyrw.非项目本年实际签约金额,0) - isnull(ldf.联动房本年签约金额,0) ) = 0 THEN 0 
+            ELSE ISNULL(fy.已发生费用, 0) /(ISNULL(qy.本年签约金额, 0) + isnull(qyrw.非项目本年实际签约金额,0) - isnull(ldf.联动房本年签约金额,0)) END AS 实际费率, --  计算费率需要剔除掉联动房签约金额
             ISNULL(qyrw.年度签约任务, 0) AS 本年签约任务,
             ISNULL(qyrw.月度签约任务, 0) AS 本月签约任务,
             ISNULL(qy.本年签约金额, 0) + isnull(qyrw.非项目本年实际签约金额,0) -isnull(ldf.联动房本年签约金额,0) AS 本年签约金额,
             ISNULL(qy.本月签约金额, 0) + isnull(qyrw.非项目本月实际签约金额,0) -isnull(ldf.联动房本月签约金额,0) AS 本月签约金额,
+            isnull(ldf.联动房本年签约金额,0) as 联动房本年签约金额,
+            isnull(ldf.联动房本月签约金额,0) as 联动房本月签约金额,
             case  when  ISNULL(qyrw.年度签约任务, 0) =0  then  0 else  (ISNULL(qy.本年签约金额, 0) + isnull(qyrw.非项目本年实际签约金额,0) -isnull(ldf.联动房本年签约金额,0) )/ISNULL(qyrw.年度签约任务, 0) end as 本年任务完成率,
             case  when  ISNULL(qyrw.月度签约任务, 0) =0  then  0 else  (ISNULL(qy.本月签约金额, 0) + isnull(qyrw.非项目本月实际签约金额,0) -isnull(ldf.联动房本月签约金额,0) )/ISNULL(qyrw.月度签约任务, 0) end as 本月任务完成率,
             case  when rg.projguid is null then  datediff(day,convert(varchar(4),year(getdate()))+'-01-01',getdate()) *1.0 /365
                else datediff(day,rg.ldscrgdate_hhzts,getdate()) *1.0/ datediff(day,rg.ldscrgdate_hhzts,convert(varchar(4),year(getdate()))+'-12-31' ) end  as  时间进度,
             ISNULL(fy.已发生费用, 0) AS 已发生费用,
-            CASE WHEN ( ISNULL(qy.本年签约金额, 0) - isnull(ldf.联动房本年签约金额,0) ) = 0 THEN 0 ELSE ISNULL(fy.已发生费用, 0)/(ISNULL(qy.本年签约金额, 0) - isnull(ldf.联动房本年签约金额,0))  
+            CASE WHEN ( ISNULL(qy.本年签约金额, 0) + isnull(qyrw.非项目本年实际签约金额,0) - isnull(ldf.联动房本年签约金额,0) ) = 0 THEN 0 ELSE ISNULL(fy.已发生费用, 0)/(ISNULL(qy.本年签约金额, 0) + isnull(qyrw.非项目本年实际签约金额,0) - isnull(ldf.联动房本年签约金额,0))  
             -  ISNULL(tr.目标费率, 0) END    AS 费率偏差 -- 实际费率-目标费率
             --CASE WHEN ISNULL(fy.已发生费用, 0)/ISNULL(qy.本年签约金额, 0) > ISNULL(tr.目标费率, 0) THEN 1 ELSE 0 END AS 评分
     FROM data_tb_hn_yxpq tb
@@ -578,7 +580,8 @@ SELECT  buguid,
 INTO #fy
 FROM    data_wide_dws_fy_MonthPlanDtl a 
 WHERE   a.Year = YEAR(GETDATE())
-        AND CostShortName in ('自建渠道','第三方分销','老带新','全民营销','数字营销','其他渠道专属费用')
+        -- AND CostShortName in ('自建渠道','第三方分销','老带新','全民营销','数字营销','其他渠道专属费用')
+        AND CostShortName in ('第三方分销')
         -- AND a.month <= MONTH(GETDATE()) 
         AND BUGUID = '70DD6DF4-47F7-46AF-B470-BC18EE57D8FF'
 GROUP BY buguid, ProjGUID
@@ -627,14 +630,30 @@ FROM    (
 INNER JOIN data_wide_dws_mdm_Project p ON p.ProjGUID = t.ParentProjGUID
 WHERE   YEAR(ldscrgdate_hhzts) = YEAR(GETDATE()) --  or  year(ldscrgdate) =year(getdate())
 
--- 获取渠道签约金额
+-- 获取渠道签约金额 剔除车位 剔除联动房
 SELECT  sf.ParentProjGUID as ProjGUID, -- 项目GUID
      sum(QdQyAmount) as 渠道签约金额
 into #qdqy
 FROM data_wide_s_CstSourceRoominfo sf
+left JOIN data_wide_s_RoomoVerride r ON sf.roomguid = r.roomguid
 INNER JOIN data_wide_dws_mdm_Project p ON sf.ProjGUID = p.ProjGUID
 WHERE QyQsDate BETWEEN CONVERT(VARCHAR(4), YEAR(getdate())) + '-01-01' AND CONVERT(VARCHAR(4), YEAR(getdate())) + '-12-31'
-AND p.BUGUID = '70DD6DF4-47F7-46AF-B470-BC18EE57D8FF'
+AND p.BUGUID = '70DD6DF4-47F7-46AF-B470-BC18EE57D8FF' 
+and  FourthSaleCostName ='第三方分销'
+and  r.ProductTypeName NOT IN (
+      '地上车位',
+      '普通地下车位',
+      '人防车位',
+      '露天车位',
+      '机械停车位',
+      '地下储藏室',
+      '室内地上车库',
+      '人防车库',
+      '普通地下车库'
+  )
+
+-- 剔除联动房签约金额
+and not exists (select 1 from data_wide_s_LdfSaleDtl ld where ld.roomguid = sf.roomguid )
 GROUP BY sf.ParentProjGUID
 
 -- 获取本年本月的签约任务
@@ -676,7 +695,8 @@ into #qdfl
 FROM  (
     SELECT  tb.项目GUID, tb.项目编码, tb.推广名称 ,tb.营销事业部,tb.营销片区, tb.项目名称, tb.项目简称, tb.项目负责人, tb.组团负责人, tb.区域负责人, tr.费用分档,
             tr.渠道目标费率 AS 目标费率,
-            CASE WHEN ISNULL(fy.本年费用预算, 0) = 0 THEN 0 ELSE ISNULL(fy.已发生费用, 0)/ISNULL(fy.本年费用预算, 0) END AS 实际费率,
+            -- CASE WHEN ISNULL(fy.本年费用预算, 0) = 0 THEN 0 ELSE ISNULL(fy.已发生费用, 0)/ISNULL(fy.本年费用预算, 0) END AS 实际费率,
+            case when isnull(qdqy.渠道签约金额,0) =0 then  0 else  isnull(fy.已发生费用,0)/isnull(qdqy.渠道签约金额,0) end as 实际费率,
             isnull(fy.本年费用预算,0) as 本年费用预算,
             ISNULL(qyrw.年度签约任务, 0) AS 本年签约任务,
             ISNULL(qyrw.月度签约任务, 0) AS 本月签约任务,
@@ -690,7 +710,7 @@ FROM  (
             case  when rg.projguid is null then  datediff(day,convert(varchar(4),year(getdate()))+'-01-01',getdate()) *1.0 /365
                else datediff(day,rg.ldscrgdate_hhzts,getdate()) *1.0/ datediff(day,rg.ldscrgdate_hhzts,convert(varchar(4),year(getdate()))+'-12-31' ) end  as  时间进度,   
             ISNULL(fy.已发生费用, 0) AS 已发生费用,
-            CASE WHEN ISNULL(fy.本年费用预算, 0) = 0 THEN 0 ELSE ISNULL(fy.已发生费用, 0)/ISNULL(fy.本年费用预算, 0) -  ISNULL(tr.渠道目标费率, 0)   END AS 费率偏差 -- 实际费率-目标费率
+            case when isnull(qdqy.渠道签约金额,0) =0 then  0 else  isnull(fy.已发生费用,0)/isnull(qdqy.渠道签约金额,0)  -  ISNULL(tr.渠道目标费率, 0)   END AS 费率偏差 -- 实际费率-目标费率
             --CASE WHEN ISNULL(fy.已发生费用, 0)/ISNULL(qy.本年签约金额, 0) > ISNULL(tr.目标费率, 0) THEN 1 ELSE 0 END AS 评分
     FROM data_tb_hn_yxpq tb
     LEFT JOIN #fy fy ON tb.项目GUID = fy.ProjGUID
@@ -700,7 +720,7 @@ FROM  (
     LEFT JOIN #qdqy qdqy ON tb.项目GUID = qdqy.ProjGUID 
     LEFT JOIN data_tb_TargetSaleMarketingRate tr ON tb.项目GUID = tr.项目GUID --目标费率填报
     left join #rgDate rg on rg.projguid =fy.projguid
-    WHERE 1 = 1 and  ISNULL(qyrw.年度签约任务, 0) <> 0 and isnull(fy.本年费用预算,0) <> 0
+    WHERE 1 = 1 and  ISNULL(qyrw.年度签约任务, 0) <> 0 and isnull(fy.本年费用预算,0) <> 0 and isnull(tr.渠道目标费率,0) <> 0
 ) qdfl
 
 -- 排序

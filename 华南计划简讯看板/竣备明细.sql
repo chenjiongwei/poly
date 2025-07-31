@@ -35,9 +35,7 @@ SELECT  DISTINCT buname ,
                  投管项目名称 + '-' + 关联工程楼栋 楼栋 ,
                  竣工备案计划完成时间 ,
                  竣工备案实际完成时间 ,
-                 -- case when 竣工备案实际完成时间 IS NULL then   CONVERT(CHAR, DATEDIFF(mm, 竣工备案计划完成时间, GETDATE())) else 0 end as  月 ,
-                 case when b.GCBldGUID is not null then 0 else case when 竣工备案计划完成时间 is null then 
-                      CONVERT(CHAR, convert(decimal(10,2), DATEDIFF(day, 竣工备案计划完成时间, GETDATE()) *1.0/ 30.0 ) ) else  0 end  end 月,
+                 case when 竣工备案实际完成时间 IS NULL then   convert(decimal(10,2), DATEDIFF(day, 竣工备案计划完成时间, GETDATE()) *1.0/ 30.0 ) else 0 end as  月 ,
                  ISNULL(竣工备案预计完成时间, 竣工备案计划完成时间) 预计 ,
                  ISNULL(集中交付实际完成时间, 集中交付计划完成时间) 交付 ,
                  spreadname + '-' + 关联工程楼栋 + '竣备：原节点' + 竣工备案计划完成时间 +   case when  竣工备案实际完成时间 IS NULL then  '，已逾期超' +  CONVERT(VARCHAR(4), DATEDIFF(mm, 竣工备案计划完成时间, GETDATE())) + '个月' + ';' else  ';实际完成：' + 竣工备案实际完成时间  end as  合并

@@ -1,43 +1,52 @@
--- 供货明细表
-SELECT  CASE WHEN a.序号 <= 10 THEN '是' ELSE '否' END AS 短讯是否显示 ,
+--缓存产品楼栋
+SELECT  ms.SaleBldGUID ,
+        '华南公司' buname ,
+        p1.projguid as 项目GUID,
+        p1.spreadname ,
+        gc.GCBldGUID ,
+        ms.BldCode ,
+        gc.BldName gcBldName ,
+        ISNULL(ms.UpBuildArea, 0) + ISNULL(ms.DownBuildArea, 0) zjm ,
+        ms.UpBuildArea dsjm ,
+        ms.DownBuildArea dxjm ,
+        pr.ProductType ,
+        pr.ProductName ,
+        pr.BusinessType ,
+        pr.IsSale ,
+        pr.IsHold ,
+        pr.STANDARD ,
+        ms.UpNum ,
+        ms.DownNum ,
+        c.*
+INTO    #ms
+FROM    dbo.mdm_SaleBuild ms
+        INNER JOIN mdm_Product pr ON pr.ProductGUID = ms.ProductGUID
+        INNER JOIN mdm_GCBuild gc ON gc.GCBldGUID = ms.GCBldGUID
+        LEFT JOIN mdm_project p ON gc.projguid = p.projguid
+        LEFT JOIN mdm_project p1 ON p.parentprojguid = p1.projguid
+        LEFT JOIN MyCost_Erp352.dbo.p_HkbBiddingBuilding2BuildingWork b ON ms.GCBldGUID = b.BuildingGUID
+        LEFT JOIN MyCost_Erp352.dbo.jd_PlanTaskExecuteObjectForReport c ON b.budguid = c.ztguid
+WHERE   p.developmentcompanyguid = 'AADC0FA7-9546-49C9-B64B-825056C828ED';
+
+--供货
+SELECT  DISTINCT buname ,
+                 投管项目名称 + '-' + 关联工程楼栋 楼栋 ,
+                 达到预售形象计划完成时间 ,
+                 达到预售形象实际完成时间 ,
+                 case when 达到预售形象实际完成时间 IS NULL then 
+                     convert(decimal(10,2), DATEDIFF(day, 达到预售形象计划完成时间, GETDATE()) *1.0/ 30.0 )  else  0 end  as  月 ,
+                 ISNULL(达到预售形象预计完成时间, 达到预售形象计划完成时间) 预计 ,
+                 spreadname + '-' + 关联工程楼栋 + '供货：原节点' + 达到预售形象计划完成时间 + '，已逾期超' + CONVERT(VARCHAR(2), DATEDIFF(mm, 达到预售形象计划完成时间, GETDATE())) + '个月' + ';' 合并
+INTO    #gh
+FROM    #ms a
+where  ProductType IN ('住宅', '商业')
+and  DATEDIFF(yy, 达到预售形象计划完成时间, GETDATE()) >= 0 and  DATEDIFF(mm, 达到预售形象计划完成时间, GETDATE()) >= 0
+
+--排序
+SELECT  CASE WHEN t.序号 <= 10 THEN '是' ELSE '否' END AS 短讯是否显示 ,
         *
-FROM(SELECT ROW_NUMBER() OVER (ORDER BY 延期月 DESC) AS 序号 ,
-            项目名称 + '-' + 计划组团名称 + '供货：原节点' + CONVERT(VARCHAR(10), 计划供货完成日期, 121) + '，已逾期超' +CONVERT(VARCHAR(10), CONVERT(DECIMAL(18,1), ISNULL(延期月, 0)) ) + '个月' + ';' AS 简讯内容 ,
-            公司名称 ,
-            项目GUID ,
-            项目名称 ,
-            计划组团名称 ,
-            逾期风险等级,
-            是否开工 ,
-            计划供货完成日期 AS 计划供货日期 ,
-            实际供货完成日期 AS 实际完成日期 ,
-            NULL AS 关联工程楼栋 ,
-            本年计划供货面积 ,
-            本年已供货面积 ,
-            本月计划供货面积 ,
-            本月逾期未供货面积 ,
-            本月已供货面积 ,
-            延期月
-     FROM   (SELECT '华南公司' AS 公司名称 ,
-                    项目名称 ,
-                    p.ProjGUID as 项目GUID,
-                    计划组团名称 ,
-                    逾期风险等级,
-                    是否开工 ,
-                    计划供货完成日期 ,
-                    实际供货完成日期 ,
-                    --关联工程楼栋 ,
-                    CASE WHEN DATEDIFF(YEAR, 计划供货完成日期, GETDATE()) = 0 THEN 本年计划供货面积 ELSE 0 END AS 本年计划供货面积 ,
-                    CASE WHEN DATEDIFF(YEAR, 实际供货完成日期, GETDATE()) = 0  and 是否开工 = '是' THEN 本年计划供货面积 ELSE 0 END AS 本年已供货面积 ,
-                    CASE WHEN DATEDIFF(MONTH, 计划供货完成日期, GETDATE()) = 0 THEN 本年计划供货面积 ELSE 0 END AS 本月计划供货面积 ,
-                    CASE WHEN DATEDIFF(MONTH, 计划供货完成日期, GETDATE()) = 0 AND DATEDIFF(DAY, 计划供货完成日期, GETDATE()) >= 0 AND 实际供货完成日期 IS NULL AND 是否开工 = '是' THEN 本年计划供货面积 ELSE 0 END AS 本月逾期未供货面积 ,
-                    CASE WHEN DATEDIFF(MONTH, 计划供货完成日期, GETDATE()) = 0 and 是否开工 = '是' THEN 本年计划供货面积 ELSE 0 END AS 本月已供货面积 ,
-                    CASE WHEN DATEDIFF(YEAR, 计划供货完成日期, GETDATE()) = 0 AND  DATEDIFF(DAY, 计划供货完成日期, GETDATE()) >= 0 AND 实际供货完成日期 IS NULL AND 是否开工 = '是' THEN
-                             DATEDIFF(DAY, 计划供货完成日期, ISNULL(实际供货完成日期, GETDATE())) * 1.0 / 30.0
-                    END AS 延期月
-             FROM   data_tb_hn_SupplySaleValueNodePlan a
-                    OUTER APPLY(SELECT  TOP 1   batch_id
-                                FROM    data_tb_hn_SupplySaleValueNodePlan
-                                ORDER BY batch_update_time DESC) px
-                    inner join data_wide_dws_mdm_Project p on p.TgProjCode =a.投管项目编码 and p.Level =2
-             WHERE a.batch_id = px.batch_id AND 是否开工 = '是') t ) a;
+FROM(SELECT ROW_NUMBER() OVER (ORDER BY 月 desc) AS 序号, * FROM #gh) t;
+
+--删除临时表
+DROP TABLE #gh ,
+           #ms;

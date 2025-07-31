@@ -47,7 +47,7 @@ BEGIN
                ELSE '否'
            END AS '是否超时',
            d.SysActiveDatetime AS '激活时间',
-    	   dbo.[fn_GetWorkHoursByBU](a.buguid,d.SysActiveDatetime,d.handledatetime)  as  '审批工作时',
+    	      dbo.[fn_GetWorkHoursByBU](a.buguid,d.SysActiveDatetime,d.handledatetime)  as  '审批工作时',
            a.InitiateDatetime as  '发起时间',
            case when a.ProcessStatus in (-2,-1) then null else  a.FinishDatetime end as '归档时间',
            case when  a.ProcessStatus in (-2,-1)  then null else  dbo.[fn_GetWorkHoursByBU](a.buguid,a.InitiateDatetime,a.FinishDatetime) end as '流程总工时'

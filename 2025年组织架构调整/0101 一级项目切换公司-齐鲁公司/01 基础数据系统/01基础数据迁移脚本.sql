@@ -182,3 +182,17 @@ GO
         --删除临时表
         -- DROP TABLE #dqy_proj;
      END;
+
+
+-- 物业房间的BUGUID修改
+-- 备份数据
+select a.* into wy_Room_bak20250708
+FROM wy_Room a
+INNER JOIN dbo.p_Project b ON b.ProjGUID = a.ProjGUID
+WHERE a.BUGUID<>b.BUGUID
+
+--  修改数据
+update  a set  a.buguid =b.buguid
+FROM wy_Room a
+INNER JOIN dbo.p_Project b ON b.ProjGUID = a.ProjGUID
+WHERE a.BUGUID<>b.BUGUID

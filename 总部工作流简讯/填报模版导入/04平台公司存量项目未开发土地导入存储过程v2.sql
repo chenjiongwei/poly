@@ -113,7 +113,7 @@ EXEC usp_nmap_F_平台公司存量项目未开发土地V2 '2025-07-07','erp25.db
 
 	-- 刷新组织架构
 	SELECT  
-	  newid() as  [平台公司存量项目未开发土地GUID]
+	     newid() as  [平台公司存量项目未开发土地GUID]
       ,@FILLHISTORYGUID as [FillHistoryGUID]
       ,c.CompanyGUID  as [BusinessGUID]
       ,isnull(d.[最后导入人],null) as [最后导入人]

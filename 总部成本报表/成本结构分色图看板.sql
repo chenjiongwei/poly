@@ -1,6 +1,6 @@
 USE [MyCost_Erp352]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_cost_structure_color_board]    Script Date: 2025/6/10 8:16:24 ******/
+/****** Object:  StoredProcedure [dbo].[usp_cost_structure_color_board]    Script Date: 2025/7/11 14:44:11 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -9,6 +9,8 @@ GO
 -- 成本结构分色图看板
 -- 2025-04-27 chenjw
 exec usp_cost_structure_color_board '455FC380-B609-4A5A-9AAC-EE0F84C7F1B8','2025-05-13'
+modify chenjw 2025-07-11
+修订降本目标的金额计算逻辑，考虑历史项目数据为0或NULL的情况
 */
 
 ALTER proc [dbo].[usp_cost_structure_color_board]
@@ -434,19 +436,38 @@ Begin
      SELECT 
         a.*,
         -- 本年和去年12月均有拍照数据
+        -- CASE 
+        --     WHEN qn12.DtCost_NotFxj IS NOT NULL AND cur.DtCost_NotFxj IS NOT NULL THEN ISNULL(qn12.DtCost_NotFxj, 0) - ISNULL(cur.DtCost_NotFxj, 0)
+        --     -- 本年有数据，去年12月和历史均无数据
+        --     WHEN qn12.DtCost_NotFxj IS NULL AND ls.DtCost_NotFxj IS NULL AND cur.DtCost_NotFxj IS NOT NULL THEN 
+        --         CASE 
+        --             WHEN curmonth.DtCost_NotFxj IS NOT NULL THEN 0 
+        --             ELSE ISNULL(curfirst.DtCost_NotFxj, 0) - ISNULL(cur.DtCost_NotFxj, 0) 
+        --         END
+        --     -- 历史项目：本年有数据，去年12月无数据但历史数据数据
+        --     WHEN cur.DtCost_NotFxj IS NOT NULL AND qn12.DtCost_NotFxj IS NULL AND ls.DtCost_NotFxj IS NOT NULL THEN ISNULL(ls.DtCost_NotFxj, 0) - ISNULL(cur.DtCost_NotFxj, 0)
+        --     -- 历史老项目：本年无数据，历史有拍照数据
+        --     WHEN cur.DtCost_NotFxj IS NULL AND ls.DtCost_NotFxj IS NOT NULL THEN 0
+        -- END AS 本年新增降本,
+
         CASE 
-            WHEN qn12.DtCost_NotFxj IS NOT NULL AND cur.DtCost_NotFxj IS NOT NULL THEN ISNULL(qn12.DtCost_NotFxj, 0) - ISNULL(cur.DtCost_NotFxj, 0)
+            WHEN isnull(qn12.DtCost_NotFxj,0) <>0 AND isnull(cur.DtCost_NotFxj,0)<>0  THEN 
+                  ISNULL(qn12.DtCost_NotFxj, 0) - ISNULL(cur.DtCost_NotFxj, 0)
             -- 本年有数据，去年12月和历史均无数据
-            WHEN qn12.DtCost_NotFxj IS NULL AND ls.DtCost_NotFxj IS NULL AND cur.DtCost_NotFxj IS NOT NULL THEN 
+            WHEN isnull(qn12.DtCost_NotFxj,0) =0  AND isnull(ls.DtCost_NotFxj,0) =0 AND isnull(cur.DtCost_NotFxj,0) <> 0 THEN 
                 CASE 
-                    WHEN curmonth.DtCost_NotFxj IS NOT NULL THEN 0 
+                    -- 只有本月有数据 取0
+                    WHEN isnull(curmonth.DtCost_NotFxj,0) <> 0 and isnull(curfirst.DtCost_NotFxj,0) =0 THEN 0 
+                    when isnull(curmonth.DtCost_NotFxj,0) =0  and isnull(curfirst.DtCost_NotFxj,0) =0 then  0
                     ELSE ISNULL(curfirst.DtCost_NotFxj, 0) - ISNULL(cur.DtCost_NotFxj, 0) 
                 END
-            -- 历史项目：本年有数据，去年12月无数据但历史数据数据
-            WHEN cur.DtCost_NotFxj IS NOT NULL AND qn12.DtCost_NotFxj IS NULL AND ls.DtCost_NotFxj IS NOT NULL THEN ISNULL(ls.DtCost_NotFxj, 0) - ISNULL(cur.DtCost_NotFxj, 0)
+            -- 历史项目：本年有数据，去年12月无数据但历史数据有数据
+            WHEN isnull(cur.DtCost_NotFxj,0) <>0 AND isnull(qn12.DtCost_NotFxj,0)=0 AND isnull(ls.DtCost_NotFxj,0) <>0  
+                 THEN ISNULL(ls.DtCost_NotFxj, 0) - ISNULL(cur.DtCost_NotFxj, 0)
             -- 历史老项目：本年无数据，历史有拍照数据
-            WHEN cur.DtCost_NotFxj IS NULL AND ls.DtCost_NotFxj IS NOT NULL THEN 0
+            WHEN isnull(cur.DtCost_NotFxj,0) =0  AND isnull(ls.DtCost_NotFxj,0) <>0 THEN 0
         END AS 本年新增降本,
+
         qn12.DtCost_NotFxj AS 去年12月拍照动态成本金额,
         cur.DtCost_NotFxj AS 本年最近一次拍照动态成本金额,
         ls.DtCost_NotFxj AS 历史拍照动态成本金额,

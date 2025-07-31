@@ -1,3022 +1,659 @@
-USE [ERP25]
+USE [MyCost_Erp352]
 GO
-
-/****** Object:  StoredProcedure [dbo].[usp_s_m00201当年签约结转数据_盈利规划单方锁定版调整]    Script Date: 2025/7/3 10:34:22 ******/
+/****** Object:  StoredProcedure [dbo].[usp_rpt_cb_CostStructureReport]    Script Date: 2025/7/7 15:30:00 ******/
 SET ANSI_NULLS ON
 GO
-
 SET QUOTED_IDENTIFIER ON
 GO
-
- 
-CREATE   PROC [dbo].[usp_s_m00201当年签约结转数据_盈利规划单方锁定版调整]
+/*
+ * 各分期成本结构报表
+ * 主要功能:查询各分期的成本结构信息,包括基本信息、总成本情况、预留金、产值及支付等
+ */
+ -- exec sp_executesql N'EXEC usp_cb_BudgetTitle @ProjGUID',N'@ProjGUID nvarchar(36)',@ProjGUID=N'9a86d4ea-8513-e711-80ba-e61f13c57837'
+ -- exec sp_executesql N'EXEC  usp_cb_GetBudgetInfoMain  @ProjGUID ,@State,@BudgetName',N'@ProjGUID nvarchar(36),@State nvarchar(4000),@BudgetName nvarchar(4000)',@ProjGUID=N'9a86d4ea-8513-e711-80ba-e61f13c57837',@State=N'',@BudgetName=N''
+ --exec [usp_rpt_cb_CostStructureReport] '4A1E877C-A0B2-476D-9F19-B5C426173C38'
+ -- modify by zhangjie 2025-05-27 增加已发生预留金(已结算)和已发生预留金(未结算)字段
+ALTER  proc [dbo].[usp_rpt_cb_CostStructureReport]
 (
-    @var_buGUID VARCHAR(MAX),
-    @var_bgndate DATETIME,
-    @var_enddate DATETIME
+    @var_buguid varchar(max) ,  -- 公司guid
+    @var_projguid varchar(max) =null  -- 项目guid
 )
-AS
-
-/*  
-  exec [usp_s_m00201当年签约结转数据_盈利规划单方锁定版调整] '6CBA0828-D863-4EA8-B594-DE3E11DDF573','2025-1-1','2025-05-31'
-  1、增加26年及27年结转数据
-*/
-BEGIN
-
-    --SELECT projGUID FROM ERP25.dbo.mdm_LbProject WHERE LbProject ='tgid' GROUP BY projGUID HAVING COUNT(1)>1
-    --缓存项目
-    SELECT p.ProjGUID,
-           p.DevelopmentCompanyGUID,
-           p.ProjCode
-    INTO #p
-    FROM erp25.dbo.mdm_Project p
-    WHERE p.Level = 2
-          AND 1 = 1
-          AND p.developmentcompanyguid IN (
-                                              SELECT Value FROM [ERP25].[dbo].[fn_Split2](@var_buGUID, ',')
-                                          );
-    --and p.ProjCode='0571032' 
-    --and p.ProjGUID='841AD0CB-B9D9-E711-80BA-E61F13C57837'
-
-
-    --缓存楼栋底表
-    SELECT a.ProjGUID,
-           a.SaleBldGUID,
-           a.ProductType,
-           a.ProductName,
-           a.Standard,
-           a.BusinessType,
-           CONVERT(VARCHAR(MAX), p.ProjCode) + '_' + ISNULL(a.ProductType, '') + '_' + ISNULL(a.ProductName, '') + '_'
-           + ISNULL(a.BusinessType, '') + '_' + ISNULL(a.Standard, '') Product,
-           ISNULL(a.ProductType, '') + '_' + ISNULL(a.ProductName, '') + '_' + ISNULL(a.BusinessType, '') + '_'
-           + ISNULL(a.Standard, '') Productnocode,
-           SJjgbadate,
-           ISNULL(JzjfSjdate, JzjfYjdate) jzjfdate
-    INTO #db
-    FROM erp25.dbo.p_lddbamj a
-         INNER JOIN #p p ON a.ProjGUID = p.ProjGUID
-    WHERE DATEDIFF(DAY, a.QXDate, GETDATE()) = 0;
-
-    --缓存房间
-    SELECT db.ProjGUID,
-           r.ProjGUID fqprojguid,
-           r.RoomGUID,
-           r.BldGUID,
-           db.ProductType,
-           db.ProductName,
-           db.Standard,
-           db.BusinessType,
-           db.Product,
-           CASE
-               WHEN db.ProductType = '地下室/车库' THEN
-                    1
-               ELSE r.BldArea
-           END BldArea,
-           1 Ts,
-           db.jzjfdate,
-           db.SJjgbadate
-    INTO #room
-    FROM erp25.dbo.p_room r
-         INNER JOIN erp25.dbo.p_Project p ON r.ProjGUID = p.ProjGUID
-         INNER JOIN erp25.dbo.p_Project p1 ON p.ParentCode = p1.ProjCode
-         INNER JOIN #db db ON db.SaleBldGUID = r.BldGUID
-    WHERE r.IsVirtualRoom = 0
-          AND r.Status IN ( '认购', '签约' );
-
-
-    --缓存处理过期特殊业绩，①关联房间认购创建日期在取消业绩发起日期前，以特殊业绩认定日期作为业绩判断日期；②关联房间认购创建日期在取消业绩发起日期后，按正常认购日期作为业绩判断日期
-    --先获取对应的特殊业绩关联的清单
-    SELECT a.PerformanceAppraisalGUID,
-           s.rddate,
-           r.roomguid,
-           r.bldarea
-    INTO #tsRoomAll
-    FROM S_PerformanceAppraisalBuildings a
-         LEFT JOIN p_building b ON a.BldGUID = b.BldGUID
-         LEFT JOIN p_room r ON b.BldGUID = r.BldGUID
-         INNER JOIN S_PerformanceAppraisal s ON a.PerformanceAppraisalGUID = s.PerformanceAppraisalGUID
-		 WHERE (s.auditstatus in ('过期审核中','已过期')
-			OR (s.auditstatus = '作废' and s.CancelAuditTime>='2024-01-01'))
-			and s.PerformanceAppraisalGUID <> 'CDF2A700-1117-EE11-B3A3-F40270D39969'
-    UNION
-    SELECT r.PerformanceAppraisalGUID,
-           s.rddate,
-           p.roomguid,
-           p.bldarea
-    FROM S_PerformanceAppraisalRoom r
-         LEFT JOIN p_room p ON r.roomguid = p.roomguid
-         INNER JOIN S_PerformanceAppraisal s ON r.PerformanceAppraisalGUID = s.PerformanceAppraisalGUID
-		 WHERE (s.auditstatus in ('过期审核中','已过期')
-			OR (s.auditstatus = '作废' and s.CancelAuditTime>='2024-01-01'))
-			and s.PerformanceAppraisalGUID <> 'CDF2A700-1117-EE11-B3A3-F40270D39969';
-
-
-
-    --如果多重对接的话，取去重的数据
-    SELECT roomguid,
-           PerformanceAppraisalGUID,
-           ROW_NUMBER() OVER (PARTITION BY roomguid ORDER BY rddate DESC) num,
-           bldarea
-    INTO #tsRoomAllr
-    FROM #tsRoomAll;
-
-    --关联特殊业绩认定信息
-    SELECT s.*,
-           a.RoomGUID
-    INTO #tsRoomAllrsroom
-    FROM #tsRoomAllr a
-         INNER JOIN S_PerformanceAppraisal s ON a.PerformanceAppraisalGUID = s.PerformanceAppraisalGUID
-			AND (s.auditstatus IN ( '已过期', '过期审核中' ) 
-					OR (s.auditstatus = '作废' and s.CancelAuditTime>='2024-01-01')
-				)
-    WHERE a.num = 1
-          AND s.yjtype NOT IN( '物业公司车位代销','经营类(溢价款)')
-
-
-    --缓存认购
-    SELECT a.ProjGUID,
-           a.OrderGUID,
-           a.TradeGUID,
-           a.OrderType,
-           a.BldArea,
-           1 TS,
-           a.JyTotal,
-           a.RoomGUID,
-           a.CloseReason,
-             CASE
-           WHEN DATEDIFF(DAY, ISNULL(a.CreatedOn, a.qsdate), ISNULL(b.SetGqAuditTime, isnull(b.CancelAuditTime,'1900-01-01'))) > 0 THEN
-                b.rddate
-           ELSE a.QSDate
-       END QSDate,
-           a.Status,
-           a.CloseDate
-    INTO #s_order
-    FROM erp25.dbo.s_Order a
-         INNER JOIN #room r ON r.RoomGUID = a.RoomGUID 
-		left join #tsRoomAllrsroom b on a.roomguid = b.roomguid
-    WHERE (
-              a.Status = '激活'
-              OR a.CloseReason = '转签约'
-          )
-          AND DATEDIFF(DAY, @var_bgndate, a.QSDate) >= 0
-          AND DATEDIFF(DAY, a.QSDate, @var_bgndate) <= 0;
-
-    --缓存签约
-    SELECT a.ProjGUID,
-           a.ContractGUID,
-           a.TradeGUID,
-           a.BldArea,
-           1 TS,
-           a.JyTotal,
-           a.RoomGUID,
-           a.CloseReason,
-         CASE
-           WHEN DATEDIFF(DAY, ISNULL(a.CreatedOn, a.qsdate), ISNULL(b.SetGqAuditTime, isnull(b.CancelAuditTime,'1900-01-01'))) > 0 THEN
-                b.rddate
-           ELSE a.QSDate
-       END QSDate,
-           a.Status
-    INTO #s_Contract
-    FROM erp25.dbo.s_Contract a
-         INNER JOIN #room r ON r.RoomGUID = a.RoomGUID 
-		left join #tsRoomAllrsroom b on a.roomguid = b.roomguid
-    WHERE a.Status = '激活'
-          AND DATEDIFF(DAY, @var_bgndate, a.QSDate) >= 0
-          AND DATEDIFF(DAY, a.QSDate, @var_bgndate) <= 0;
-
-    --税率
-    SELECT DISTINCT
-           vt.ProjGUID,
-           VATRate,
-           RoomGUID
-    INTO #vrt
-    FROM erp25.dbo.s_VATSet vt
-         INNER JOIN #room r ON vt.ProjGUID = r.fqprojguid
-    WHERE VATScope = '整个项目'
-          AND AuditState = 1
-          AND RoomGUID NOT IN (
-                                  SELECT DISTINCT
-                                         vtr.RoomGUID
-                                  FROM erp25.dbo.s_VATSet vt ---------  
-                                       INNER JOIN erp25.dbo.s_VAT2RoomScope vtr ON vt.VATGUID = vtr.VATGUID
-                                       INNER JOIN #room r ON vtr.RoomGUID = r.RoomGUID
-                                  WHERE VATScope = '特定房间'
-                                        AND AuditState = 1
-                              )
-    UNION ALL
-    SELECT DISTINCT
-           vt.ProjGUID,
-           vt.VATRate,
-           vtr.RoomGUID
-    FROM erp25.dbo.s_VATSet vt ---------  
-         INNER JOIN erp25.dbo.s_VAT2RoomScope vtr ON vt.VATGUID = vtr.VATGUID
-         INNER JOIN #room r ON vtr.RoomGUID = r.RoomGUID
-    WHERE VATScope = '特定房间'
-          AND AuditState = 1;
-
-
-    --认购
-    SELECT r.ProjGUID,
-           r.ProductType,
-           r.ProductName,
-           r.Standard,
-           r.BusinessType,
-           r.Product,
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.QSDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.QSDate, @var_enddate) >= 0 THEN
-                           r.BldArea
-                      ELSE 0
-                  END
-              ) AS bqrgmj,
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.QSDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.QSDate, @var_enddate) >= 0 THEN
-                           r.Ts
-                      ELSE 0
-                  END
-              ) AS bqrgts,
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.QSDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.QSDate, @var_enddate) >= 0 THEN
-                           a.JyTotal
-                      ELSE 0
-                  END
-              ) AS BqrgJe,
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.QSDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.QSDate, @var_enddate) >= 0 THEN
-                           a.JyTotal / (1 + ISNULL(VATRate, 0) / 100)
-                      ELSE 0
-                  END
-              ) AS bqrgjeNotax
-    INTO #ord
-    FROM #s_order a
-         INNER JOIN #room r ON a.RoomGUID = r.RoomGUID
-         LEFT JOIN erp25.dbo.s_Contract e ON a.TradeGUID = e.TradeGUID
-                                             AND e.CloseReason NOT IN ( '变更价格', '重置认购' )
-         LEFT JOIN #vrt vrt ON vrt.RoomGUID = r.RoomGUID
-    WHERE OrderType = '认购'
-          AND
-          (
-              a.Status = '激活'
-              OR
-              (
-                  a.Status = '关闭'
-                  AND a.CloseReason = '转签约'
-                  AND e.CloseReason NOT IN ( '作废', '换房', '挞定', '折扣变更' )
-              )
-          )
-          AND NOT EXISTS
-    (
-        SELECT 1
-        FROM erp25.dbo.S_PerformanceAppraisalRoom sr
-             INNER JOIN erp25.dbo.S_PerformanceAppraisal s ON s.PerformanceAppraisalGUID = sr.PerformanceAppraisalGUID
-                                                              AND s.AuditStatus = '已审核'
-                                                              AND s.YjType <> '经营类(溢价款)'
-        WHERE r.RoomGUID = sr.RoomGUID
-    )
-          AND NOT EXISTS
-    (
-        SELECT 1
-        FROM erp25.dbo.S_PerformanceAppraisalBuildings sr
-             INNER JOIN erp25.dbo.S_PerformanceAppraisal s ON s.PerformanceAppraisalGUID = sr.PerformanceAppraisalGUID
-                                                              AND s.AuditStatus = '已审核'
-                                                              AND s.YjType <> '经营类(溢价款)'
-        WHERE r.BldGUID = sr.BldGUID
-    )
-    GROUP BY r.ProjGUID,
-             r.Product,
-             r.ProductType,
-             r.ProductName,
-             r.Standard,
-             r.BusinessType;
-
-    --签约
-    SELECT r.ProjGUID,
-           r.ProductType,
-           r.ProductName,
-           r.Standard,
-           r.BusinessType,
-           r.Product,
-           SUM(   CASE
-                      WHEN d.OrderGUID IS NULL
-                           AND DATEDIFF(DAY, a.QSDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.QSDate, @var_enddate) >= 0 THEN
-                           r.BldArea
-                      ELSE 0
-                  END
-              ) AS bqrgmj,
-           SUM(   CASE
-                      WHEN d.OrderGUID IS NULL
-                           AND DATEDIFF(DAY, a.QSDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.QSDate, @var_enddate) >= 0 THEN
-                           r.Ts
-                      ELSE 0
-                  END
-              ) AS bqrgTs,
-           SUM(   CASE
-                      WHEN d.OrderGUID IS NULL
-                           AND DATEDIFF(DAY, a.QSDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.QSDate, @var_enddate) >= 0 THEN
-                  (a.JyTotal + ISNULL(f.amount, 0))
-                      ELSE 0
-                  END
-              ) AS BqRgJe,
-           SUM(   CASE
-                      WHEN d.OrderGUID IS NULL
-                           AND DATEDIFF(DAY, a.QSDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.QSDate, @var_enddate) >= 0 THEN
-                  (a.JyTotal + ISNULL(f.amount, 0)) / (1 + ISNULL(VATRate, 0) / 100)
-                      ELSE 0
-                  END
-              ) AS bqRgjeNotax,
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.QSDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.QSDate, @var_enddate) >= 0 THEN
-                           r.BldArea
-                      ELSE 0
-                  END
-              ) AS bqQymj,
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.QSDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.QSDate, @var_enddate) >= 0 THEN
-                           r.Ts
-                      ELSE 0
-                  END
-              ) AS bqQyts,
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.QSDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.QSDate, @var_enddate) >= 0 THEN
-                  (a.JyTotal + ISNULL(f.amount, 0))
-                      ELSE 0
-                  END
-              ) AS BqQyJe,
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.QSDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.QSDate, @var_enddate) >= 0 THEN
-                  (a.JyTotal + ISNULL(f.amount, 0)) / (1 + ISNULL(VATRate, 0) / 100)
-                      ELSE 0
-                  END
-              ) AS bqQyjeNotax,
-                                  --20240530新增产成品签约情况 
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.QSDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.QSDate, @var_enddate) >= 0
-                           AND DATEDIFF(yy, r.SJjgbadate, @var_enddate) > 0 THEN
-                           r.BldArea
-                      ELSE 0
-                  END
-              ) AS BqccpQymj,     --本期产成品签约面积
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.QSDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.QSDate, @var_enddate) >= 0
-                           AND DATEDIFF(yy, r.SJjgbadate, @var_enddate) > 0 THEN
-                           r.Ts
-                      ELSE 0
-                  END
-              ) AS BqccpQyts,     --本期产成品签约套数
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.QSDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.QSDate, @var_enddate) >= 0
-                           AND DATEDIFF(yy, r.SJjgbadate, @var_enddate) > 0 THEN
-                  (a.JyTotal + ISNULL(f.amount, 0))
-                      ELSE 0
-                  END
-              ) AS BqccpQyje,     --本期产成品签约金额
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.QSDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.QSDate, @var_enddate) >= 0
-                           AND DATEDIFF(yy, r.SJjgbadate, @var_enddate) > 0 THEN
-                  (a.JyTotal + ISNULL(f.amount, 0)) / (1 + ISNULL(VATRate, 0) / 100)
-                      ELSE 0
-                  END
-              ) AS BqccpQyjeNotax --本期产成品签约金额不含税
-    INTO #con
-    FROM #s_Contract a
-         INNER JOIN #room r ON a.RoomGUID = r.RoomGUID
-         LEFT JOIN erp25.dbo.s_Order d ON a.TradeGUID = d.TradeGUID
-                                          AND ISNULL(d.CloseReason, '') = '转签约'
-         LEFT JOIN
-         (
-             SELECT f.TradeGUID,
-                    SUM(Amount) amount
-             FROM erp25.dbo.s_Fee f
-                  INNER JOIN #s_Contract c ON f.TradeGUID = c.TradeGUID
-             WHERE f.ItemName LIKE '%补差%'
-             GROUP BY f.TradeGUID
-         ) f ON a.TradeGUID = f.TradeGUID
-         LEFT JOIN #vrt vrt ON vrt.RoomGUID = r.RoomGUID
-    WHERE a.Status = '激活'
-          AND NOT EXISTS
-    (
-        SELECT 1
-        FROM erp25.dbo.S_PerformanceAppraisalRoom sr
-             INNER JOIN erp25.dbo.S_PerformanceAppraisal s ON s.PerformanceAppraisalGUID = sr.PerformanceAppraisalGUID
-                                                              AND s.AuditStatus = '已审核'
-                                                              AND s.YjType NOT IN ( '经营类(溢价款)', '物业公司车位代销' )
-        WHERE r.RoomGUID = sr.RoomGUID
-    )
-          AND NOT EXISTS
-    (
-        SELECT 1
-        FROM erp25.dbo.S_PerformanceAppraisalBuildings sr
-             INNER JOIN erp25.dbo.S_PerformanceAppraisal s ON s.PerformanceAppraisalGUID = sr.PerformanceAppraisalGUID
-                                                              AND s.AuditStatus = '已审核'
-                                                              AND s.YjType NOT IN ( '经营类(溢价款)', '物业公司车位代销' )
-        WHERE r.BldGUID = sr.BldGUID
-    )
-    GROUP BY r.ProjGUID,
-             r.Product,
-             r.ProductType,
-             r.ProductName,
-             r.Standard,
-             r.BusinessType;
-
-
-    --设置税率表
-    SELECT CONVERT(DATE, '1999-01-01') AS bgnDate,
-           CONVERT(DATE, '2016-03-31') AS endDate,
-           0 AS rate
-    INTO #tmp_tax UNION ALL
-    SELECT CONVERT(DATE, '2016-04-01') AS bgnDate,
-           CONVERT(DATE, '2018-04-30') AS endDate,
-           0.11 AS rate
-    UNION ALL
-    SELECT CONVERT(DATE, '2018-05-01') AS bgnDate,
-           CONVERT(DATE, '2019-03-31') AS endDate,
-           0.1 AS rate
-    UNION ALL
-    SELECT CONVERT(DATE, '2019-04-01') AS bgnDate,
-           CONVERT(DATE, '2099-01-01') AS endDate,
-           0.09 AS rate;
-
-    --合作业绩
-    SELECT c.ProjGUID,
-           CONVERT(DATE, b.DateYear + '-' + b.DateMonth + '-27') AS [BizDate],
-           b.*
-    INTO #hzyj
-    FROM erp25.dbo.s_YJRLProducteDetail b
-         INNER JOIN erp25.dbo.s_YJRLProjSet c ON c.ProjSetGUID = b.ProjSetGUID
-         INNER JOIN #p mp ON c.ProjGUID = mp.ProjGUID
-    WHERE b.Shenhe = '审核';
-
-    SELECT a.ProjGUID,
-           b.ProductType,
-           b.ProductName,
-           b.zxbz standard,
-           b.RoomType BusinessType,
-           f.ProjCode + '_' + b.ProductType + '_' + b.ProductName + '_' + b.RoomType + '_' + b.zxbz Product,
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.BizDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.BizDate, @var_enddate) >= 0 THEN
-                           CASE
-                               WHEN b.ProductType = '地下室/车库' THEN
-                                    b.Taoshu
-                               ELSE b.Area
-                           END
-                      ELSE 0
-                  END
-              ) Hzmj,
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.BizDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.BizDate, @var_enddate) >= 0 THEN
-                           b.Taoshu
-                      ELSE 0
-                  END
-              ) HzTs,
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.BizDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.BizDate, @var_enddate) >= 0 THEN
-                           b.Amount
-                      ELSE 0
-                  END
-              ) * 10000 hzje,
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.BizDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.BizDate, @var_enddate) >= 0 THEN
-                           b.Amount
-                      ELSE 0
-                  END
-              ) / (1 + tax.rate) * 10000 hzjeNotax,
-              CONVERT(decimal(18,2), 0)  BqccpQymj,
-           CONVERT(decimal(18,2), 0) BqccpQyts,
-           CONVERT(decimal(18,2), 0)  BqccpQyje,
-           CONVERT(decimal(18,2), 0)  BqccpQyjeNotax
-    INTO #h
-    FROM #hzyj a
-         LEFT JOIN erp25.dbo.s_YJRLProducteDescript b ON a.ProducteDetailGUID = b.ProducteDetailGUID
-         --LEFT JOIN s_YJRLBuildingDescript bb ON a.ProducteDetailGUID = bb.ProducteDetailGUID
-         LEFT JOIN #p f ON a.ProjGUID = f.ProjGUID
-         LEFT JOIN #tmp_tax tax ON DATEDIFF(DAY, a.BizDate, tax.bgnDate) <= 0
-                                   AND DATEDIFF(DAY, a.BizDate, tax.endDate) >= 0
-    -- LEFT JOIN #db db ON bb.bldGUID = db.SaleBldGUID
-    GROUP BY a.ProjGUID,
-             tax.rate,
-             f.ProjCode + '_' + b.ProductType + '_' + b.ProductName + '_' + b.RoomType + '_' + b.zxbz,
-             b.ProductType,
-             b.ProductName,
-             b.zxbz,
-             b.RoomType;
-
-    ---0530合作业绩加产成品
-
-    SELECT a.ProjGUID,
-           db.ProductType,
-           db.ProductName,
-           db.standard standard,
-           db.BusinessType BusinessType,
-           f.ProjCode + '_' + db.ProductType + '_' + db.ProductName + '_' + db.BusinessType + '_' + db.standard Product,
-
-           --20240530新增产成品签约情况
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.BizDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.BizDate, @var_enddate) >= 0
-                           AND DATEDIFF(yy, db.SJjgbadate, @var_enddate) > 0 THEN
-                           CASE
-                               WHEN db.ProductType = '地下室/车库' THEN
-                                    bb.Taoshu
-                               ELSE bb.Area
-                           END
-                      ELSE 0
-                  END
-              ) BqccpQymj,
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.BizDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.BizDate, @var_enddate) >= 0
-                           AND DATEDIFF(yy, db.SJjgbadate, @var_enddate) > 0 THEN
-                           bb.Taoshu
-                      ELSE 0
-                  END
-              ) BqccpQyts,
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.BizDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.BizDate, @var_enddate) >= 0
-                           AND DATEDIFF(yy, db.SJjgbadate, @var_enddate) > 0 THEN
-                           bb.Amount
-                      ELSE 0
-                  END
-              ) * 10000 BqccpQyje,
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.BizDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.BizDate, @var_enddate) >= 0
-                           AND DATEDIFF(yy, db.SJjgbadate, @var_enddate) > 0 THEN
-                           bb.Amount
-                      ELSE 0
-                  END
-              ) / (1 + tax.rate) * 10000 BqccpQyjeNotax
-    INTO #hh
-    FROM #hzyj a
-         LEFT JOIN erp25.dbo.s_YJRLBuildingDescript bb ON a.ProducteDetailGUID = bb.ProducteDetailGUID
-         LEFT JOIN #p f ON a.ProjGUID = f.ProjGUID
-         LEFT JOIN #tmp_tax tax ON DATEDIFF(DAY, a.BizDate, tax.bgnDate) <= 0
-                                   AND DATEDIFF(DAY, a.BizDate, tax.endDate) >= 0
-         LEFT JOIN #db db ON bb.bldGUID = db.SaleBldGUID
-    GROUP BY a.ProjGUID,
-             tax.rate,
-             f.ProjCode + '_' + db.ProductType + '_' + db.ProductName + '_' + db.BusinessType + '_' + db.standard,
-             db.ProductType,
-             db.ProductName,
-             db.standard,
-             db.BusinessType;
-
-
-    UPDATE a
-    SET a.BqccpQymj = CONVERT(decimal(18,2), b.BqccpQymj)  ,
-        a.BqccpQyts = CONVERT(decimal(18,2), b.BqccpQyts)      ,
-        a.BqccpQyje =CONVERT(decimal(18,2), b.BqccpQyje)   ,
-        a.BqccpQyjeNotax =  CONVERT(decimal(18,2), b.BqccpQyjeNotax)   
-    FROM #h a
-         INNER JOIN #hh b ON a.projguid = b.projguid
-                             AND a.Product = b.Product;
-
-    --特殊业绩
-    SELECT a.*,
-           a.TotalAmount / (1 + tax.rate) TotalAmountnotax,
-           tax.rate
-    INTO #s_PerformanceAppraisal
-    FROM erp25.dbo.S_PerformanceAppraisal a
-         INNER JOIN #p mp ON a.ManagementProjectGUID = mp.ProjGUID
-         LEFT JOIN #tmp_tax tax ON DATEDIFF(DAY, a.RdDate, tax.bgnDate) <= 0
-                                   AND DATEDIFF(DAY, a.RdDate, tax.endDate) >= 0;
-
-
-    SELECT a.ManagementProjectGUID Projguid,
-           db.ProductType,
-           db.ProductName,
-           db.Standard,
-           db.BusinessType,
-           db.Product,
-           SUM(   CASE
-                      WHEN (a.YjType <> '经营类(溢价款)')
-                           AND DATEDIFF(DAY, a.RdDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.RdDate, @var_enddate) >= 0 THEN
-                           CASE
-                               WHEN db.ProductType = '地下室/车库' THEN
-                                    b.AffirmationNumber
-                               ELSE b.areatotal
-                           END
-                      ELSE 0
-                  END
-              ) TsMJ,
-           SUM(   CASE
-                      WHEN (a.YjType <> '经营类(溢价款)')
-                           AND DATEDIFF(DAY, a.RdDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.RdDate, @var_enddate) >= 0 THEN
-                           b.AffirmationNumber
-                      ELSE 0
-                  END
-              ) TsTs,
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.RdDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.RdDate, @var_enddate) >= 0 THEN
-                           b.totalamount
-                      ELSE 0
-                  END
-              ) * 10000 TsJE,
-           SUM(   CASE
-                      WHEN DATEDIFF(DAY, a.RdDate, @var_bgndate) <= 0
-                           AND DATEDIFF(DAY, a.RdDate, @var_enddate) >= 0 THEN
-                           b.totalamount / (1 + a.rate)
-                      ELSE 0
-                  END
-              ) * 10000 TsJEnotax
-    INTO #t
-    FROM #s_PerformanceAppraisal a
-         LEFT JOIN
-         (
-             SELECT PerformanceAppraisalGUID,
-                    BldGUID,
-                    AffirmationNumber,
-                    IdentifiedArea areatotal,
-                    AmountDetermined totalamount
-             FROM erp25.dbo.S_PerformanceAppraisalBuildings
-             UNION ALL
-             SELECT PerformanceAppraisalGUID,
-                    r.ProductBldGUID BldGUID,
-                    SUM(1) AffirmationNumber,
-                    SUM(a.IdentifiedArea),
-                    SUM(a.AmountDetermined)
-             FROM erp25.dbo.S_PerformanceAppraisalRoom a
-                  LEFT JOIN MyCost_Erp352.dbo.md_Room r ON a.RoomGUID = r.RoomGUID
-             GROUP BY PerformanceAppraisalGUID,
-                      r.ProductBldGUID
-         ) b ON a.PerformanceAppraisalGUID = b.PerformanceAppraisalGUID
-         LEFT JOIN #db db ON b.BldGUID = db.SaleBldGUID
-    WHERE 1 = 1
-          AND a.AuditStatus = '已审核'
-          AND a.YjType IN (
-                              SELECT TsyjTypeName
-                              FROM erp25.dbo.s_TsyjType
-                              WHERE IsRelatedBuildingsRoom = 1
-                          )
-          AND a.YjType IN ( '整体销售', '其他销售', '经营类(溢价款)', '回购', '包销', '代建类' )
-    GROUP BY a.ManagementProjectGUID,
-             db.Product,
-             db.ProductType,
-             db.ProductName,
-             db.Standard,
-             db.BusinessType;
-
-    --取手工维护的匹配关系
-    SELECT 项目guid,
-           T.基础数据主键,
-           T.盈利规划系统自动匹对主键,
-           CASE
-               WHEN ISNULL(T.盈利规划系统自动匹对主键, '') <> '' THEN
-                    T.盈利规划系统自动匹对主键
-               ELSE CASE
-                        WHEN ISNULL(T.盈利规划主键, '') <> '' THEN
-                             T.盈利规划主键
-                        ELSE T.基础数据主键
-                    END
-           END 盈利规划主键,
-           MAX(T.[营业成本单方(元/平方米)]) AS 营业成本单方,
-           MAX(T.[营销费用单方(元/平方米)]) AS 营销费用单方,
-           MAX(T.[综合管理费单方(元/平方米)]) AS 综合管理费单方,
-           MAX(T.[股权溢价单方(元/平方米)]) AS 股权溢价单方,
-           MAX(T.[税金及附加单方(元/平方米)]) AS 税金及附加单方,
-           MAX(T.[除地价外直投单方(元/平方米)]) AS 除地价外直投单方,
-           MAX(T.[土地款单方(元/平方米)]) AS 土地款单方,
-           MAX(T.[资本化利息单方(元/平方米)]) AS 资本化利息单方,
-           MAX(T.[开发间接费单方(元/平方米)]) AS 开发间接费单方
-    INTO #key
-    FROM dss.dbo.nmap_F_明源及盈利规划业态单方沉淀表 T
-         INNER JOIN
-         (
-             SELECT ROW_NUMBER() OVER (PARTITION BY a.FillDataGUID ORDER BY EndDate DESC) NUM,
-                    FillHistoryGUID
-             FROM dss.dbo.nmap_F_FillHistory a
-             WHERE EXISTS
-             (
-                 SELECT FillHistoryGUID,
-                        SUM(   CASE
-                                   WHEN 项目guid IS NULL
-                                        OR 项目guid = '' THEN
-                                        0
-                                   ELSE 1
-                               END
-                           ) AS num
-                 FROM dss.dbo.nmap_F_明源及盈利规划业态单方沉淀表 b
-                 WHERE a.FillHistoryGUID = b.FillHistoryGUID
-                 GROUP BY FillHistoryGUID
-                 HAVING SUM(   CASE
-                                   WHEN 项目guid IS NULL THEN
-                                        0
-                                   ELSE 1
-                               END
-                           ) > 0
-             )
-         ) V ON T.FillHistoryGUID = V.FillHistoryGUID
-                AND V.NUM = 1
-    WHERE ISNULL(T.项目guid, '') <> ''
-    GROUP BY 项目guid,
-             T.基础数据主键,
-             T.盈利规划系统自动匹对主键,
-             CASE
-                 WHEN ISNULL(T.盈利规划系统自动匹对主键, '') <> '' THEN
-                      T.盈利规划系统自动匹对主键
-                 ELSE CASE
-                          WHEN ISNULL(T.盈利规划主键, '') <> '' THEN
-                               T.盈利规划主键
-                          ELSE T.基础数据主键
-                      END
-             END;
-
-    SELECT db.ProjGUID,
-           db.Product MyProduct,
-           db.ProductType,
-           db.ProductName,
-           db.Standard,
-           db.BusinessType,
-           ISNULL(dss.盈利规划主键, db.Product) Product,
-           SUM(ISNULL(s.bqrgmj, 0)) bqrgmj,
-           SUM(ISNULL(s.bqrgts, 0)) bqrgTS,
-           SUM(ISNULL(s.BqrgJe, 0)) BqRgJe,
-           SUM(ISNULL(s.bqrgjeNotax, 0)) bqRgjeNotax,
-           SUM(ISNULL(s.bqqymj, 0)) bqQymj,
-           SUM(ISNULL(s.bqqyts, 0)) bqQyTS,
-           SUM(ISNULL(s.bqqyje, 0)) BqQyJe,
-           SUM(ISNULL(s.bqqyjeNotax, 0)) bqQyjeNotax,
-           --20240530新增产成品签约情况
-           SUM(ISNULL(s.BqccpQymj, 0)) BqccpQymj,
-           SUM(ISNULL(s.BqccpQyts, 0)) BqccpQyts,
-           SUM(ISNULL(s.BqccpQyje, 0)) BqccpQyje,
-           SUM(ISNULL(s.bqccpQyjeNotax, 0)) bqccpQyjeNotax
-    INTO #sale
-    FROM
-    (
-        SELECT DISTINCT
-               db.ProjGUID,
-               db.Product,
-               db.ProductType,
-               db.ProductName,
-               db.Standard,
-               db.BusinessType
-        FROM #db db
-    ) db
-    LEFT JOIN
-    (
-        SELECT a.ProjGUID,
-               a.Product,
-               a.ProductType,
-               a.ProductName,
-               a.Standard,
-               a.BusinessType,
-               a.bqrgmj,
-               a.bqrgts,
-               a.BqrgJe,
-               a.bqrgjeNotax,
-               0 bqqymj,
-               0 bqqyts,
-               0 bqqyje,
-               0 bqqyjeNotax,
-               --20240530新增产成品签约情况
-               0 BqccpQymj,
-               0 BqccpQyts,
-               0 BqccpQyje,
-               0 bqccpQyjeNotax
-        FROM #ord a
-        UNION ALL
-        SELECT a.ProjGUID,
-               a.Product,
-               a.ProductType,
-               a.ProductName,
-               a.Standard,
-               a.BusinessType,
-               a.bqrgmj,
-               a.bqrgTs,
-               a.BqRgJe,
-               a.bqRgjeNotax,
-               a.bqQymj,
-               a.bqQyts,
-               a.BqQyJe,
-               a.bqQyjeNotax,
-               --20240530新增产成品签约情况
-               a.BqccpQymj,
-               a.BqccpQyts,
-               a.BqccpQyje,
-               a.BqccpQyjeNotax
-        FROM #con a
-        UNION ALL
-        SELECT a.ProjGUID,
-               a.Product,
-               a.ProductType,
-               a.ProductName,
-               a.standard,
-               a.BusinessType,
-               a.Hzmj,
-               a.HzTs,
-               a.hzje,
-               a.hzjeNotax,
-               a.Hzmj,
-               a.HzTs,
-               a.hzje,
-               a.hzjeNotax,
-               --20240530新增产成品签约情况
-               a.BqccpQymj,
-               a.BqccpQyts,
-               a.BqccpQyje,
-               a.BqccpQyjeNotax
-        FROM #h a
-        UNION ALL
-        SELECT a.Projguid,
-               a.Product,
-               a.ProductType,
-               a.ProductName,
-               a.Standard,
-               a.BusinessType,
-               a.TsMJ,
-               a.TsTs,
-               a.TsJE,
-               a.TsJEnotax,
-               a.TsMJ,
-               a.TsTs,
-               a.TsJE,
-               a.TsJEnotax,
-               --20240530新增产成品签约情况
-               0 BqccpQymj,
-               0 BqccpQyts,
-               0 BqccpQyje,
-               0 bqccpQyjeNotax
-        FROM #t a
-    ) s ON db.ProjGUID = s.ProjGUID
-           AND db.Product = s.Product
-    LEFT JOIN
-    (SELECT DISTINCT k.项目guid, k.基础数据主键, k.盈利规划主键 FROM #key k) dss ON dss.项目guid = db.ProjGUID
-                                                                      AND dss.基础数据主键 = db.Product --业态匹配
-    GROUP BY db.ProjGUID,
-             db.Product,
-             db.ProductType,
-             db.ProductName,
-             db.Standard,
-             db.BusinessType,
-             ISNULL(dss.盈利规划主键, db.Product);
-
-
-    --盈利规划
-    -- 营业成本单方 	 其中：地价单方 	 其中：除地价外直投单方 	 其中：开发间接费单方 	 其中：资本化利息单方 	 
-    --股权溢价单方 	 营销费用单方 	 综合管理费用单方 	 税金及附加单方 
-
-    --OrgGuid,平台公司,项目guid,项目名称,项目代码,投管代码,盈利规划上线方式,产品类型,产品名称,装修标准,商品类型,匹配主键,
-    --总可售面积,总可售金额,除地外直投_单方,土地款_单方,资本化利息_综合管理费_单方,盈利规划营业成本单方,税金及附加单方,股权溢价单方,
-    --管理费用单方,营销费用单方,资本化利息单方,开发间接费单方,总投资不含税单方 ,盈利规划车位数
-    SELECT DISTINCT
-           k.[项目guid], -- 避免重复
-           ISNULL(k.盈利规划主键, ylgh.匹配主键) 业态组合键,
-           ISNULL(ylgh.总可售面积, 0) AS 盈利规划总可售面积,
-           CASE
-               WHEN ISNULL(k.营业成本单方, 0) = 0 THEN
-                    ISNULL(ylgh.盈利规划营业成本单方, 0)
-               ELSE ISNULL(k.营业成本单方, 0)
-           END AS 盈利规划营业成本单方,
-           CASE
-               WHEN ISNULL(k.土地款单方, 0) = 0 THEN
-                    ISNULL(ylgh.土地款_单方, 0)
-               ELSE k.土地款单方
-           END 土地款_单方,
-           CASE
-               WHEN ISNULL(k.除地价外直投单方, 0) = 0 THEN
-                    ISNULL(ylgh.除地外直投_单方, 0)
-               ELSE k.除地价外直投单方
-           END AS 除地外直投_单方,
-           CASE
-               WHEN ISNULL(k.开发间接费单方, 0) = 0 THEN
-                    ISNULL(ylgh.开发间接费单方, 0)
-               ELSE k.开发间接费单方
-           END AS 开发间接费单方,
-           CASE
-               WHEN ISNULL(k.资本化利息单方, 0) = 0 THEN
-                    ISNULL(ylgh.资本化利息单方, 0)
-               ELSE k.资本化利息单方
-           END AS 资本化利息单方,
-           CASE
-               WHEN ISNULL(k.股权溢价单方, 0) = 0 THEN
-                    ISNULL(ylgh.股权溢价单方, 0)
-               ELSE k.股权溢价单方
-           END AS 盈利规划股权溢价单方,
-           CASE
-               WHEN ISNULL(k.营销费用单方, 0) = 0 THEN
-                    ISNULL(ylgh.营销费用单方, 0)
-               ELSE k.营销费用单方
-           END AS 盈利规划营销费用单方,
-           CASE
-               WHEN ISNULL(k.综合管理费单方, 0) = 0 THEN
-                    ISNULL(ylgh.管理费用单方, 0)
-               ELSE k.综合管理费单方
-           END AS 盈利规划综合管理费单方协议口径,
-           CASE
-               WHEN ISNULL(k.税金及附加单方, 0) = 0 THEN
-                    ISNULL(ylgh.税金及附加单方, 0)
-               ELSE k.税金及附加单方
-           END AS 盈利规划税金及附加单方
-    INTO #ylgh
-    FROM #key k
-         LEFT JOIN dss.dbo.s_F066项目毛利率销售底表_盈利规划单方 ylgh ON ylgh.匹配主键 = k.盈利规划主键
-                                                          AND ylgh.[项目guid] = k.项目guid
-         INNER JOIN #p p ON k.项目guid = p.ProjGUID;
-
-
-
-    --select * from #ylgh
-
-  --------------------按照盈利规划锁定版本进行单方等比例缩小放大逻辑 begin--------------------------------  
-    -- select 
-    --     a.项目guid,
-    --     a.业态组合键,
-    --     case when isnull(b.除地外直投_单方,0) < 1 then  0 else  a.除地外直投_单方 / b.除地外直投_单方  end as  除地价外直投变动率,
-    --     case when isnull(b.管理费用单方,0) <1 then  0 else  a.盈利规划综合管理费单方协议口径 / b.管理费用单方  end as  管理费用变动率,
-    --     case when isnull(b.营销费用单方,0) <1 then  0 else  a.盈利规划营销费用单方 / b.营销费用单方  end as  营销费用变动率,
-    --     case when isnull(b.股权溢价单方,0) <1 then  0 else  a.盈利规划股权溢价单方 / b.股权溢价单方  end as  股权溢价单方变动率
-    -- into #bdl
-    -- from #ylgh a
-    -- inner join dss.dbo.s_F066项目毛利率销售底表_盈利规划单方锁定版 b on a.项目guid = b.项目guid and a.业态组合键 = b.匹配主键
-
-
-
-    -- UPDATE p 
-    -- SET p.盈利规划营业成本单方 = p.除地外直投_单方 * (1 + 除地价外直投变动率) + 
-    --                                 p.土地款_单方 + 
-    --                                 p.开发间接费单方 + 
-    --                                 p.资本化利息单方, --如果是在指定项目分期的范围内，营业成本 = 除地价外直投+土地款+开发间接费+资本化利息
-    --     p.除地外直投_单方 = p.除地外直投_单方 * (1 + 除地价外直投变动率), --增加指定项目的除地价外直投单方变动率
-    --     p.盈利规划综合管理费单方协议口径 = p.盈利规划综合管理费单方协议口径 * (1 + 管理费用变动率), --增加指定项目的管理费用单方变动率
-    --     p.盈利规划营销费用单方 = p.盈利规划营销费用单方 * (1 + 营销费用变动率), --增加指定项目的营销费用单方变动率
-    --     p.盈利规划股权溢价单方 = p.盈利规划股权溢价单方 * (1 + 股权溢价单方变动率) --增加指定项目的股权溢价单方变动率
-    -- FROM #ylgh p
-    -- INNER JOIN #bdl b 
-    --     ON b.项目guid = p.项目guid and b.业态组合键 = p.业态组合键
-
-  --------------------按照盈利规划锁定版本进行单方等比例缩小放大逻辑 end--------------------------------  
-
-
-    --计算项目成本
-    SELECT a.ProjGUID,
-           a.MyProduct,
-           a.Product,
-           a.ProductType,
-           a.ProductName,
-           a.Standard,
-           a.BusinessType,
-           y.盈利规划营业成本单方,
-           y.土地款_单方,
-           y.除地外直投_单方,
-           y.开发间接费单方,
-           y.资本化利息单方,
-           y.盈利规划股权溢价单方,
-           y.盈利规划营销费用单方,
-           y.盈利规划综合管理费单方协议口径,
-           y.盈利规划税金及附加单方,
-           SUM(ISNULL(a.bqrgmj, 0)) bqrgmj,
-           SUM(ISNULL(a.bqrgTS, 0)) bqrgTS,
-           SUM(ISNULL(a.BqRgJe, 0)) BqRgJe,
-           SUM(ISNULL(a.bqRgjeNotax, 0)) bqRgjeNotax,
-           SUM(ISNULL(a.bqQymj, 0)) bqQymj,
-           SUM(ISNULL(a.bqQyTS, 0)) bqQyTS,
-           SUM(ISNULL(a.BqQyJe, 0)) BqQyJe,
-           SUM(ISNULL(a.bqQyjeNotax, 0)) bqQyjeNotax,
-           SUM(ISNULL(y.盈利规划营业成本单方, 0) * ISNULL(a.bqrgmj, 0)) 盈利规划营业成本认购,
-           SUM(ISNULL(y.盈利规划股权溢价单方, 0) * ISNULL(a.bqrgmj, 0)) 盈利规划股权溢价认购,
-           SUM(ISNULL(y.盈利规划营销费用单方, 0) * ISNULL(a.bqrgmj, 0)) 盈利规划营销费用认购,
-           SUM(ISNULL(y.盈利规划综合管理费单方协议口径, 0) * ISNULL(a.bqrgmj, 0)) 盈利规划综合管理费认购,
-           SUM(ISNULL(y.盈利规划税金及附加单方, 0) * ISNULL(a.bqrgmj, 0)) 盈利规划税金及附加认购,
-           SUM(ISNULL(y.盈利规划营业成本单方, 0) * ISNULL(a.bqQymj, 0)) 盈利规划营业成本签约,
-           SUM(ISNULL(y.盈利规划股权溢价单方, 0) * ISNULL(a.bqQymj, 0)) 盈利规划股权溢价签约,
-           SUM(ISNULL(y.盈利规划营销费用单方, 0) * ISNULL(a.bqQymj, 0)) 盈利规划营销费用签约,
-           SUM(ISNULL(y.盈利规划综合管理费单方协议口径, 0) * ISNULL(a.bqQymj, 0)) 盈利规划综合管理费签约,
-           SUM(ISNULL(y.盈利规划税金及附加单方, 0) * ISNULL(a.bqQymj, 0)) 盈利规划税金及附加签约,
-           --20240530新增产成品签约情况
-           SUM(ISNULL(a.BqccpQymj, 0)) BqccpQymj,
-           SUM(ISNULL(a.BqccpQyts, 0)) BqccpQyts,
-           SUM(ISNULL(a.BqccpQyje, 0)) BqccpQyje,
-           SUM(ISNULL(a.bqccpQyjeNotax, 0)) bqccpQyjeNotax,
-           SUM(ISNULL(y.盈利规划营业成本单方, 0) * ISNULL(a.BqccpQymj, 0)) 盈利规划营业成本产成品签约,
-           SUM(ISNULL(y.盈利规划股权溢价单方, 0) * ISNULL(a.BqccpQymj, 0)) 盈利规划股权溢价产成品签约,
-           SUM(ISNULL(y.盈利规划营销费用单方, 0) * ISNULL(a.BqccpQymj, 0)) 盈利规划营销费用产成品签约,
-           SUM(ISNULL(y.盈利规划综合管理费单方协议口径, 0) * ISNULL(a.BqccpQymj, 0)) 盈利规划综合管理费产成品签约,
-           SUM(ISNULL(y.盈利规划税金及附加单方, 0) * ISNULL(a.BqccpQymj, 0)) 盈利规划税金及附加产成品签约
-    INTO #cost
-    FROM #sale a
-         LEFT JOIN #ylgh y ON a.ProjGUID = y.[项目guid]
-                              AND a.Product = y.业态组合键
-    GROUP BY a.ProjGUID,
-             a.Product,
-             a.MyProduct,
-             a.ProductType,
-             a.ProductName,
-             a.Standard,
-             a.BusinessType,
-             y.盈利规划营业成本单方,
-             y.土地款_单方,
-             y.除地外直投_单方,
-             y.开发间接费单方,
-             y.资本化利息单方,
-             y.盈利规划股权溢价单方,
-             y.盈利规划营销费用单方,
-             y.盈利规划综合管理费单方协议口径,
-             y.盈利规划税金及附加单方;
-
-    SELECT c.ProjGUID,
-           SUM(CONVERT(
-                          DECIMAL(36, 8),
-                          ((ISNULL(c.bqRgjeNotax, 0) - ISNULL(c.盈利规划营业成本认购, 0)/*- c.盈利规划股权溢价认购*/)
-                           - ISNULL(c.盈利规划营销费用认购, 0) - ISNULL(c.盈利规划综合管理费认购, 0) - ISNULL(c.盈利规划税金及附加认购, 0)
-                          ) / 100000000
-                      )
-              ) 项目税前利润认购,
-           SUM(CONVERT(
-                          DECIMAL(36, 8),
-                          ((ISNULL(c.bqQyjeNotax, 0) - ISNULL(c.盈利规划营业成本签约, 0)/*- c.盈利规划股权溢价认购*/)
-                           - ISNULL(c.盈利规划营销费用签约, 0) - ISNULL(c.盈利规划综合管理费签约, 0) - ISNULL(c.盈利规划税金及附加签约, 0)
-                          ) / 100000000
-                      )
-              ) 项目税前利润签约,
-           SUM(CONVERT(
-                          DECIMAL(36, 8),
-                          ((ISNULL(c.bqQyjeNotax, 0) - ISNULL(c.盈利规划营业成本产成品签约, 0)/*- c.盈利规划股权溢价认购*/)
-                           - ISNULL(c.盈利规划营销费用产成品签约, 0) - ISNULL(c.盈利规划综合管理费产成品签约, 0) - ISNULL(c.盈利规划税金及附加产成品签约, 0)
-                          )
-                          / 100000000
-                      )
-              ) 项目税前利润产成品签约
-    INTO #xm
-    FROM #cost c
-    GROUP BY c.ProjGUID;
-
-    -- 项目代码（投管） 	 明源代码 	 子公司  认购面积 	 认购金额 	 认购金额（不含税) 	 营业成本 	 股权溢价 	 毛利 	 毛利率 	 营销费用 	 管理费用 	 税金及附加 	 税前利润 	 所得税 	 净利润 	 销售净利率 
-
-    SELECT -- NEWID() versionguid,
-        p.DevelopmentCompanyGUID OrgGuid,
-        p.ProjGUID,
-        f.平台公司,
-        f.项目名,
-        f.推广名,
-        f.项目代码,
-        f.投管代码,
-        f.盈利规划上线方式,
-        c.ProductType 产品类型,
-        c.ProductName 产品名称,
-        c.Standard 装修标准,
-        c.BusinessType 商品类型,
-        c.MyProduct 明源匹配主键,
-        c.Product 业态组合键,
-        ISNULL(c.ProductType, '') + '_' + ISNULL(c.ProductName, '') + '_' + ISNULL(c.BusinessType, '') + '_'
-        + ISNULL(c.Standard, '') Productnocode,
-        CONVERT(   DECIMAL(36, 8),
-                   CASE
-                       WHEN c.Product LIKE '%地下室/车库%' THEN
-                            c.bqrgmj
-                       ELSE c.bqrgmj / 10000
-                   END
-               ) 当期认购面积,
-        CONVERT(DECIMAL(36, 9), c.BqRgJe) / 100000000.0 当期认购金额,
-        CONVERT(DECIMAL(36, 9), c.bqRgjeNotax) / 100000000.0 当期认购金额不含税,
-        CONVERT(   DECIMAL(36, 8),
-                   CASE
-                       WHEN c.Product LIKE '%地下室/车库%' THEN
-                            c.bqQymj
-                       ELSE c.bqQymj / 10000
-                   END
-               ) 当期签约面积,
-        CONVERT(DECIMAL(36, 9), c.BqQyJe) / 100000000.0 当期签约金额,
-        CONVERT(DECIMAL(36, 9), c.bqQyjeNotax) / 100000000.0 当期签约金额不含税,
-        c.盈利规划营业成本单方,
-        c.土地款_单方,
-        c.除地外直投_单方,
-        c.开发间接费单方,
-        c.资本化利息单方,
-        c.盈利规划股权溢价单方,
-        c.盈利规划营销费用单方,
-        c.盈利规划综合管理费单方协议口径,
-        c.盈利规划税金及附加单方,
-        CONVERT(DECIMAL(36, 8), c.盈利规划营业成本认购 / 100000000) 盈利规划营业成本认购,
-        CONVERT(DECIMAL(36, 8), c.盈利规划股权溢价认购 / 100000000) 盈利规划股权溢价认购,
-        CONVERT(
-                   DECIMAL(36, 8),
-                   (ISNULL(c.bqRgjeNotax, 0) - ISNULL(c.盈利规划营业成本认购, 0) - ISNULL(c.盈利规划股权溢价认购, 0)) / 100000000
-               ) 毛利认购,
-        CONVERT(
-                   DECIMAL(36, 8),
-                   CASE
-                       WHEN ISNULL(c.bqRgjeNotax, 0) <> 0 THEN
-                   (ISNULL(c.bqRgjeNotax, 0) - ISNULL(c.盈利规划营业成本认购, 0) - ISNULL(c.盈利规划股权溢价认购, 0))
-                   / ISNULL(c.bqRgjeNotax, 0)
-                   END
-               ) 毛利率认购,
-        CONVERT(DECIMAL(36, 8), c.盈利规划营销费用认购 / 100000000) 盈利规划营销费用认购,
-        CONVERT(DECIMAL(36, 8), c.盈利规划综合管理费认购 / 100000000) 盈利规划综合管理费认购,
-        CONVERT(DECIMAL(36, 8), c.盈利规划税金及附加认购 / 100000000) 盈利规划税金及附加认购,
-        CONVERT(
-                   DECIMAL(36, 8),
-                   ((ISNULL(c.bqRgjeNotax, 0) - ISNULL(c.盈利规划营业成本认购, 0)/*- c.盈利规划股权溢价认购*/) - ISNULL(c.盈利规划营销费用认购, 0)
-                    - ISNULL(c.盈利规划综合管理费认购, 0) - ISNULL(c.盈利规划税金及附加认购, 0)
-                   ) / 100000000
-               ) 税前利润认购,
-        CASE
-            WHEN x.项目税前利润认购 > 0 THEN
-                 CONVERT(
-                            DECIMAL(36, 8),
-                            ((ISNULL(c.bqRgjeNotax, 0) - ISNULL(c.盈利规划营业成本认购, 0)/*- c.盈利规划股权溢价认购*/)
-                             - ISNULL(c.盈利规划营销费用认购, 0) - ISNULL(c.盈利规划综合管理费认购, 0) - ISNULL(c.盈利规划税金及附加认购, 0)
-                            )
-                            / 100000000 * 0.25
-                        )
-            ELSE 0.0
-        END 所得税认购,
-        CONVERT(
-                   DECIMAL(36, 8),
-                   ((ISNULL(c.bqRgjeNotax, 0) - ISNULL(c.盈利规划营业成本认购, 0) - ISNULL(c.盈利规划股权溢价认购, 0))
-                    - ISNULL(c.盈利规划营销费用认购, 0) - ISNULL(c.盈利规划综合管理费认购, 0) - c.盈利规划税金及附加认购
-                   ) / 100000000
-               )
-        - CASE
-              WHEN x.项目税前利润认购 > 0 THEN
-                   CONVERT(
-                              DECIMAL(36, 8),
-                              ((ISNULL(c.bqRgjeNotax, 0) - ISNULL(c.盈利规划营业成本认购, 0)/*- c.盈利规划股权溢价认购*/)
-                               - ISNULL(c.盈利规划营销费用认购, 0) - ISNULL(c.盈利规划综合管理费认购, 0) - ISNULL(c.盈利规划税金及附加认购, 0)
-                              )
-                              / 100000000 * 0.25
-                          )
-              ELSE 0.0
-          END 净利润认购,
-        CONVERT(
-                   DECIMAL(36, 8),
-                   CASE
-                       WHEN ISNULL(c.bqRgjeNotax, 0) <> 0 THEN
-                   (CONVERT(
-                               DECIMAL(36, 8),
-                               ((ISNULL(c.bqRgjeNotax, 0) - ISNULL(c.盈利规划营业成本认购, 0) - ISNULL(c.盈利规划股权溢价认购, 0))
-                                - ISNULL(c.盈利规划营销费用认购, 0) - ISNULL(c.盈利规划综合管理费认购, 0) - ISNULL(c.盈利规划税金及附加认购, 0)
-                               )
-                           )
-                    - CASE
-                          WHEN x.项目税前利润认购 > 0 THEN
-                               CONVERT(
-                                          DECIMAL(36, 8),
-                                          ((ISNULL(c.bqRgjeNotax, 0) - ISNULL(c.盈利规划营业成本认购, 0)/*- c.盈利规划股权溢价认购*/)
-                                           - ISNULL(c.盈利规划营销费用认购, 0) - ISNULL(c.盈利规划综合管理费认购, 0)
-                                           - ISNULL(c.盈利规划税金及附加认购, 0)
-                                          ) * 0.25
-                                      )
-                          ELSE 0.0
-                      END
-                   ) / ISNULL(c.bqRgjeNotax, 0)
-                   END
-               ) 销售净利率认购,
-        CONVERT(DECIMAL(36, 8), c.盈利规划营业成本签约 / 100000000) 盈利规划营业成本签约,
-        CONVERT(DECIMAL(36, 8), c.盈利规划股权溢价签约 / 100000000) 盈利规划股权溢价签约,
-        CONVERT(
-                   DECIMAL(36, 8),
-                   (ISNULL(c.bqQyjeNotax, 0) - ISNULL(c.盈利规划营业成本签约, 0) - ISNULL(c.盈利规划股权溢价签约, 0)) / 100000000
-               ) 毛利签约,
-        CONVERT(
-                   DECIMAL(36, 8),
-                   CASE
-                       WHEN ISNULL(c.bqQyjeNotax, 0) <> 0 THEN
-                   (ISNULL(c.bqQyjeNotax, 0) - ISNULL(c.盈利规划营业成本签约, 0) - ISNULL(c.盈利规划股权溢价签约, 0))
-                   / ISNULL(c.bqQyjeNotax, 0)
-                   END
-               ) 毛利率签约,
-        CONVERT(DECIMAL(36, 8), c.盈利规划营销费用签约 / 100000000) 盈利规划营销费用签约,
-        CONVERT(DECIMAL(36, 8), c.盈利规划综合管理费签约 / 100000000) 盈利规划综合管理费签约,
-        CONVERT(DECIMAL(36, 8), c.盈利规划税金及附加签约 / 100000000) 盈利规划税金及附加签约,
-        CONVERT(
-                   DECIMAL(36, 8),
-                   ((ISNULL(c.bqQyjeNotax, 0) - ISNULL(c.盈利规划营业成本签约, 0)/*- c.盈利规划股权溢价签约 */) - ISNULL(c.盈利规划营销费用签约, 0)
-                    - ISNULL(c.盈利规划综合管理费签约, 0) - ISNULL(c.盈利规划税金及附加签约, 0)
-                   ) / 100000000
-               ) 税前利润签约,
-        CASE
-            WHEN x.项目税前利润签约 > 0 THEN
-                 CONVERT(
-                            DECIMAL(36, 8),
-                            ((ISNULL(c.bqQyjeNotax, 0) - ISNULL(c.盈利规划营业成本签约, 0)/*- c.盈利规划股权溢价签约 */)
-                             - ISNULL(c.盈利规划营销费用签约, 0) - ISNULL(c.盈利规划综合管理费签约, 0) - ISNULL(c.盈利规划税金及附加签约, 0)
-                            )
-                            / 100000000 * 0.25
-                        )
-            ELSE 0.0
-        END 所得税签约,
-        CONVERT(
-                   DECIMAL(36, 8),
-                   ((ISNULL(c.bqQyjeNotax, 0) - ISNULL(c.盈利规划营业成本签约, 0) - ISNULL(c.盈利规划股权溢价签约, 0))
-                    - ISNULL(c.盈利规划营销费用签约, 0) - ISNULL(c.盈利规划综合管理费签约, 0) - ISNULL(c.盈利规划税金及附加签约, 0)
-                   ) / 100000000
-               )
-        - CASE
-              WHEN x.项目税前利润签约 > 0 THEN
-                   CONVERT(
-                              DECIMAL(36, 8),
-                              ((ISNULL(c.bqQyjeNotax, 0) - ISNULL(c.盈利规划营业成本签约, 0)/*- c.盈利规划股权溢价签约 */)
-                               - ISNULL(c.盈利规划营销费用签约, 0) - ISNULL(c.盈利规划综合管理费签约, 0) - ISNULL(c.盈利规划税金及附加签约, 0)
-                              )
-                              / 100000000 * 0.25
-                          )
-              ELSE 0.0
-          END 净利润签约,
-        CONVERT(
-                   DECIMAL(36, 8),
-                   CASE
-                       WHEN ISNULL(c.bqQyjeNotax, 0) <> 0 THEN
-                   (CONVERT(
-                               DECIMAL(36, 8),
-                               ((ISNULL(c.bqQyjeNotax, 0) - ISNULL(c.盈利规划营业成本签约, 0) - ISNULL(c.盈利规划股权溢价签约, 0))
-                                - ISNULL(c.盈利规划营销费用签约, 0) - ISNULL(c.盈利规划综合管理费签约, 0) - ISNULL(c.盈利规划税金及附加签约, 0)
-                               )
-                           )
-                    - CASE
-                          WHEN x.项目税前利润签约 > 0 THEN
-                               CONVERT(
-                                          DECIMAL(36, 8),
-                                          ((ISNULL(c.bqQyjeNotax, 0) - ISNULL(c.盈利规划营业成本签约, 0)/*- c.盈利规划股权溢价签约 */)
-                                           - ISNULL(c.盈利规划营销费用签约, 0) - ISNULL(c.盈利规划综合管理费签约, 0)
-                                           - ISNULL(c.盈利规划税金及附加签约, 0)
-                                          ) * 0.25
-                                      )
-                          ELSE 0.0
-                      END
-                   ) / ISNULL(c.bqQyjeNotax, 0)
-                   END
-               ) 销售净利率签约,
-        c.bqrgTS 当期认购套数,
-        c.bqQyTS 当期签约套数,
-        --20240530新增产成品签约情况
-        CONVERT(DECIMAL(36, 9), c.BqccpQyje) / 100000000.0 当期产成品签约金额,
-        CONVERT(DECIMAL(36, 9), c.bqccpQyjeNotax) / 100000000.0 当期产成品签约金额不含税,
-        CONVERT(
-                   DECIMAL(36, 8),
-                   ((ISNULL(c.bqccpQyjeNotax, 0) - ISNULL(c.盈利规划营业成本产成品签约, 0) - ISNULL(c.盈利规划股权溢价产成品签约, 0))
-                    - ISNULL(c.盈利规划营销费用产成品签约, 0) - ISNULL(c.盈利规划综合管理费产成品签约, 0) - ISNULL(c.盈利规划税金及附加产成品签约, 0)
-                   )
-                   / 100000000
-               )
-        - CASE
-              WHEN x.项目税前利润产成品签约 > 0 THEN
-                   CONVERT(
-                              DECIMAL(36, 8),
-                              ((ISNULL(c.bqccpQyjeNotax, 0) - ISNULL(c.盈利规划营业成本产成品签约, 0)/*- c.盈利规划股权溢价签约 */)
-                               - ISNULL(c.盈利规划营销费用产成品签约, 0) - ISNULL(c.盈利规划综合管理费产成品签约, 0) - ISNULL(c.盈利规划税金及附加产成品签约, 0)
-                              )
-                              / 100000000 * 0.25
-                          )
-              ELSE 0.0
-          END 产成品净利润签约,
-        CONVERT(
-                   DECIMAL(36, 8),
-                   CASE
-                       WHEN ISNULL(c.bqccpQyjeNotax, 0) <> 0 THEN
-                   (CONVERT(
-                               DECIMAL(36, 8),
-                               ((ISNULL(c.bqccpQyjeNotax, 0) - ISNULL(c.盈利规划营业成本产成品签约, 0) - ISNULL(c.盈利规划股权溢价产成品签约, 0))
-                                - ISNULL(c.盈利规划营销费用产成品签约, 0) - ISNULL(c.盈利规划综合管理费产成品签约, 0)
-                                - ISNULL(c.盈利规划税金及附加产成品签约, 0)
-                               )
-                           )
-                    - CASE
-                          WHEN x.项目税前利润签约 > 0 THEN
-                               CONVERT(
-                                          DECIMAL(36, 8),
-                                          ((ISNULL(c.bqccpQyjeNotax, 0) - ISNULL(c.盈利规划营业成本产成品签约, 0)/*- c.盈利规划股权溢价签约 */)
-                                           - ISNULL(c.盈利规划营销费用产成品签约, 0) - ISNULL(c.盈利规划综合管理费产成品签约, 0)
-                                           - ISNULL(c.盈利规划税金及附加产成品签约, 0)
-                                          ) * 0.25
-                                      )
-                          ELSE 0.0
-                      END
-                   ) / ISNULL(c.bqccpQyjeNotax, 0)
-                   END
-               ) 产成品销售净利率签约
-    INTO #m002
-    FROM #p p
-         LEFT JOIN erp25.dbo.vmdm_projectFlag f ON p.ProjGUID = f.ProjGUID
-         INNER JOIN #cost c ON c.ProjGUID = p.ProjGUID
-         LEFT JOIN [172.16.4.161].HighData_prod.dbo.data_wide_dws_ys_proj_expense tax ON tax.ProjGUID = p.ProjGUID
-                                                                                         AND tax.IsBase = 1
-         LEFT JOIN #xm x ON x.ProjGUID = p.ProjGUID
-    ORDER BY f.平台公司,
-             f.项目代码;
-
-
-
-    --————————————————————————————————////////////////取结转数据开始//////////////////////////———————————————————————————————————————
-    SELECT a.ProjGUID,
-           a.ContractGUID,
-           a.TradeGUID,
-           a.BldArea,
-           1 TS,
-           a.JyTotal,
-           a.RoomGUID,
-           a.CloseReason,
-           a.QSDate,
-           a.Status,
-           a.jfdate,
-           sf.lastDate,
-           t.jzdate,
-           CASE
-               WHEN t.jzdate IS NOT NULL THEN
-                    t.jzdate
-               WHEN sf.lastDate > r.jzjfdate THEN
-                    sf.lastDate
-               ELSE r.jzjfdate
-           END gsdate
-    INTO #con1
-    FROM erp25.dbo.s_Contract a
-         INNER JOIN #room r ON r.RoomGUID = a.RoomGUID
-         LEFT JOIN erp25.dbo.s_trade t ON a.tradeguid = t.tradeguid
-         LEFT JOIN
-         (
-             SELECT TradeGUID,
-                    MAX(Sequence) AS Sequence
-             FROM erp25.dbo.s_fee
-             WHERE ItemType IN ( '贷款类房款', '非贷款类房款' )
-                   AND (NOT ItemName LIKE '%补差%')
-             GROUP BY TradeGUID
-         ) AS s ON s.TradeGUID = a.TradeGUID
-         LEFT JOIN erp25.dbo.s_Fee AS sf ON s.TradeGUID = sf.TradeGUID
-                                            AND s.Sequence = sf.Sequence
-    WHERE a.Status = '激活'
-          AND a.qsdate
-          BETWEEN @var_bgndate AND @var_enddate;
-
-
-    SELECT c.ProjGUID,
-        c.ContractGUID,
-        c.TradeGUID,
-        c.JyTotal,
-        c.roomguid,
-        c.Status,
-        CASE
-            WHEN t.jzdate IS NOT NULL THEN
-                    t.jzdate
-            ELSE CASE
-                        WHEN DATEDIFF(qq, gsdate, GETDATE()) > 0 THEN
-                            GETDATE()
-                        ELSE gsdate
-                    END
-        END gsdate
-    INTO #s_contract1
-    FROM #con1 c
-        LEFT JOIN s_trade t ON c.tradeguid = t.tradeguid;
-
-
-    SELECT r.ProjGUID, r.ProductType, r.ProductName, r.Standard, r.BusinessType, r.Product,
-           SUM(r.BldArea) AS bnqymj,
-           SUM(a.JyTotal + ISNULL(f.amount, 0)) bnqyje,
-           SUM((a.JyTotal + ISNULL(f.amount, 0)) / (1 + ISNULL(VATRate, 0) / 100)) bnqyjenotax,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2024-01-01') = 0 THEN r.BldArea ELSE 0 END) mj2401, 
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2024-01-01') = 0 THEN a.JyTotal + ISNULL(f.amount, 0) ELSE 0 END) je2401, 
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2024-01-01') = 0 THEN (a.JyTotal + ISNULL(f.amount, 0)) / (1 + ISNULL(VATRate, 0) / 100) ELSE 0 END) jenotax2401, 
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2024-04-01') = 0 THEN r.BldArea ELSE 0 END) mj2402,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2024-04-01') = 0 THEN a.JyTotal + ISNULL(f.amount, 0) ELSE 0 END) je2402,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2024-04-01') = 0 THEN (a.JyTotal + ISNULL(f.amount, 0)) / (1 + ISNULL(VATRate, 0) / 100) ELSE 0 END) jenotax2402,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2024-07-01') = 0 THEN r.BldArea ELSE 0 END) mj2403,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2024-07-01') = 0 THEN a.JyTotal + ISNULL(f.amount, 0) ELSE 0 END) je2403,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2024-07-01') = 0 THEN (a.JyTotal + ISNULL(f.amount, 0)) / (1 + ISNULL(VATRate, 0) / 100) ELSE 0 END) jenotax2403,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2024-10-01') = 0 THEN r.BldArea ELSE 0 END) mj2404,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2024-10-01') = 0 THEN a.JyTotal + ISNULL(f.amount, 0) ELSE 0 END) je2404,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2024-10-01') = 0 THEN (a.JyTotal + ISNULL(f.amount, 0)) / (1 + ISNULL(VATRate, 0) / 100) ELSE 0 END) jenotax2404,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2025-01-01') = 0 THEN r.BldArea ELSE 0 END) mj2501,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2025-01-01') = 0 THEN a.JyTotal + ISNULL(f.amount, 0) ELSE 0 END) je2501,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2025-01-01') = 0 THEN (a.JyTotal + ISNULL(f.amount, 0)) / (1 + ISNULL(VATRate, 0) / 100) ELSE 0 END) jenotax2501,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2025-04-01') = 0 THEN r.BldArea ELSE 0 END) mj2502,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2025-04-01') = 0 THEN a.JyTotal + ISNULL(f.amount, 0) ELSE 0 END) je2502,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2025-04-01') = 0 THEN (a.JyTotal + ISNULL(f.amount, 0)) / (1 + ISNULL(VATRate, 0) / 100) ELSE 0 END) jenotax2502,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2025-07-01') = 0 THEN r.BldArea ELSE 0 END) mj2503,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2025-07-01') = 0 THEN a.JyTotal + ISNULL(f.amount, 0) ELSE 0 END) je2503,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2025-07-01') = 0 THEN (a.JyTotal + ISNULL(f.amount, 0)) / (1 + ISNULL(VATRate, 0) / 100) ELSE 0 END) jenotax2503,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2025-10-01') = 0 THEN r.BldArea ELSE 0 END) mj2504,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2025-10-01') = 0 THEN a.JyTotal + ISNULL(f.amount, 0) ELSE 0 END) je2504,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2025-10-01') = 0 THEN (a.JyTotal + ISNULL(f.amount, 0)) / (1 + ISNULL(VATRate, 0) / 100) ELSE 0 END) jenotax2504,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2026-01-01') = 0 THEN r.BldArea ELSE 0 END) mj2601,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2026-01-01') = 0 THEN a.JyTotal + ISNULL(f.amount, 0) ELSE 0 END) je2601,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2026-01-01') = 0 THEN (a.JyTotal + ISNULL(f.amount, 0)) / (1 + ISNULL(VATRate, 0) / 100) ELSE 0 END) jenotax2601,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2026-04-01') = 0 THEN r.BldArea ELSE 0 END) mj2602,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2026-04-01') = 0 THEN a.JyTotal + ISNULL(f.amount, 0) ELSE 0 END) je2602,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2026-04-01') = 0 THEN (a.JyTotal + ISNULL(f.amount, 0)) / (1 + ISNULL(VATRate, 0) / 100) ELSE 0 END) jenotax2602,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2026-07-01') = 0 THEN r.BldArea ELSE 0 END) mj2603,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2026-07-01') = 0 THEN a.JyTotal + ISNULL(f.amount, 0) ELSE 0 END) je2603,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2026-07-01') = 0 THEN (a.JyTotal + ISNULL(f.amount, 0)) / (1 + ISNULL(VATRate, 0) / 100) ELSE 0 END) jenotax2603,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2026-10-01') = 0 THEN r.BldArea ELSE 0 END) mj2604,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2026-10-01') = 0 THEN a.JyTotal + ISNULL(f.amount, 0) ELSE 0 END) je2604,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2026-10-01') = 0 THEN (a.JyTotal + ISNULL(f.amount, 0)) / (1 + ISNULL(VATRate, 0) / 100) ELSE 0 END) jenotax2604,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2027-01-01') = 0 THEN r.BldArea ELSE 0 END) mj2701,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2027-01-01') = 0 THEN a.JyTotal + ISNULL(f.amount, 0) ELSE 0 END) je2701,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2027-01-01') = 0 THEN (a.JyTotal + ISNULL(f.amount, 0)) / (1 + ISNULL(VATRate, 0) / 100) ELSE 0 END) jenotax2701,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2027-04-01') = 0 THEN r.BldArea ELSE 0 END) mj2702,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2027-04-01') = 0 THEN a.JyTotal + ISNULL(f.amount, 0) ELSE 0 END) je2702,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2027-04-01') = 0 THEN (a.JyTotal + ISNULL(f.amount, 0)) / (1 + ISNULL(VATRate, 0) / 100) ELSE 0 END) jenotax2702,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2027-07-01') = 0 THEN r.BldArea ELSE 0 END) mj2703,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2027-07-01') = 0 THEN a.JyTotal + ISNULL(f.amount, 0) ELSE 0 END) je2703,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2027-07-01') = 0 THEN (a.JyTotal + ISNULL(f.amount, 0)) / (1 + ISNULL(VATRate, 0) / 100) ELSE 0 END) jenotax2703,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2027-10-01') = 0 THEN r.BldArea ELSE 0 END) mj2704,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2027-10-01') = 0 THEN a.JyTotal + ISNULL(f.amount, 0) ELSE 0 END) je2704,
-           SUM(CASE WHEN DATEDIFF(qq, a.gsdate, '2027-10-01') = 0 THEN (a.JyTotal + ISNULL(f.amount, 0)) / (1 + ISNULL(VATRate, 0) / 100) ELSE 0 END) jenotax2704
-    INTO #con2
-    FROM #s_contract1 a
-         INNER JOIN #room r ON a.RoomGUID = r.RoomGUID
-         LEFT JOIN erp25.dbo.s_Order d ON a.TradeGUID = d.TradeGUID AND ISNULL(d.CloseReason, '') = '转签约'
-         LEFT JOIN (SELECT f.TradeGUID, SUM(Amount) amount FROM erp25.dbo.s_Fee f
-                  INNER JOIN #s_Contract c ON f.TradeGUID = c.TradeGUID
-             WHERE f.ItemName LIKE '%补差%' GROUP BY f.TradeGUID) f ON a.TradeGUID = f.TradeGUID
-         LEFT JOIN #vrt vrt ON vrt.RoomGUID = r.RoomGUID
-    WHERE a.Status = '激活'
-          AND NOT EXISTS (SELECT 1 FROM erp25.dbo.S_PerformanceAppraisalRoom sr
-             INNER JOIN erp25.dbo.S_PerformanceAppraisal s ON s.PerformanceAppraisalGUID = sr.PerformanceAppraisalGUID
-                                                              AND s.AuditStatus = '已审核'
-                                                              AND s.YjType NOT IN ('经营类(溢价款)', '物业公司车位代销')
-        WHERE r.RoomGUID = sr.RoomGUID)
-          AND NOT EXISTS (SELECT 1 FROM erp25.dbo.S_PerformanceAppraisalBuildings sr
-             INNER JOIN erp25.dbo.S_PerformanceAppraisal s ON s.PerformanceAppraisalGUID = sr.PerformanceAppraisalGUID
-                                                              AND s.AuditStatus = '已审核'
-                                                              AND s.YjType NOT IN ('经营类(溢价款)', '物业公司车位代销')
-        WHERE r.BldGUID = sr.BldGUID)
-    GROUP BY r.ProjGUID, r.Product, r.ProductType, r.ProductName, r.Standard, r.BusinessType;
-
-
-
-    SELECT a.ProjGUID,
-           db.ProductType,
-           db.ProductName,
-           db.Standard,
-           db.BusinessType,
-           db.Product,
-           a.BizDate,
-           db.jzjfdate,
-           b.taoshu,
-           b.area,
-           b.amount * 10000 amount,
-           b.Amount / (1 + tax.rate) * 10000 amountnotax
-    INTO #hzyjresult1
-    FROM #hzyj a
-         LEFT JOIN erp25.dbo.s_YJRLBuildingDescript b ON a.ProducteDetailGUID = b.ProducteDetailGUID
-         INNER JOIN #db db ON b.bldguid = db.SaleBldGUID
-         LEFT JOIN #p f ON a.ProjGUID = f.ProjGUID
-         LEFT JOIN #tmp_tax tax ON DATEDIFF(DAY, a.BizDate, tax.bgnDate) <= 0
-                                   AND DATEDIFF(DAY, a.BizDate, tax.endDate) >= 0
-    WHERE a.BizDate
-    BETWEEN @var_bgndate AND @var_enddate;
-
-
-    SELECT h.ProjGUID,
-           h.ProductType,
-           h.ProductName,
-           h.Standard,
-           h.BusinessType,
-           h.Product,
-           h.BizDate,
-           h.jzjfdate,
-           h.taoshu * ISNULL(ISNULL(kq.kql, kq1.kql), 1) as  taoshu,
-           h.area * ISNULL(ISNULL(kq.kql, kq1.kql), 1) as area,
-           h.amount * ISNULL(ISNULL(kq.kql, kq1.kql), 1) amount,
-           h.amountnotax * ISNULL(ISNULL(kq.kql, kq1.kql), 1) amountnotax
-    INTO #hzyjresult
-    FROM #hzyjresult1 h
-         LEFT JOIN erp25.dbo.p_project p ON h.projguid = p.projguid
-         LEFT JOIN erp25.dbo.s_kq kq ON p.buguid = kq.buguid
-                                        AND h.Product = kq.Product
-         LEFT JOIN erp25.dbo.s_kql kq1 ON p.buguid = kq1.buguid
-                                          AND h.producttype = kq1.producttype;
-
-
-
-
-    SELECT ProjGUID, ProductType, ProductName, Standard, BusinessType, Product,
-           SUM(CASE WHEN ProductType = '地下室/车库' THEN Taoshu ELSE Area END) AS bnqymj,
-           SUM(amount) bnqyje, SUM(amountnotax) bnqyjenotax,
-           --2024年
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2024-01-01') = 0 THEN CASE WHEN ProductType = '地下室/车库' THEN Taoshu ELSE Area END ELSE 0 END) mj2401,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2024-01-01') = 0 THEN amount ELSE 0 END) je2401,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2024-01-01') = 0 THEN amountnotax ELSE 0 END) jenotax2401,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2024-04-01') = 0 THEN CASE WHEN ProductType = '地下室/车库' THEN Taoshu ELSE Area END ELSE 0 END) mj2402,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2024-04-01') = 0 THEN amount ELSE 0 END) je2402,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2024-04-01') = 0 THEN amountnotax ELSE 0 END) jenotax2402,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2024-07-01') = 0 THEN CASE WHEN ProductType = '地下室/车库' THEN Taoshu ELSE Area END ELSE 0 END) mj2403,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2024-07-01') = 0 THEN amount ELSE 0 END) je2403,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2024-07-01') = 0 THEN amountnotax ELSE 0 END) jenotax2403,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2024-10-01') = 0 THEN CASE WHEN ProductType = '地下室/车库' THEN Taoshu ELSE Area END ELSE 0 END) mj2404,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2024-10-01') = 0 THEN amount ELSE 0 END) je2404,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2024-10-01') = 0 THEN amountnotax ELSE 0 END) jenotax2404,
-           --2025年
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2025-01-01') = 0 THEN CASE WHEN ProductType = '地下室/车库' THEN Taoshu ELSE Area END ELSE 0 END) mj2501,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2025-01-01') = 0 THEN amount ELSE 0 END) je2501,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2025-01-01') = 0 THEN amountnotax ELSE 0 END) jenotax2501,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2025-04-01') = 0 THEN CASE WHEN ProductType = '地下室/车库' THEN Taoshu ELSE Area END ELSE 0 END) mj2502,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2025-04-01') = 0 THEN amount ELSE 0 END) je2502,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2025-04-01') = 0 THEN amountnotax ELSE 0 END) jenotax2502,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2025-07-01') = 0 THEN CASE WHEN ProductType = '地下室/车库' THEN Taoshu ELSE Area END ELSE 0 END) mj2503,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2025-07-01') = 0 THEN amount ELSE 0 END) je2503,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2025-07-01') = 0 THEN amountnotax ELSE 0 END) jenotax2503,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2025-10-01') = 0 THEN CASE WHEN ProductType = '地下室/车库' THEN Taoshu ELSE Area END ELSE 0 END) mj2504,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2025-10-01') = 0 THEN amount ELSE 0 END) je2504,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2025-10-01') = 0 THEN amountnotax ELSE 0 END) jenotax2504,
-           -- 26年结转数据
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2026-01-01') = 0 THEN CASE WHEN ProductType = '地下室/车库' THEN Taoshu ELSE Area END ELSE 0 END) mj2601,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2026-01-01') = 0 THEN amount ELSE 0 END) je2601,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2026-01-01') = 0 THEN amountnotax ELSE 0 END) jenotax2601,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2026-04-01') = 0 THEN CASE WHEN ProductType = '地下室/车库' THEN Taoshu ELSE Area END ELSE 0 END) mj2602,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2026-04-01') = 0 THEN amount ELSE 0 END) je2602,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2026-04-01') = 0 THEN amountnotax ELSE 0 END) jenotax2602,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2026-07-01') = 0 THEN CASE WHEN ProductType = '地下室/车库' THEN Taoshu ELSE Area END ELSE 0 END) mj2603,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2026-07-01') = 0 THEN amount ELSE 0 END) je2603,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2026-07-01') = 0 THEN amountnotax ELSE 0 END) jenotax2603,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2026-10-01') = 0 THEN CASE WHEN ProductType = '地下室/车库' THEN Taoshu ELSE Area END ELSE 0 END) mj2604,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2026-10-01') = 0 THEN amount ELSE 0 END) je2604,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2026-10-01') = 0 THEN amountnotax ELSE 0 END) jenotax2604,
-           -- 27年结转数据
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2027-01-01') = 0 THEN CASE WHEN ProductType = '地下室/车库' THEN Taoshu ELSE Area END ELSE 0 END) mj2701,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2027-01-01') = 0 THEN amount ELSE 0 END) je2701,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2027-01-01') = 0 THEN amountnotax ELSE 0 END) jenotax2701,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2027-04-01') = 0 THEN CASE WHEN ProductType = '地下室/车库' THEN Taoshu ELSE Area END ELSE 0 END) mj2702,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2027-04-01') = 0 THEN amount ELSE 0 END) je2702,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2027-04-01') = 0 THEN amountnotax ELSE 0 END) jenotax2702,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2027-07-01') = 0 THEN CASE WHEN ProductType = '地下室/车库' THEN Taoshu ELSE Area END ELSE 0 END) mj2703,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2027-07-01') = 0 THEN amount ELSE 0 END) je2703,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2027-07-01') = 0 THEN amountnotax ELSE 0 END) jenotax2703,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2027-10-01') = 0 THEN CASE WHEN ProductType = '地下室/车库' THEN Taoshu ELSE Area END ELSE 0 END) mj2704,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2027-10-01') = 0 THEN amount ELSE 0 END) je2704,
-           SUM(CASE WHEN DATEDIFF(qq, jzjfdate, '2027-10-01') = 0 THEN amountnotax ELSE 0 END) jenotax2704
-    INTO #h1
-    FROM #hzyjresult
-    GROUP BY ProjGUID, ProductType, ProductName, Standard, BusinessType, Product
-
-
-
-
-    --取手工维护的匹配关系
-    SELECT 项目guid,
-           T.基础数据主键,
-           T.盈利规划系统自动匹对主键,
-           CASE
-               WHEN ISNULL(T.盈利规划系统自动匹对主键, '') <> '' THEN
-                    T.盈利规划系统自动匹对主键
-               ELSE CASE
-                        WHEN ISNULL(T.盈利规划主键, '') <> '' THEN
-                             T.盈利规划主键
-                        ELSE T.基础数据主键
-                    END
-           END 盈利规划主键,
-           MAX(T.[营业成本单方(元/平方米)]) AS 营业成本单方,
-           MAX(T.[营销费用单方(元/平方米)]) AS 营销费用单方,
-           MAX(T.[综合管理费单方(元/平方米)]) AS 综合管理费单方,
-           MAX(T.[股权溢价单方(元/平方米)]) AS 股权溢价单方,
-           MAX(T.[税金及附加单方(元/平方米)]) AS 税金及附加单方,
-           MAX(T.[除地价外直投单方(元/平方米)]) AS 除地价外直投单方,
-           MAX(T.[土地款单方(元/平方米)]) AS 土地款单方,
-           MAX(T.[资本化利息单方(元/平方米)]) AS 资本化利息单方,
-           MAX(T.[开发间接费单方(元/平方米)]) AS 开发间接费单方
-    INTO #key1
-    FROM dss.dbo.nmap_F_明源及盈利规划业态单方沉淀表 T
-         INNER JOIN
-         (
-             SELECT ROW_NUMBER() OVER (PARTITION BY a.FillDataGUID ORDER BY EndDate DESC) NUM,
-                    FillHistoryGUID
-             FROM dss.dbo.nmap_F_FillHistory a
-             WHERE EXISTS
-             (
-                 SELECT FillHistoryGUID,
-                        SUM(   CASE
-                                   WHEN 项目guid IS NULL
-                                        OR 项目guid = '' THEN
-                                        0
-                                   ELSE 1
-                               END
-                           ) AS num
-                 FROM dss.dbo.nmap_F_明源及盈利规划业态单方沉淀表 b
-                 WHERE a.FillHistoryGUID = b.FillHistoryGUID
-                 GROUP BY FillHistoryGUID
-                 HAVING SUM(   CASE
-                                   WHEN 项目guid IS NULL THEN
-                                        0
-                                   ELSE 1
-                               END
-                           ) > 0
-             )
-         ) V ON T.FillHistoryGUID = V.FillHistoryGUID
-                AND V.NUM = 1
-    WHERE ISNULL(T.项目guid, '') <> ''
-    GROUP BY 项目guid,
-             T.基础数据主键,
-             T.盈利规划系统自动匹对主键,
-             CASE
-                 WHEN ISNULL(T.盈利规划系统自动匹对主键, '') <> '' THEN
-                      T.盈利规划系统自动匹对主键
-                 ELSE CASE
-                          WHEN ISNULL(T.盈利规划主键, '') <> '' THEN
-                               T.盈利规划主键
-                          ELSE T.基础数据主键
-                      END
-             END;
-
-
-    SELECT db.ProjGUID,
-           db.Product MyProduct,
-           db.ProductType,
-           db.ProductName,
-           db.Standard,
-           db.BusinessType,
-           ISNULL(dss.盈利规划主键, db.Product) Product,
-           SUM(ISNULL(s.bnqymj, 0)) bnqymj,
-           SUM(ISNULL(s.bnqyje, 0)) bnqyje,
-           SUM(ISNULL(s.bnqyjenotax, 0)) bnqyjenotax,
-           SUM(ISNULL(s.mj2401, 0)) mj2401,
-           SUM(ISNULL(s.je2401, 0)) je2401,
-           SUM(ISNULL(s.jenotax2401, 0)) jenotax2401,
-           SUM(ISNULL(s.mj2402, 0)) mj2402,
-           SUM(ISNULL(s.je2402, 0)) je2402,
-           SUM(ISNULL(s.jenotax2402, 0)) jenotax2402,
-           SUM(ISNULL(s.mj2403, 0)) mj2403,
-           SUM(ISNULL(s.je2403, 0)) je2403,
-           SUM(ISNULL(s.jenotax2403, 0)) jenotax2403,
-           SUM(ISNULL(s.mj2404, 0)) mj2404,
-           SUM(ISNULL(s.je2404, 0)) je2404,
-           SUM(ISNULL(s.jenotax2404, 0)) jenotax2404,
-           -- 25年结转数据
-           SUM(ISNULL(s.mj2501, 0)) mj2501,
-           SUM(ISNULL(s.je2501, 0)) je2501,
-           SUM(ISNULL(s.jenotax2501, 0)) jenotax2501,
-           SUM(ISNULL(s.mj2502, 0)) mj2502,
-           SUM(ISNULL(s.je2502, 0)) je2502,
-           SUM(ISNULL(s.jenotax2502, 0)) jenotax2502,
-           SUM(ISNULL(s.mj2503, 0)) mj2503,
-           SUM(ISNULL(s.je2503, 0)) je2503,
-           SUM(ISNULL(s.jenotax2503, 0)) jenotax2503,
-           SUM(ISNULL(s.mj2504, 0)) mj2504,
-           SUM(ISNULL(s.je2504, 0)) je2504,
-           SUM(ISNULL(s.jenotax2504, 0)) jenotax2504,
-           -- 26年结转数据
-           SUM(ISNULL(s.mj2601, 0)) mj2601,
-           SUM(ISNULL(s.je2601, 0)) je2601,
-           SUM(ISNULL(s.jenotax2601, 0)) jenotax2601,
-           SUM(ISNULL(s.mj2602, 0)) mj2602,
-           SUM(ISNULL(s.je2602, 0)) je2602,
-           SUM(ISNULL(s.jenotax2602, 0)) jenotax2602,
-           SUM(ISNULL(s.mj2603, 0)) mj2603,
-           SUM(ISNULL(s.je2603, 0)) je2603,
-           SUM(ISNULL(s.jenotax2603, 0)) jenotax2603,
-           SUM(ISNULL(s.mj2604, 0)) mj2604,
-           SUM(ISNULL(s.je2604, 0)) je2604,
-           SUM(ISNULL(s.jenotax2604, 0)) jenotax2604,
-           -- 27年结转数据
-           SUM(ISNULL(s.mj2701, 0)) mj2701,
-           SUM(ISNULL(s.je2701, 0)) je2701,
-           SUM(ISNULL(s.jenotax2701, 0)) jenotax2701,
-           SUM(ISNULL(s.mj2702, 0)) mj2702,
-           SUM(ISNULL(s.je2702, 0)) je2702,
-           SUM(ISNULL(s.jenotax2702, 0)) jenotax2702,
-           SUM(ISNULL(s.mj2703, 0)) mj2703,
-           SUM(ISNULL(s.je2703, 0)) je2703,
-           SUM(ISNULL(s.jenotax2703, 0)) jenotax2703,
-           SUM(ISNULL(s.mj2704, 0)) mj2704,
-           SUM(ISNULL(s.je2704, 0)) je2704,
-           SUM(ISNULL(s.jenotax2704, 0)) jenotax2704
-    INTO #sale1
-    FROM
-    (
-        SELECT DISTINCT
-               db.ProjGUID,
-               db.Product,
-               db.ProductType,
-               db.ProductName,
-               db.Standard,
-               db.BusinessType
-        FROM #db db
-    ) db
-    INNER JOIN
-    (
-        SELECT a.ProjGUID,
-               a.Product,
-               a.ProductType,
-               a.ProductName,
-               a.Standard,
-               a.BusinessType,
-               a.bnqymj,
-               a.bnqyje,
-               a.bnqyjenotax,
-               a.mj2401,
-               a.je2401,
-               a.jenotax2401,
-               a.mj2402,
-               a.je2402,
-               a.jenotax2402,
-               a.mj2403,
-               a.je2403,
-               a.jenotax2403,
-               a.mj2404,
-               a.je2404,
-               a.jenotax2404,
-               a.mj2501,
-               a.je2501,
-               a.jenotax2501,
-               a.mj2502,
-               a.je2502,
-               a.jenotax2502,
-               a.mj2503,
-               a.je2503,
-               a.jenotax2503,
-               a.mj2504,
-               a.je2504,
-               a.jenotax2504,
-               -- 26年结转数据
-               a.mj2601,
-               a.je2601,
-               a.jenotax2601,
-               a.mj2602,
-               a.je2602,
-               a.jenotax2602,
-               a.mj2603,
-               a.je2603,
-               a.jenotax2603,
-               a.mj2604,
-               a.je2604,
-               a.jenotax2604,
-               -- 27年结转数据
-               a.mj2701,
-               a.je2701,
-               a.jenotax2701,
-               a.mj2702,
-               a.je2702,
-               a.jenotax2702,
-               a.mj2703,
-               a.je2703,
-               a.jenotax2703,
-               a.mj2704,
-               a.je2704,
-               a.jenotax2704
-        FROM #con2 a
-        UNION ALL
-        SELECT a.ProjGUID,
-               a.Product,
-               a.ProductType,
-               a.ProductName,
-               a.Standard,
-               a.BusinessType,
-               a.bnqymj,
-               a.bnqyje,
-               a.bnqyjenotax,
-               a.mj2401,
-               a.je2401,
-               a.jenotax2401,
-               a.mj2402,
-               a.je2402,
-               a.jenotax2402,
-               a.mj2403,
-               a.je2403,
-               a.jenotax2403,
-               a.mj2404,
-               a.je2404,
-               a.jenotax2404,
-               -- 25年结转数据
-               a.mj2501,
-               a.je2501,
-               a.jenotax2501,
-               a.mj2502,
-               a.je2502,
-               a.jenotax2502,
-               a.mj2503,
-               a.je2503,
-               a.jenotax2503,
-               a.mj2504,
-               a.je2504,
-               a.jenotax2504,
-               -- 26年结转数据
-               a.mj2601,
-               a.je2601,
-               a.jenotax2601,
-               a.mj2602,
-               a.je2602,
-               a.jenotax2602,
-               a.mj2603,
-               a.je2603,
-               a.jenotax2603,
-               a.mj2604,
-               a.je2604,
-               a.jenotax2604,
-               -- 27年结转数据  
-               a.mj2701,
-               a.je2701,
-               a.jenotax2701,
-               a.mj2702,
-               a.je2702,
-               a.jenotax2702,
-               a.mj2703,    
-               a.je2703,
-               a.jenotax2703,
-               a.mj2704,
-               a.je2704,
-               a.jenotax2704
-        FROM #h1 a
-    ) s ON db.ProjGUID = s.ProjGUID   AND db.Product = s.Product
-    LEFT JOIN
-    (SELECT DISTINCT k.项目guid, k.基础数据主键, k.盈利规划主键 FROM #key1 k) dss ON dss.项目guid = db.ProjGUID
-                                                                       AND dss.基础数据主键 = db.Product --业态匹配
-    GROUP BY db.ProjGUID,
-             db.Product,
-             db.ProductType,
-             db.ProductName,
-             db.Standard,
-             db.BusinessType,
-             ISNULL(dss.盈利规划主键, db.Product);
-
-
-    --盈利规划
-    -- 营业成本单方 	 其中：地价单方 	 其中：除地价外直投单方 	 其中：开发间接费单方 	 其中：资本化利息单方 	 
-    --股权溢价单方 	 营销费用单方 	 综合管理费用单方 	 税金及附加单方 
-
-    --OrgGuid,平台公司,项目guid,项目名称,项目代码,投管代码,盈利规划上线方式,产品类型,产品名称,装修标准,商品类型,匹配主键,
-    --总可售面积,总可售金额,除地外直投_单方,土地款_单方,资本化利息_综合管理费_单方,盈利规划营业成本单方,税金及附加单方,股权溢价单方,
-    --管理费用单方,营销费用单方,资本化利息单方,开发间接费单方,总投资不含税单方 ,盈利规划车位数
-    SELECT DISTINCT
-           k.[项目guid], -- 避免重复
-           ISNULL(k.盈利规划主键, ylgh.匹配主键) 业态组合键,
-           ISNULL(ylgh.总可售面积, 0) AS 盈利规划总可售面积,
-           CASE
-               WHEN ISNULL(k.营业成本单方, 0) = 0 THEN
-                    ISNULL(ylgh.盈利规划营业成本单方, 0)
-               ELSE ISNULL(k.营业成本单方, 0)
-           END AS 盈利规划营业成本单方,
-           CASE
-               WHEN ISNULL(k.土地款单方, 0) = 0 THEN
-                    ISNULL(ylgh.土地款_单方, 0)
-               ELSE k.土地款单方
-           END 土地款_单方,
-           CASE
-               WHEN ISNULL(k.除地价外直投单方, 0) = 0 THEN
-                    ISNULL(ylgh.除地外直投_单方, 0)
-               ELSE k.除地价外直投单方
-           END AS 除地外直投_单方,
-           CASE
-               WHEN ISNULL(k.开发间接费单方, 0) = 0 THEN
-                    ISNULL(ylgh.开发间接费单方, 0)
-               ELSE k.开发间接费单方
-           END AS 开发间接费单方,
-           CASE
-               WHEN ISNULL(k.资本化利息单方, 0) = 0 THEN
-                    ISNULL(ylgh.资本化利息单方, 0)
-               ELSE k.资本化利息单方
-           END AS 资本化利息单方,
-           CASE
-               WHEN ISNULL(k.股权溢价单方, 0) = 0 THEN
-                    ISNULL(ylgh.股权溢价单方, 0)
-               ELSE k.股权溢价单方
-           END AS 盈利规划股权溢价单方,
-           CASE
-               WHEN ISNULL(k.营销费用单方, 0) = 0 THEN
-                    ISNULL(ylgh.营销费用单方, 0)
-               ELSE k.营销费用单方
-           END AS 盈利规划营销费用单方,
-           CASE
-               WHEN ISNULL(k.综合管理费单方, 0) = 0 THEN
-                    ISNULL(ylgh.管理费用单方, 0)
-               ELSE k.综合管理费单方
-           END AS 盈利规划综合管理费单方协议口径,
-           CASE
-               WHEN ISNULL(k.税金及附加单方, 0) = 0 THEN
-                    ISNULL(ylgh.税金及附加单方, 0)
-               ELSE k.税金及附加单方
-           END AS 盈利规划税金及附加单方
-    INTO #ylgh1
-    FROM #key1 k
-         LEFT JOIN dss.dbo.s_F066项目毛利率销售底表_盈利规划单方 ylgh ON ylgh.匹配主键 = k.盈利规划主键
-                                                          AND ylgh.[项目guid] = k.项目guid
-         INNER JOIN #p p ON k.项目guid = p.ProjGUID;
-
-
---------------------按照盈利规划锁定版本进行单方等比例缩小放大逻辑 begin--------------------------------  
-    -- select 
-    --     a.项目guid,
-    --     a.业态组合键,
-    --     case when isnull(b.除地外直投_单方,0) <1 then  0 else  a.除地外直投_单方 / b.除地外直投_单方  end as  除地价外直投变动率,
-    --     case when isnull(b.管理费用单方,0) <1 then  0 else  a.盈利规划综合管理费单方协议口径 / b.管理费用单方  end as  管理费用变动率,
-    --     case when isnull(b.营销费用单方,0) <1 then  0 else  a.盈利规划营销费用单方 / b.营销费用单方  end as  营销费用变动率,
-    --     case when isnull(b.股权溢价单方,0) <1 then  0 else  a.盈利规划股权溢价单方 / b.股权溢价单方  end as  股权溢价单方变动率
-    -- into #bdl1
-    -- from #ylgh1 a
-    -- inner join dss.dbo.s_F066项目毛利率销售底表_盈利规划单方锁定版 b on a.项目guid = b.项目guid and a.业态组合键 = b.匹配主键
-
-
-
-    -- UPDATE p 
-    -- SET p.盈利规划营业成本单方 = p.除地外直投_单方 * (1 + 除地价外直投变动率) + 
-    --                                 p.土地款_单方 + 
-    --                                 p.开发间接费单方 + 
-    --                                 p.资本化利息单方, --如果是在指定项目分期的范围内，营业成本 = 除地价外直投+土地款+开发间接费+资本化利息
-    --     p.除地外直投_单方 = p.除地外直投_单方 * (1 + 除地价外直投变动率), --增加指定项目的除地价外直投单方变动率
-    --     p.盈利规划综合管理费单方协议口径 = p.盈利规划综合管理费单方协议口径 * (1 + 管理费用变动率), --增加指定项目的管理费用单方变动率
-    --     p.盈利规划营销费用单方 = p.盈利规划营销费用单方 * (1 + 营销费用变动率), --增加指定项目的营销费用单方变动率
-    --     p.盈利规划股权溢价单方 = p.盈利规划股权溢价单方 * (1 + 股权溢价单方变动率) --增加指定项目的股权溢价单方变动率
-    -- FROM #ylgh1 p
-    -- INNER JOIN #bdl1 b ON b.项目guid = p.项目guid and b.业态组合键 = p.业态组合键
-
-  --------------------按照盈利规划锁定版本进行单方等比例缩小放大逻辑 end--------------------------------  
-
-    --计算项目成本
-    SELECT a.ProjGUID,
-           a.MyProduct,
-           a.Product,
-           a.ProductType,
-           a.ProductName,
-           a.Standard,
-           a.BusinessType,
-           y.盈利规划营业成本单方,
-           y.土地款_单方,
-           y.除地外直投_单方,
-           y.开发间接费单方,
-           y.资本化利息单方,
-           y.盈利规划股权溢价单方,
-           y.盈利规划营销费用单方,
-           y.盈利规划综合管理费单方协议口径,
-           y.盈利规划税金及附加单方,
-           SUM(ISNULL(a.bnqymj, 0)) bnqymj,
-           SUM(ISNULL(a.bnqyje, 0)) bnqyje,
-           SUM(ISNULL(a.bnqyjenotax, 0)) bnqyjenotax,
-           SUM(ISNULL(y.盈利规划营业成本单方, 0) * ISNULL(a.bnqymj, 0)) 盈利规划营业成本本年签约,
-           SUM(ISNULL(y.盈利规划股权溢价单方, 0) * ISNULL(a.bnqymj, 0)) 盈利规划股权溢价本年签约,
-           SUM(ISNULL(y.盈利规划营销费用单方, 0) * ISNULL(a.bnqymj, 0)) 盈利规划营销费用本年签约,
-           SUM(ISNULL(y.盈利规划综合管理费单方协议口径, 0) * ISNULL(a.bnqymj, 0)) 盈利规划综合管理费本年签约,
-           SUM(ISNULL(y.盈利规划税金及附加单方, 0) * ISNULL(a.bnqymj, 0)) 盈利规划税金及附加本年签约,
-
-           ---2024年
-           SUM(ISNULL(a.mj2401, 0)) mj2401,
-           SUM(ISNULL(a.je2401, 0)) je2401,
-           SUM(ISNULL(a.jenotax2401, 0)) jenotax2401,
-           SUM(ISNULL(y.盈利规划营业成本单方, 0) * ISNULL(a.mj2401, 0)) 盈利规划营业成本2401,
-           SUM(ISNULL(y.盈利规划股权溢价单方, 0) * ISNULL(a.mj2401, 0)) 盈利规划股权溢价2401,
-           SUM(ISNULL(y.盈利规划营销费用单方, 0) * ISNULL(a.mj2401, 0)) 盈利规划营销费用2401,
-           SUM(ISNULL(y.盈利规划综合管理费单方协议口径, 0) * ISNULL(a.mj2401, 0)) 盈利规划综合管理费2401,
-           SUM(ISNULL(y.盈利规划税金及附加单方, 0) * ISNULL(a.mj2401, 0)) 盈利规划税金及附加2401,
-           SUM(ISNULL(a.mj2402, 0)) mj2402,
-           SUM(ISNULL(a.je2402, 0)) je2402,
-           SUM(ISNULL(a.jenotax2402, 0)) jenotax2402,
-           SUM(ISNULL(y.盈利规划营业成本单方, 0) * ISNULL(a.mj2402, 0)) 盈利规划营业成本2402,
-           SUM(ISNULL(y.盈利规划股权溢价单方, 0) * ISNULL(a.mj2402, 0)) 盈利规划股权溢价2402,
-           SUM(ISNULL(y.盈利规划营销费用单方, 0) * ISNULL(a.mj2402, 0)) 盈利规划营销费用2402,
-           SUM(ISNULL(y.盈利规划综合管理费单方协议口径, 0) * ISNULL(a.mj2402, 0)) 盈利规划综合管理费2402,
-           SUM(ISNULL(y.盈利规划税金及附加单方, 0) * ISNULL(a.mj2402, 0)) 盈利规划税金及附加2402,
-           SUM(ISNULL(a.mj2403, 0)) mj2403,
-           SUM(ISNULL(a.je2403, 0)) je2403,
-           SUM(ISNULL(a.jenotax2403, 0)) jenotax2403,
-           SUM(ISNULL(y.盈利规划营业成本单方, 0) * ISNULL(a.mj2403, 0)) 盈利规划营业成本2403,
-           SUM(ISNULL(y.盈利规划股权溢价单方, 0) * ISNULL(a.mj2403, 0)) 盈利规划股权溢价2403,
-           SUM(ISNULL(y.盈利规划营销费用单方, 0) * ISNULL(a.mj2403, 0)) 盈利规划营销费用2403,
-           SUM(ISNULL(y.盈利规划综合管理费单方协议口径, 0) * ISNULL(a.mj2403, 0)) 盈利规划综合管理费2403,
-           SUM(ISNULL(y.盈利规划税金及附加单方, 0) * ISNULL(a.mj2403, 0)) 盈利规划税金及附加2403,
-           SUM(ISNULL(a.mj2404, 0)) mj2404,
-           SUM(ISNULL(a.je2404, 0)) je2404,
-           SUM(ISNULL(a.jenotax2404, 0)) jenotax2404,
-           SUM(ISNULL(y.盈利规划营业成本单方, 0) * ISNULL(a.mj2404, 0)) 盈利规划营业成本2404,
-           SUM(ISNULL(y.盈利规划股权溢价单方, 0) * ISNULL(a.mj2404, 0)) 盈利规划股权溢价2404,
-           SUM(ISNULL(y.盈利规划营销费用单方, 0) * ISNULL(a.mj2404, 0)) 盈利规划营销费用2404,
-           SUM(ISNULL(y.盈利规划综合管理费单方协议口径, 0) * ISNULL(a.mj2404, 0)) 盈利规划综合管理费2404,
-           SUM(ISNULL(y.盈利规划税金及附加单方, 0) * ISNULL(a.mj2404, 0)) 盈利规划税金及附加2404,
-
-           ---2025年
-           SUM(ISNULL(a.mj2501, 0)) mj2501,
-           SUM(ISNULL(a.je2501, 0)) je2501,
-           SUM(ISNULL(a.jenotax2501, 0)) jenotax2501,
-           SUM(ISNULL(y.盈利规划营业成本单方, 0) * ISNULL(a.mj2501, 0)) 盈利规划营业成本2501,
-           SUM(ISNULL(y.盈利规划股权溢价单方, 0) * ISNULL(a.mj2501, 0)) 盈利规划股权溢价2501,
-           SUM(ISNULL(y.盈利规划营销费用单方, 0) * ISNULL(a.mj2501, 0)) 盈利规划营销费用2501,
-           SUM(ISNULL(y.盈利规划综合管理费单方协议口径, 0) * ISNULL(a.mj2501, 0)) 盈利规划综合管理费2501,
-           SUM(ISNULL(y.盈利规划税金及附加单方, 0) * ISNULL(a.mj2501, 0)) 盈利规划税金及附加2501,
-           SUM(ISNULL(a.mj2502, 0)) mj2502,
-           SUM(ISNULL(a.je2502, 0)) je2502,
-           SUM(ISNULL(a.jenotax2502, 0)) jenotax2502,
-           SUM(ISNULL(y.盈利规划营业成本单方, 0) * ISNULL(a.mj2502, 0)) 盈利规划营业成本2502,
-           SUM(ISNULL(y.盈利规划股权溢价单方, 0) * ISNULL(a.mj2502, 0)) 盈利规划股权溢价2502,
-           SUM(ISNULL(y.盈利规划营销费用单方, 0) * ISNULL(a.mj2502, 0)) 盈利规划营销费用2502,
-           SUM(ISNULL(y.盈利规划综合管理费单方协议口径, 0) * ISNULL(a.mj2502, 0)) 盈利规划综合管理费2502,
-           SUM(ISNULL(y.盈利规划税金及附加单方, 0) * ISNULL(a.mj2502, 0)) 盈利规划税金及附加2502,
-           SUM(ISNULL(a.mj2503, 0)) mj2503,
-           SUM(ISNULL(a.je2503, 0)) je2503,
-           SUM(ISNULL(a.jenotax2503, 0)) jenotax2503,
-           SUM(ISNULL(y.盈利规划营业成本单方, 0) * ISNULL(a.mj2503, 0)) 盈利规划营业成本2503,
-           SUM(ISNULL(y.盈利规划股权溢价单方, 0) * ISNULL(a.mj2503, 0)) 盈利规划股权溢价2503,
-           SUM(ISNULL(y.盈利规划营销费用单方, 0) * ISNULL(a.mj2503, 0)) 盈利规划营销费用2503,
-           SUM(ISNULL(y.盈利规划综合管理费单方协议口径, 0) * ISNULL(a.mj2503, 0)) 盈利规划综合管理费2503,
-           SUM(ISNULL(y.盈利规划税金及附加单方, 0) * ISNULL(a.mj2503, 0)) 盈利规划税金及附加2503,
-           SUM(ISNULL(a.mj2504, 0)) mj2504,
-           SUM(ISNULL(a.je2504, 0)) je2504,
-           SUM(ISNULL(a.jenotax2504, 0)) jenotax2504,
-           SUM(ISNULL(y.盈利规划营业成本单方, 0) * ISNULL(a.mj2504, 0)) 盈利规划营业成本2504,
-           SUM(ISNULL(y.盈利规划股权溢价单方, 0) * ISNULL(a.mj2504, 0)) 盈利规划股权溢价2504,
-           SUM(ISNULL(y.盈利规划营销费用单方, 0) * ISNULL(a.mj2504, 0)) 盈利规划营销费用2504,
-           SUM(ISNULL(y.盈利规划综合管理费单方协议口径, 0) * ISNULL(a.mj2504, 0)) 盈利规划综合管理费2504,
-           SUM(ISNULL(y.盈利规划税金及附加单方, 0) * ISNULL(a.mj2504, 0)) 盈利规划税金及附加2504,
-
-           ---26年数据  
-           SUM(ISNULL(a.mj2601, 0)) mj2601,
-           SUM(ISNULL(a.je2601, 0)) je2601,
-           SUM(ISNULL(a.jenotax2601, 0)) jenotax2601,
-           SUM(ISNULL(y.盈利规划营业成本单方, 0) * ISNULL(a.mj2601, 0)) 盈利规划营业成本2601,
-           SUM(ISNULL(y.盈利规划股权溢价单方, 0) * ISNULL(a.mj2601, 0)) 盈利规划股权溢价2601,
-           SUM(ISNULL(y.盈利规划营销费用单方, 0) * ISNULL(a.mj2601, 0)) 盈利规划营销费用2601,
-           SUM(ISNULL(y.盈利规划综合管理费单方协议口径, 0) * ISNULL(a.mj2601, 0)) 盈利规划综合管理费2601,
-           SUM(ISNULL(y.盈利规划税金及附加单方, 0) * ISNULL(a.mj2601, 0)) 盈利规划税金及附加2601,
-           SUM(ISNULL(a.mj2602, 0)) mj2602,
-           SUM(ISNULL(a.je2602, 0)) je2602,
-           SUM(ISNULL(a.jenotax2602, 0)) jenotax2602,
-           SUM(ISNULL(y.盈利规划营业成本单方, 0) * ISNULL(a.mj2602, 0)) 盈利规划营业成本2602,
-           SUM(ISNULL(y.盈利规划股权溢价单方, 0) * ISNULL(a.mj2602, 0)) 盈利规划股权溢价2602,
-           SUM(ISNULL(y.盈利规划营销费用单方, 0) * ISNULL(a.mj2602, 0)) 盈利规划营销费用2602,
-           SUM(ISNULL(y.盈利规划综合管理费单方协议口径, 0) * ISNULL(a.mj2602, 0)) 盈利规划综合管理费2602,
-           SUM(ISNULL(y.盈利规划税金及附加单方, 0) * ISNULL(a.mj2602, 0)) 盈利规划税金及附加2602,
-           SUM(ISNULL(a.mj2603, 0)) mj2603,
-           SUM(ISNULL(a.je2603, 0)) je2603,
-           SUM(ISNULL(a.jenotax2603, 0)) jenotax2603,
-           SUM(ISNULL(y.盈利规划营业成本单方, 0) * ISNULL(a.mj2603, 0)) 盈利规划营业成本2603,
-           SUM(ISNULL(y.盈利规划股权溢价单方, 0) * ISNULL(a.mj2603, 0)) 盈利规划股权溢价2603,
-           SUM(ISNULL(y.盈利规划营销费用单方, 0) * ISNULL(a.mj2603, 0)) 盈利规划营销费用2603,
-           SUM(ISNULL(y.盈利规划综合管理费单方协议口径, 0) * ISNULL(a.mj2603, 0)) 盈利规划综合管理费2603,
-           SUM(ISNULL(y.盈利规划税金及附加单方, 0) * ISNULL(a.mj2603, 0)) 盈利规划税金及附加2603,
-           SUM(ISNULL(a.mj2604, 0)) mj2604,
-           SUM(ISNULL(a.je2604, 0)) je2604,
-           SUM(ISNULL(a.jenotax2604, 0)) jenotax2604,
-           SUM(ISNULL(y.盈利规划营业成本单方, 0) * ISNULL(a.mj2604, 0)) 盈利规划营业成本2604,
-           SUM(ISNULL(y.盈利规划股权溢价单方, 0) * ISNULL(a.mj2604, 0)) 盈利规划股权溢价2604,
-           SUM(ISNULL(y.盈利规划营销费用单方, 0) * ISNULL(a.mj2604, 0)) 盈利规划营销费用2604,
-           SUM(ISNULL(y.盈利规划综合管理费单方协议口径, 0) * ISNULL(a.mj2604, 0)) 盈利规划综合管理费2604,
-           SUM(ISNULL(y.盈利规划税金及附加单方, 0) * ISNULL(a.mj2604, 0)) 盈利规划税金及附加2604,
-           -- 27年结转数据
-           SUM(ISNULL(a.mj2701, 0)) mj2701,
-           SUM(ISNULL(a.je2701, 0)) je2701,
-           SUM(ISNULL(a.jenotax2701, 0)) jenotax2701,
-           SUM(ISNULL(y.盈利规划营业成本单方, 0) * ISNULL(a.mj2701, 0)) 盈利规划营业成本2701,
-           SUM(ISNULL(y.盈利规划股权溢价单方, 0) * ISNULL(a.mj2701, 0)) 盈利规划股权溢价2701,
-           SUM(ISNULL(y.盈利规划营销费用单方, 0) * ISNULL(a.mj2701, 0)) 盈利规划营销费用2701,
-           SUM(ISNULL(y.盈利规划综合管理费单方协议口径, 0) * ISNULL(a.mj2701, 0)) 盈利规划综合管理费2701,
-           SUM(ISNULL(y.盈利规划税金及附加单方, 0) * ISNULL(a.mj2701, 0)) 盈利规划税金及附加2701,
-           SUM(ISNULL(a.mj2702, 0)) mj2702,
-           SUM(ISNULL(a.je2702, 0)) je2702,
-           SUM(ISNULL(a.jenotax2702, 0)) jenotax2702,
-           SUM(ISNULL(y.盈利规划营业成本单方, 0) * ISNULL(a.mj2702, 0)) 盈利规划营业成本2702,
-           SUM(ISNULL(y.盈利规划股权溢价单方, 0) * ISNULL(a.mj2702, 0)) 盈利规划股权溢价2702,
-           SUM(ISNULL(y.盈利规划营销费用单方, 0) * ISNULL(a.mj2702, 0)) 盈利规划营销费用2702,
-           SUM(ISNULL(y.盈利规划综合管理费单方协议口径, 0) * ISNULL(a.mj2702, 0)) 盈利规划综合管理费2702,
-           SUM(ISNULL(y.盈利规划税金及附加单方, 0) * ISNULL(a.mj2702, 0)) 盈利规划税金及附加2702,
-           SUM(ISNULL(a.mj2703, 0)) mj2703,
-           SUM(ISNULL(a.je2703, 0)) je2703,
-           SUM(ISNULL(a.jenotax2703, 0)) jenotax2703,
-           SUM(ISNULL(y.盈利规划营业成本单方, 0) * ISNULL(a.mj2703, 0)) 盈利规划营业成本2703,
-           SUM(ISNULL(y.盈利规划股权溢价单方, 0) * ISNULL(a.mj2703, 0)) 盈利规划股权溢价2703,
-           SUM(ISNULL(y.盈利规划营销费用单方, 0) * ISNULL(a.mj2703, 0)) 盈利规划营销费用2703,
-           SUM(ISNULL(y.盈利规划综合管理费单方协议口径, 0) * ISNULL(a.mj2703, 0)) 盈利规划综合管理费2703,
-           SUM(ISNULL(y.盈利规划税金及附加单方, 0) * ISNULL(a.mj2703, 0)) 盈利规划税金及附加2703,
-           SUM(ISNULL(a.mj2704, 0)) mj2704,
-           SUM(ISNULL(a.je2704, 0)) je2704,
-           SUM(ISNULL(a.jenotax2704, 0)) jenotax2704,
-           SUM(ISNULL(y.盈利规划营业成本单方, 0) * ISNULL(a.mj2704, 0)) 盈利规划营业成本2704,
-           SUM(ISNULL(y.盈利规划股权溢价单方, 0) * ISNULL(a.mj2704, 0)) 盈利规划股权溢价2704,
-           SUM(ISNULL(y.盈利规划营销费用单方, 0) * ISNULL(a.mj2704, 0)) 盈利规划营销费用2704,
-           SUM(ISNULL(y.盈利规划综合管理费单方协议口径, 0) * ISNULL(a.mj2704, 0)) 盈利规划综合管理费2704,
-           SUM(ISNULL(y.盈利规划税金及附加单方, 0) * ISNULL(a.mj2704, 0)) 盈利规划税金及附加2704
-    INTO #cost1
-    FROM #sale1 a
-         LEFT JOIN #ylgh1 y ON a.ProjGUID = y.[项目guid]
-                               AND a.Product = y.业态组合键
-    GROUP BY a.ProjGUID,
-             a.Product,
-             a.MyProduct,
-             a.ProductType,
-             a.ProductName,
-             a.Standard,
-             a.BusinessType,
-             y.盈利规划营业成本单方,
-             y.土地款_单方,
-             y.除地外直投_单方,
-             y.开发间接费单方,
-             y.资本化利息单方,
-             y.盈利规划股权溢价单方,
-             y.盈利规划营销费用单方,
-             y.盈利规划综合管理费单方协议口径,
-             y.盈利规划税金及附加单方;
-
-
-   -- 计算项目税前利润
-    SELECT c.ProjGUID,
-           SUM(CONVERT(
-                          DECIMAL(36, 8),
-                          ((ISNULL(c.bnqyjenotax, 0) - ISNULL(c.盈利规划营业成本本年签约, 0)/*- c.盈利规划股权溢价认购*/)
-                           - ISNULL(c.盈利规划营销费用本年签约, 0) - ISNULL(c.盈利规划综合管理费本年签约, 0) - ISNULL(c.盈利规划税金及附加本年签约, 0)
-                          )
-                          / 100000000
-                      )
-              ) 项目税前利润本年签约,
-           ---24年数据
-           SUM(CONVERT(
-                          DECIMAL(36, 8),
-                          ((ISNULL(c.jenotax2401, 0) - ISNULL(c.盈利规划营业成本2401, 0)/*- c.盈利规划股权溢价认购*/)
-                           - ISNULL(c.盈利规划营销费用2401, 0) - ISNULL(c.盈利规划综合管理费2401, 0) - ISNULL(c.盈利规划税金及附加2401, 0)
-                          )
-                          / 100000000
-                      )
-              ) 项目税前利润2401,
-           SUM(CONVERT(
-                          DECIMAL(36, 8),
-                          ((ISNULL(c.jenotax2402, 0) - ISNULL(c.盈利规划营业成本2402, 0)/*- c.盈利规划股权溢价认购*/)
-                           - ISNULL(c.盈利规划营销费用2402, 0) - ISNULL(c.盈利规划综合管理费2402, 0) - ISNULL(c.盈利规划税金及附加2402, 0)
-                          )
-                          / 100000000
-                      )
-              ) 项目税前利润2402,
-           SUM(CONVERT(
-                          DECIMAL(36, 8),
-                          ((ISNULL(c.jenotax2403, 0) - ISNULL(c.盈利规划营业成本2403, 0)/*- c.盈利规划股权溢价认购*/)
-                           - ISNULL(c.盈利规划营销费用2403, 0) - ISNULL(c.盈利规划综合管理费2403, 0) - ISNULL(c.盈利规划税金及附加2403, 0)
-                          )
-                          / 100000000
-                      )
-              ) 项目税前利润2403,
-           SUM(CONVERT(
-                          DECIMAL(36, 8),
-                          ((ISNULL(c.jenotax2404, 0) - ISNULL(c.盈利规划营业成本2404, 0)/*- c.盈利规划股权溢价认购*/)
-                           - ISNULL(c.盈利规划营销费用2404, 0) - ISNULL(c.盈利规划综合管理费2404, 0) - ISNULL(c.盈利规划税金及附加2404, 0)
-                          )
-                          / 100000000
-                      )
-              ) 项目税前利润2404,
-
-           --25年数据 
-           SUM(CONVERT(
-                          DECIMAL(36, 8),
-                          ((ISNULL(c.jenotax2501, 0) - ISNULL(c.盈利规划营业成本2501, 0)/*- c.盈利规划股权溢价认购*/)
-                           - ISNULL(c.盈利规划营销费用2501, 0) - ISNULL(c.盈利规划综合管理费2501, 0) - ISNULL(c.盈利规划税金及附加2501, 0)
-                          )
-                          / 100000000
-                      )
-              ) 项目税前利润2501,
-           SUM(CONVERT(
-                          DECIMAL(36, 8),
-                          ((ISNULL(c.jenotax2502, 0) - ISNULL(c.盈利规划营业成本2502, 0)/*- c.盈利规划股权溢价认购*/)
-                           - ISNULL(c.盈利规划营销费用2502, 0) - ISNULL(c.盈利规划综合管理费2502, 0) - ISNULL(c.盈利规划税金及附加2502, 0)
-                          )
-                          / 100000000
-                      )
-              ) 项目税前利润2502,
-           SUM(CONVERT(
-                          DECIMAL(36, 8),
-                          ((ISNULL(c.jenotax2503, 0) - ISNULL(c.盈利规划营业成本2503, 0)/*- c.盈利规划股权溢价认购*/)
-                           - ISNULL(c.盈利规划营销费用2503, 0) - ISNULL(c.盈利规划综合管理费2503, 0) - ISNULL(c.盈利规划税金及附加2503, 0)
-                          )
-                          / 100000000
-                      )
-              ) 项目税前利润2503,
-           SUM(CONVERT(
-                          DECIMAL(36, 8),
-                          ((ISNULL(c.jenotax2504, 0) - ISNULL(c.盈利规划营业成本2504, 0)/*- c.盈利规划股权溢价认购*/)
-                           - ISNULL(c.盈利规划营销费用2504, 0) - ISNULL(c.盈利规划综合管理费2504, 0) - ISNULL(c.盈利规划税金及附加2504, 0)
-                          )
-                          / 100000000
-                      )
-              ) 项目税前利润2504,
-        --26年数据 
-           SUM(CONVERT(
-                          DECIMAL(36, 8),
-                          ((ISNULL(c.jenotax2601, 0) - ISNULL(c.盈利规划营业成本2601, 0)/*- c.盈利规划股权溢价认购*/)
-                           - ISNULL(c.盈利规划营销费用2601, 0) - ISNULL(c.盈利规划综合管理费2601, 0) - ISNULL(c.盈利规划税金及附加2601, 0)
-                          )
-                          / 100000000
-                      )
-              ) 项目税前利润2601,
-           SUM(CONVERT(
-                          DECIMAL(36, 8),
-                          ((ISNULL(c.jenotax2602, 0) - ISNULL(c.盈利规划营业成本2602, 0)/*- c.盈利规划股权溢价认购*/)
-                           - ISNULL(c.盈利规划营销费用2602, 0) - ISNULL(c.盈利规划综合管理费2602, 0) - ISNULL(c.盈利规划税金及附加2602, 0)
-                          )
-                          / 100000000
-                      )
-              ) 项目税前利润2602,
-           SUM(CONVERT(
-                          DECIMAL(36, 8),
-                          ((ISNULL(c.jenotax2603, 0) - ISNULL(c.盈利规划营业成本2603, 0)/*- c.盈利规划股权溢价认购*/)
-                           - ISNULL(c.盈利规划营销费用2603, 0) - ISNULL(c.盈利规划综合管理费2603, 0) - ISNULL(c.盈利规划税金及附加2603, 0)
-                          )
-                          / 100000000
-                      )
-              ) 项目税前利润2603,
-           SUM(CONVERT(
-                          DECIMAL(36, 8),
-                          ((ISNULL(c.jenotax2604, 0) - ISNULL(c.盈利规划营业成本2604, 0)/*- c.盈利规划股权溢价认购*/)
-                           - ISNULL(c.盈利规划营销费用2604, 0) - ISNULL(c.盈利规划综合管理费2604, 0) - ISNULL(c.盈利规划税金及附加2604, 0)
-                          )
-                          / 100000000
-                      )
-              ) 项目税前利润2604,
-         --27年数据 
-           SUM(CONVERT(
-                          DECIMAL(36, 8),
-                          ((ISNULL(c.jenotax2701, 0) - ISNULL(c.盈利规划营业成本2701, 0)/*- c.盈利规划股权溢价认购*/)
-                           - ISNULL(c.盈利规划营销费用2701, 0) - ISNULL(c.盈利规划综合管理费2701, 0) - ISNULL(c.盈利规划税金及附加2701, 0)
-                          )
-                          / 100000000
-                      )
-              ) 项目税前利润2701,
-           SUM(CONVERT(
-                          DECIMAL(36, 8),
-                          ((ISNULL(c.jenotax2702, 0) - ISNULL(c.盈利规划营业成本2702, 0)/*- c.盈利规划股权溢价认购*/)
-                           - ISNULL(c.盈利规划营销费用2702, 0) - ISNULL(c.盈利规划综合管理费2702, 0) - ISNULL(c.盈利规划税金及附加2702, 0)
-                          )
-                          / 100000000
-                      )
-              ) 项目税前利润2702,
-           SUM(CONVERT(
-                          DECIMAL(36, 8),
-                          ((ISNULL(c.jenotax2703, 0) - ISNULL(c.盈利规划营业成本2703, 0)/*- c.盈利规划股权溢价认购*/)
-                           - ISNULL(c.盈利规划营销费用2703, 0) - ISNULL(c.盈利规划综合管理费2703, 0) - ISNULL(c.盈利规划税金及附加2703, 0)
-                          )
-                          / 100000000
-                      )
-              ) 项目税前利润2703,
-           SUM(CONVERT(
-                          DECIMAL(36, 8),
-                          ((ISNULL(c.jenotax2704, 0) - ISNULL(c.盈利规划营业成本2704, 0)/*- c.盈利规划股权溢价认购*/)
-                           - ISNULL(c.盈利规划营销费用2704, 0) - ISNULL(c.盈利规划综合管理费2704, 0) - ISNULL(c.盈利规划税金及附加2704, 0)
-                          )
-                          / 100000000
-                      )
-              ) 项目税前利润2704
-    INTO #xm1
-    FROM #cost1 c
-    GROUP BY c.ProjGUID;
-
-    -- 项目代码（投管） 	 明源代码 	 子公司  认购面积 	 认购金额 	 认购金额（不含税) 	 营业成本 	 股权溢价 	 毛利 	 毛利率 	 营销费用 	 管理费用 	 税金及附加 	 税前利润 	 所得税 	 净利润 	 销售净利率 
-    SELECT p.ProjGUID,
-           f.平台公司,
-           f.项目名,
-           f.推广名,
-           f.项目代码,
-           f.投管代码,
-           f.项目权益比率,
-           f.盈利规划上线方式,
-           f.是否录入合作业绩,
-           c.ProductType 产品类型,
-           c.ProductName 产品名称,
-           c.Standard 装修标准,
-           c.BusinessType 商品类型,
-           c.MyProduct 明源匹配主键,
-           c.Product 业态组合键,
-           CONVERT(   DECIMAL(36, 8),
-                      CASE
-                          WHEN c.Product LIKE '%地下室/车库%' THEN
-                               c.bnqymj
-                          ELSE c.bnqymj / 10000
-                      END
-                  ) 当年签约面积,
-           CONVERT(DECIMAL(36, 9), c.bnqyje) / 100000000.0 本年签约金额,
-           CONVERT(DECIMAL(36, 9), c.bnqyjenotax) / 100000000.0 本年签约金额不含税,
-           c.盈利规划营业成本单方,
-           --c.土地款_单方,
-           --c.除地外直投_单方,
-           --c.开发间接费单方,
-           --c.资本化利息单方,
-           --c.盈利规划股权溢价单方,
-           c.盈利规划营销费用单方,
-           c.盈利规划综合管理费单方协议口径,
-           c.盈利规划税金及附加单方,
-           CONVERT(DECIMAL(36, 8), c.盈利规划营业成本本年签约 / 100000000) 盈利规划营业成本本年签约,
-           CONVERT(DECIMAL(36, 8), c.盈利规划营销费用本年签约 / 100000000) 盈利规划营销费用本年签约,
-           CONVERT(DECIMAL(36, 8), c.盈利规划综合管理费本年签约 / 100000000) 盈利规划综合管理费本年签约,
-           CONVERT(DECIMAL(36, 8), c.盈利规划税金及附加本年签约 / 100000000) 盈利规划税金及附加本年签约,
-           CONVERT(
-                      DECIMAL(36, 8),
-                      ((ISNULL(c.bnqyjenotax, 0) - ISNULL(c.盈利规划营业成本本年签约, 0) - ISNULL(c.盈利规划股权溢价本年签约, 0))
-                       - ISNULL(c.盈利规划营销费用本年签约, 0) - ISNULL(c.盈利规划综合管理费本年签约, 0) - c.盈利规划税金及附加本年签约
-                      ) / 100000000
-                  )
-           - CASE
-                 WHEN x.项目税前利润本年签约 > 0 THEN
-                      CONVERT(
-                                 DECIMAL(36, 8),
-                                 ((ISNULL(c.bnqyjenotax, 0) - ISNULL(c.盈利规划营业成本本年签约, 0)/*- c.盈利规划股权溢价认购*/)
-                                  - ISNULL(c.盈利规划营销费用本年签约, 0) - ISNULL(c.盈利规划综合管理费本年签约, 0) - ISNULL(c.盈利规划税金及附加本年签约, 0)
-                                 )
-                                 / 100000000 * 0.25
-                             )
-                 ELSE 0.0
-             END 本年签约利润,
-
-          ---按季度结转数据2401
-           CONVERT(   DECIMAL(36, 8),
-                      CASE
-                          WHEN c.Product LIKE '%地下室/车库%' THEN
-                               c.mj2401
-                          ELSE c.mj2401 / 10000
-                      END
-                  ) 结转面积2401,
-           CONVERT(DECIMAL(36, 9), c.je2401) / 100000000.0 结转金额2401,
-           CONVERT(DECIMAL(36, 9), c.jenotax2401) / 100000000.0 结转金额不含税2401,
-           CONVERT(
-                      DECIMAL(36, 8),
-                      ((ISNULL(c.jenotax2401, 0) - ISNULL(c.盈利规划营业成本2401, 0) - ISNULL(c.盈利规划股权溢价2401, 0))
-                       - ISNULL(c.盈利规划营销费用2401, 0) - ISNULL(c.盈利规划综合管理费2401, 0) - c.盈利规划税金及附加2401
-                      ) / 100000000
-                  )
-           - CASE
-                 WHEN x.项目税前利润2401 > 0 THEN
-                      CONVERT(
-                                 DECIMAL(36, 8),
-                                 ((ISNULL(c.jenotax2401, 0) - ISNULL(c.盈利规划营业成本2401, 0)/*- c.盈利规划股权溢价认购*/)
-                                  - ISNULL(c.盈利规划营销费用2401, 0) - ISNULL(c.盈利规划综合管理费2401, 0) - ISNULL(c.盈利规划税金及附加2401, 0)
-                                 )
-                                 / 100000000 * 0.25
-                             )
-                 ELSE 0.0
-             END 结转利润2401,
-
-
-           ---按季度结转数据2402
-           CONVERT(   DECIMAL(36, 8),
-                      CASE
-                          WHEN c.Product LIKE '%地下室/车库%' THEN
-                               c.mj2402
-                          ELSE c.mj2402 / 10000
-                      END
-                  ) 结转面积2402,
-           CONVERT(DECIMAL(36, 9), c.je2402) / 100000000.0 结转金额2402,
-           CONVERT(DECIMAL(36, 9), c.jenotax2402) / 100000000.0 结转金额不含税2402,
-           CONVERT(
-                      DECIMAL(36, 8),
-                      ((ISNULL(c.jenotax2402, 0) - ISNULL(c.盈利规划营业成本2402, 0) - ISNULL(c.盈利规划股权溢价2402, 0))
-                       - ISNULL(c.盈利规划营销费用2402, 0) - ISNULL(c.盈利规划综合管理费2402, 0) - c.盈利规划税金及附加2402
-                      ) / 100000000
-                  )
-           - CASE
-                 WHEN x.项目税前利润2402 > 0 THEN
-                      CONVERT(
-                                 DECIMAL(36, 8),
-                                 ((ISNULL(c.jenotax2402, 0) - ISNULL(c.盈利规划营业成本2402, 0)/*- c.盈利规划股权溢价认购*/)
-                                  - ISNULL(c.盈利规划营销费用2402, 0) - ISNULL(c.盈利规划综合管理费2402, 0) - ISNULL(c.盈利规划税金及附加2402, 0)
-                                 )
-                                 / 100000000 * 0.25
-                             )
-                 ELSE 0.0
-             END 结转利润2402,
-
-           ---按季度结转数据2403
-           CONVERT(   DECIMAL(36, 8),
-                      CASE
-                          WHEN c.Product LIKE '%地下室/车库%' THEN
-                               c.mj2403
-                          ELSE c.mj2403 / 10000
-                      END
-                  ) 结转面积2403,
-           CONVERT(DECIMAL(36, 9), c.je2403) / 100000000.0 结转金额2403,
-           CONVERT(DECIMAL(36, 9), c.jenotax2403) / 100000000.0 结转金额不含税2403,
-           CONVERT(
-                      DECIMAL(36, 8),
-                      ((ISNULL(c.jenotax2403, 0) - ISNULL(c.盈利规划营业成本2403, 0) - ISNULL(c.盈利规划股权溢价2403, 0))
-                       - ISNULL(c.盈利规划营销费用2403, 0) - ISNULL(c.盈利规划综合管理费2403, 0) - c.盈利规划税金及附加2403
-                      ) / 100000000
-                  )
-           - CASE
-                 WHEN x.项目税前利润2403 > 0 THEN
-                      CONVERT(
-                                 DECIMAL(36, 8),
-                                 ((ISNULL(c.jenotax2403, 0) - ISNULL(c.盈利规划营业成本2403, 0)/*- c.盈利规划股权溢价认购*/)
-                                  - ISNULL(c.盈利规划营销费用2403, 0) - ISNULL(c.盈利规划综合管理费2403, 0) - ISNULL(c.盈利规划税金及附加2403, 0)
-                                 )
-                                 / 100000000 * 0.25
-                             )
-                 ELSE 0.0
-             END 结转利润2403,
-
-           ---按季度结转数据2404
-           CONVERT(   DECIMAL(36, 8),
-                      CASE
-                          WHEN c.Product LIKE '%地下室/车库%' THEN
-                               c.mj2404
-                          ELSE c.mj2404 / 10000
-                      END
-                  ) 结转面积2404,
-           CONVERT(DECIMAL(36, 9), c.je2404) / 100000000.0 结转金额2404,
-           CONVERT(DECIMAL(36, 9), c.jenotax2404) / 100000000.0 结转金额不含税2404,
-           CONVERT(
-                      DECIMAL(36, 8),
-                      ((ISNULL(c.jenotax2404, 0) - ISNULL(c.盈利规划营业成本2404, 0) - ISNULL(c.盈利规划股权溢价2404, 0))
-                       - ISNULL(c.盈利规划营销费用2404, 0) - ISNULL(c.盈利规划综合管理费2404, 0) - c.盈利规划税金及附加2404
-                      ) / 100000000
-                  )
-           - CASE
-                 WHEN x.项目税前利润2404 > 0 THEN
-                      CONVERT(
-                                 DECIMAL(36, 8),
-                                 ((ISNULL(c.jenotax2404, 0) - ISNULL(c.盈利规划营业成本2404, 0)/*- c.盈利规划股权溢价认购*/)
-                                  - ISNULL(c.盈利规划营销费用2404, 0) - ISNULL(c.盈利规划综合管理费2404, 0) - ISNULL(c.盈利规划税金及附加2404, 0)
-                                 )
-                                 / 100000000 * 0.25
-                             )
-                 ELSE 0.0
-             END 结转利润2404,
-
-
-           ---按季度结转数据2501
-           CONVERT(   DECIMAL(36, 8),
-                      CASE
-                          WHEN c.Product LIKE '%地下室/车库%' THEN
-                               c.mj2501
-                          ELSE c.mj2501 / 10000
-                      END
-                  ) 结转面积2501,
-           CONVERT(DECIMAL(36, 9), c.je2501) / 100000000.0 结转金额2501,
-           CONVERT(DECIMAL(36, 9), c.jenotax2501) / 100000000.0 结转金额不含税2501,
-           CONVERT(
-                      DECIMAL(36, 8),
-                      ((ISNULL(c.jenotax2501, 0) - ISNULL(c.盈利规划营业成本2501, 0) - ISNULL(c.盈利规划股权溢价2501, 0))
-                       - ISNULL(c.盈利规划营销费用2501, 0) - ISNULL(c.盈利规划综合管理费2501, 0) - c.盈利规划税金及附加2501
-                      ) / 100000000
-                  )
-           - CASE
-                 WHEN x.项目税前利润2501 > 0 THEN
-                      CONVERT(
-                                 DECIMAL(36, 8),
-                                 ((ISNULL(c.jenotax2501, 0) - ISNULL(c.盈利规划营业成本2501, 0)/*- c.盈利规划股权溢价认购*/)
-                                  - ISNULL(c.盈利规划营销费用2501, 0) - ISNULL(c.盈利规划综合管理费2501, 0) - ISNULL(c.盈利规划税金及附加2501, 0)
-                                 )
-                                 / 100000000 * 0.25
-                             )
-                 ELSE 0.0
-             END 结转利润2501,
-
-
-           ---按季度结转数据2502
-           CONVERT(   DECIMAL(36, 8),
-                      CASE
-                          WHEN c.Product LIKE '%地下室/车库%' THEN
-                               c.mj2502
-                          ELSE c.mj2502 / 10000
-                      END
-                  ) 结转面积2502,
-           CONVERT(DECIMAL(36, 9), c.je2502) / 100000000.0 结转金额2502,
-           CONVERT(DECIMAL(36, 9), c.jenotax2502) / 100000000.0 结转金额不含税2502,
-           CONVERT(
-                      DECIMAL(36, 8),
-                      ((ISNULL(c.jenotax2502, 0) - ISNULL(c.盈利规划营业成本2502, 0) - ISNULL(c.盈利规划股权溢价2502, 0))
-                       - ISNULL(c.盈利规划营销费用2502, 0) - ISNULL(c.盈利规划综合管理费2502, 0) - c.盈利规划税金及附加2502
-                      ) / 100000000
-                  )
-           - CASE
-                 WHEN x.项目税前利润2502 > 0 THEN
-                      CONVERT(
-                                 DECIMAL(36, 8),
-                                 ((ISNULL(c.jenotax2502, 0) - ISNULL(c.盈利规划营业成本2502, 0)/*- c.盈利规划股权溢价认购*/)
-                                  - ISNULL(c.盈利规划营销费用2502, 0) - ISNULL(c.盈利规划综合管理费2502, 0) - ISNULL(c.盈利规划税金及附加2502, 0)
-                                 )
-                                 / 100000000 * 0.25
-                             )
-                 ELSE 0.0
-             END 结转利润2502,
-
-           ---按季度结转数据2503
-           CONVERT(   DECIMAL(36, 8),
-                      CASE
-                          WHEN c.Product LIKE '%地下室/车库%' THEN
-                               c.mj2503
-                          ELSE c.mj2503 / 10000
-                      END
-                  ) 结转面积2503,
-           CONVERT(DECIMAL(36, 9), c.je2503) / 100000000.0 结转金额2503,
-           CONVERT(DECIMAL(36, 9), c.jenotax2503) / 100000000.0 结转金额不含税2503,
-           CONVERT(
-                      DECIMAL(36, 8),
-                      ((ISNULL(c.jenotax2503, 0) - ISNULL(c.盈利规划营业成本2503, 0) - ISNULL(c.盈利规划股权溢价2503, 0))
-                       - ISNULL(c.盈利规划营销费用2503, 0) - ISNULL(c.盈利规划综合管理费2503, 0) - c.盈利规划税金及附加2503
-                      ) / 100000000
-                  )
-           - CASE
-                 WHEN x.项目税前利润2503 > 0 THEN
-                      CONVERT(
-                                 DECIMAL(36, 8),
-                                 ((ISNULL(c.jenotax2503, 0) - ISNULL(c.盈利规划营业成本2503, 0)/*- c.盈利规划股权溢价认购*/)
-                                  - ISNULL(c.盈利规划营销费用2503, 0) - ISNULL(c.盈利规划综合管理费2503, 0) - ISNULL(c.盈利规划税金及附加2503, 0)
-                                 )
-                                 / 100000000 * 0.25
-                             )
-                 ELSE 0.0
-             END 结转利润2503,
-
-           ---按季度结转数据2504
-           CONVERT(   DECIMAL(36, 8),
-                      CASE
-                          WHEN c.Product LIKE '%地下室/车库%' THEN
-                               c.mj2504
-                          ELSE c.mj2504 / 10000
-                      END
-                  ) 结转面积2504,
-           CONVERT(DECIMAL(36, 9), c.je2504) / 100000000.0 结转金额2504,
-           CONVERT(DECIMAL(36, 9), c.jenotax2504) / 100000000.0 结转金额不含税2504,
-           CONVERT(
-                      DECIMAL(36, 8),
-                      ((ISNULL(c.jenotax2504, 0) - ISNULL(c.盈利规划营业成本2504, 0) - ISNULL(c.盈利规划股权溢价2504, 0))
-                       - ISNULL(c.盈利规划营销费用2504, 0) - ISNULL(c.盈利规划综合管理费2504, 0) - c.盈利规划税金及附加2504
-                      ) / 100000000
-                  )
-           - CASE
-                 WHEN x.项目税前利润2504 > 0 THEN
-                      CONVERT(
-                                 DECIMAL(36, 8),
-                                 ((ISNULL(c.jenotax2504, 0) - ISNULL(c.盈利规划营业成本2504, 0)/*- c.盈利规划股权溢价认购*/)
-                                  - ISNULL(c.盈利规划营销费用2504, 0) - ISNULL(c.盈利规划综合管理费2504, 0) - ISNULL(c.盈利规划税金及附加2504, 0)
-                                 )
-                                 / 100000000 * 0.25
-                             )
-                 ELSE 0.0
-             END 结转利润2504,
-          --26年数据 
-          ---按季度结转数据2601
-           CONVERT(   DECIMAL(36, 8),
-                      CASE
-                          WHEN c.Product LIKE '%地下室/车库%' THEN
-                               c.mj2601
-                          ELSE c.mj2601 / 10000
-                      END
-                  ) 结转面积2601,
-           CONVERT(DECIMAL(36, 9), c.je2601) / 100000000.0 结转金额2601,
-           CONVERT(DECIMAL(36, 9), c.jenotax2601) / 100000000.0 结转金额不含税2601,
-           CONVERT(
-                      DECIMAL(36, 8),
-                      ((ISNULL(c.jenotax2601, 0) - ISNULL(c.盈利规划营业成本2601, 0) - ISNULL(c.盈利规划股权溢价2601, 0))
-                       - ISNULL(c.盈利规划营销费用2601, 0) - ISNULL(c.盈利规划综合管理费2601, 0) - c.盈利规划税金及附加2601
-                      ) / 100000000
-                  )
-           - CASE
-                 WHEN x.项目税前利润2601 > 0 THEN
-                      CONVERT(
-                                 DECIMAL(36, 8),
-                                 ((ISNULL(c.jenotax2601, 0) - ISNULL(c.盈利规划营业成本2601, 0)/*- c.盈利规划股权溢价认购*/)
-                                  - ISNULL(c.盈利规划营销费用2601, 0) - ISNULL(c.盈利规划综合管理费2601, 0) - ISNULL(c.盈利规划税金及附加2601, 0)
-                                 )
-                                 / 100000000 * 0.25
-                             )
-                 ELSE 0.0
-             END 结转利润2601,
-
-           ---按季度结转数据2602
-           CONVERT(   DECIMAL(36, 8),
-                      CASE
-                          WHEN c.Product LIKE '%地下室/车库%' THEN
-                               c.mj2602
-                          ELSE c.mj2602 / 10000
-                      END
-                  ) 结转面积2602,
-           CONVERT(DECIMAL(36, 9), c.je2602) / 100000000.0 结转金额2602,
-           CONVERT(DECIMAL(36, 9), c.jenotax2602) / 100000000.0 结转金额不含税2602,
-           CONVERT(
-                      DECIMAL(36, 8),
-                      ((ISNULL(c.jenotax2602, 0) - ISNULL(c.盈利规划营业成本2602, 0) - ISNULL(c.盈利规划股权溢价2602, 0))
-                       - ISNULL(c.盈利规划营销费用2602, 0) - ISNULL(c.盈利规划综合管理费2602, 0) - c.盈利规划税金及附加2602
-                      ) / 100000000
-                  )
-           - CASE
-                 WHEN x.项目税前利润2602 > 0 THEN
-                      CONVERT(
-                                 DECIMAL(36, 8),
-                                 ((ISNULL(c.jenotax2602, 0) - ISNULL(c.盈利规划营业成本2602, 0)/*- c.盈利规划股权溢价认购*/)
-                                  - ISNULL(c.盈利规划营销费用2602, 0) - ISNULL(c.盈利规划综合管理费2602, 0) - ISNULL(c.盈利规划税金及附加2602, 0)
-                                 )
-                                 / 100000000 * 0.25
-                             )
-                 ELSE 0.0
-             END 结转利润2602,
-
-           ---按季度结转数据2603
-           CONVERT(   DECIMAL(36, 8),
-                      CASE
-                          WHEN c.Product LIKE '%地下室/车库%' THEN
-                               c.mj2603
-                          ELSE c.mj2603 / 10000
-                      END
-                  ) 结转面积2603,
-           CONVERT(DECIMAL(36, 9), c.je2603) / 100000000.0 结转金额2603,
-           CONVERT(DECIMAL(36, 9), c.jenotax2603) / 100000000.0 结转金额不含税2603,
-           CONVERT(
-                      DECIMAL(36, 8),
-                      ((ISNULL(c.jenotax2603, 0) - ISNULL(c.盈利规划营业成本2603, 0) - ISNULL(c.盈利规划股权溢价2603, 0))
-                       - ISNULL(c.盈利规划营销费用2603, 0) - ISNULL(c.盈利规划综合管理费2603, 0) - c.盈利规划税金及附加2603
-                      ) / 100000000
-                  )
-           - CASE
-                 WHEN x.项目税前利润2603 > 0 THEN
-                      CONVERT(
-                                 DECIMAL(36, 8),
-                                 ((ISNULL(c.jenotax2603, 0) - ISNULL(c.盈利规划营业成本2603, 0)/*- c.盈利规划股权溢价认购*/)
-                                  - ISNULL(c.盈利规划营销费用2603, 0) - ISNULL(c.盈利规划综合管理费2603, 0) - ISNULL(c.盈利规划税金及附加2603, 0)
-                                 )
-                                 / 100000000 * 0.25
-                             )
-                 ELSE 0.0
-             END 结转利润2603,
-
-           ---按季度结转数据2604
-           CONVERT(   DECIMAL(36, 8),
-                      CASE
-                          WHEN c.Product LIKE '%地下室/车库%' THEN
-                               c.mj2604
-                          ELSE c.mj2604 / 10000
-                      END
-                  ) 结转面积2604,
-           CONVERT(DECIMAL(36, 9), c.je2604) / 100000000.0 结转金额2604,
-           CONVERT(DECIMAL(36, 9), c.jenotax2604) / 100000000.0 结转金额不含税2604,
-           CONVERT(
-                      DECIMAL(36, 8),
-                      ((ISNULL(c.jenotax2604, 0) - ISNULL(c.盈利规划营业成本2604, 0) - ISNULL(c.盈利规划股权溢价2604, 0))
-                       - ISNULL(c.盈利规划营销费用2604, 0) - ISNULL(c.盈利规划综合管理费2604, 0) - c.盈利规划税金及附加2604
-                      ) / 100000000
-                  )
-           - CASE
-                 WHEN x.项目税前利润2604 > 0 THEN
-                      CONVERT(
-                                 DECIMAL(36, 8),
-                                 ((ISNULL(c.jenotax2604, 0) - ISNULL(c.盈利规划营业成本2604, 0)/*- c.盈利规划股权溢价认购*/)
-                                  - ISNULL(c.盈利规划营销费用2604, 0) - ISNULL(c.盈利规划综合管理费2604, 0) - ISNULL(c.盈利规划税金及附加2604, 0)
-                                 )
-                                 / 100000000 * 0.25
-                             )
-                 ELSE 0.0
-             END 结转利润2604,   
-
-          ---按季度结转数据2701
-           CONVERT(   DECIMAL(36, 8),
-                      CASE
-                          WHEN c.Product LIKE '%地下室/车库%' THEN
-                               c.mj2701
-                          ELSE c.mj2701 / 10000
-                      END
-                  ) 结转面积2701,
-           CONVERT(DECIMAL(36, 9), c.je2701) / 100000000.0 结转金额2701,
-           CONVERT(DECIMAL(36, 9), c.jenotax2701) / 100000000.0 结转金额不含税2701,
-           CONVERT(
-                      DECIMAL(36, 8),
-                      ((ISNULL(c.jenotax2701, 0) - ISNULL(c.盈利规划营业成本2701, 0) - ISNULL(c.盈利规划股权溢价2701, 0))
-                       - ISNULL(c.盈利规划营销费用2701, 0) - ISNULL(c.盈利规划综合管理费2701, 0) - c.盈利规划税金及附加2701
-                      ) / 100000000
-                  )
-           - CASE
-                 WHEN x.项目税前利润2701 > 0 THEN
-                      CONVERT(
-                                 DECIMAL(36, 8),
-                                 ((ISNULL(c.jenotax2701, 0) - ISNULL(c.盈利规划营业成本2701, 0)/*- c.盈利规划股权溢价认购*/)
-                                  - ISNULL(c.盈利规划营销费用2701, 0) - ISNULL(c.盈利规划综合管理费2701, 0) - ISNULL(c.盈利规划税金及附加2701, 0)
-                                 )
-                                 / 100000000 * 0.25
-                             )
-                 ELSE 0.0
-             END 结转利润2701,
-
-           ---按季度结转数据2702
-           CONVERT(   DECIMAL(36, 8),
-                      CASE
-                          WHEN c.Product LIKE '%地下室/车库%' THEN
-                               c.mj2702
-                          ELSE c.mj2702 / 10000
-                      END
-                  ) 结转面积2702,
-           CONVERT(DECIMAL(36, 9), c.je2702) / 100000000.0 结转金额2702,
-           CONVERT(DECIMAL(36, 9), c.jenotax2702) / 100000000.0 结转金额不含税2702,
-           CONVERT(
-                      DECIMAL(36, 8),
-                      ((ISNULL(c.jenotax2702, 0) - ISNULL(c.盈利规划营业成本2702, 0) - ISNULL(c.盈利规划股权溢价2702, 0))
-                       - ISNULL(c.盈利规划营销费用2702, 0) - ISNULL(c.盈利规划综合管理费2702, 0) - c.盈利规划税金及附加2702
-                      ) / 100000000
-                  )
-           - CASE
-                 WHEN x.项目税前利润2702 > 0 THEN
-                      CONVERT(
-                                 DECIMAL(36, 8),
-                                 ((ISNULL(c.jenotax2702, 0) - ISNULL(c.盈利规划营业成本2702, 0)/*- c.盈利规划股权溢价认购*/)
-                                  - ISNULL(c.盈利规划营销费用2702, 0) - ISNULL(c.盈利规划综合管理费2702, 0) - ISNULL(c.盈利规划税金及附加2702, 0)
-                                 )
-                                 / 100000000 * 0.25
-                             )
-                 ELSE 0.0
-             END 结转利润2702,
-
-           ---按季度结转数据2703
-           CONVERT(   DECIMAL(36, 8),
-                      CASE
-                          WHEN c.Product LIKE '%地下室/车库%' THEN
-                               c.mj2703
-                          ELSE c.mj2703 / 10000
-                      END
-                  ) 结转面积2703,
-           CONVERT(DECIMAL(36, 9), c.je2703) / 100000000.0 结转金额2703,
-           CONVERT(DECIMAL(36, 9), c.jenotax2703) / 100000000.0 结转金额不含税2703,
-           CONVERT(
-                      DECIMAL(36, 8),
-                      ((ISNULL(c.jenotax2703, 0) - ISNULL(c.盈利规划营业成本2703, 0) - ISNULL(c.盈利规划股权溢价2703, 0))
-                       - ISNULL(c.盈利规划营销费用2703, 0) - ISNULL(c.盈利规划综合管理费2703, 0) - c.盈利规划税金及附加2703
-                      ) / 100000000
-                  )
-           - CASE
-                 WHEN x.项目税前利润2703 > 0 THEN
-                      CONVERT(
-                                 DECIMAL(36, 8),
-                                 ((ISNULL(c.jenotax2703, 0) - ISNULL(c.盈利规划营业成本2703, 0)/*- c.盈利规划股权溢价认购*/)
-                                  - ISNULL(c.盈利规划营销费用2703, 0) - ISNULL(c.盈利规划综合管理费2703, 0) - ISNULL(c.盈利规划税金及附加2703, 0)
-                                 )
-                                 / 100000000 * 0.25
-                             )
-                 ELSE 0.0
-             END 结转利润2703,
-
-           ---按季度结转数据2704
-           CONVERT(   DECIMAL(36, 8),
-                      CASE
-                          WHEN c.Product LIKE '%地下室/车库%' THEN
-                               c.mj2704
-                          ELSE c.mj2704 / 10000
-                      END
-                  ) 结转面积2704,
-           CONVERT(DECIMAL(36, 9), c.je2704) / 100000000.0 结转金额2704,
-           CONVERT(DECIMAL(36, 9), c.jenotax2704) / 100000000.0 结转金额不含税2704,
-           CONVERT(
-                      DECIMAL(36, 8),
-                      ((ISNULL(c.jenotax2704, 0) - ISNULL(c.盈利规划营业成本2704, 0) - ISNULL(c.盈利规划股权溢价2704, 0))
-                       - ISNULL(c.盈利规划营销费用2704, 0) - ISNULL(c.盈利规划综合管理费2704, 0) - c.盈利规划税金及附加2704
-                      ) / 100000000
-                  )
-           - CASE
-                 WHEN x.项目税前利润2704 > 0 THEN
-                      CONVERT(
-                                 DECIMAL(36, 8),
-                                 ((ISNULL(c.jenotax2704, 0) - ISNULL(c.盈利规划营业成本2704, 0)/*- c.盈利规划股权溢价认购*/)
-                                  - ISNULL(c.盈利规划营销费用2704, 0) - ISNULL(c.盈利规划综合管理费2704, 0) - ISNULL(c.盈利规划税金及附加2704, 0)
-                                 )
-                                 / 100000000 * 0.25
-                             )
-                 ELSE 0.0
-             END 结转利润2704
-    INTO #jzlr
-    FROM #p p
-         LEFT JOIN erp25.dbo.vmdm_projectFlag f ON p.ProjGUID = f.ProjGUID
-         INNER JOIN #cost1 c ON c.ProjGUID = p.ProjGUID
-         LEFT JOIN [172.16.4.161].HighData_prod.dbo.data_wide_dws_ys_proj_expense tax ON tax.ProjGUID = p.ProjGUID
-                                                                                         AND tax.IsBase = 1
-         LEFT JOIN #xm1 x ON x.ProjGUID = p.ProjGUID
-    ORDER BY f.平台公司,
-             f.项目代码;
-
-
-    SELECT   a.projguid,
-             SUM(   
-              ISNULL(b.结转金额不含税2401, 0) + ISNULL(b.结转金额不含税2402, 0) + ISNULL(b.结转金额不含税2403, 0) + ISNULL(b.结转金额不含税2404, 0)
-              - CASE
-                    WHEN a.产品类型 = '地下室/车库' THEN
-              (ISNULL(b.结转面积2401, 0) + ISNULL(b.结转面积2402, 0) + ISNULL(b.结转面积2403, 0) + ISNULL(b.结转面积2404, 0))
-              * a.盈利规划营业成本单方 / 100000000
-                    ELSE
-              (ISNULL(b.结转面积2401, 0) + ISNULL(b.结转面积2402, 0) + ISNULL(b.结转面积2403, 0) + ISNULL(b.结转面积2404, 0))
-              * a.盈利规划营业成本单方 / 10000
-                END
-              - CASE
-                    WHEN a.产品类型 = '地下室/车库' THEN
-              (ISNULL(b.结转面积2401, 0) + ISNULL(b.结转面积2402, 0) + ISNULL(b.结转面积2403, 0) + ISNULL(b.结转面积2404, 0))
-              * a.盈利规划营销费用单方 / 100000000
-                    ELSE
-              (ISNULL(b.结转面积2401, 0) + ISNULL(b.结转面积2402, 0) + ISNULL(b.结转面积2403, 0) + ISNULL(b.结转面积2404, 0))
-              * a.盈利规划营销费用单方 / 10000
-                END
-              - CASE
-                    WHEN a.产品类型 = '地下室/车库' THEN
-              (ISNULL(b.结转面积2401, 0) + ISNULL(b.结转面积2402, 0) + ISNULL(b.结转面积2403, 0) + ISNULL(b.结转面积2404, 0))
-              * a.盈利规划综合管理费单方协议口径 / 100000000
-                    ELSE
-              (ISNULL(b.结转面积2401, 0) + ISNULL(b.结转面积2402, 0) + ISNULL(b.结转面积2403, 0) + ISNULL(b.结转面积2404, 0))
-              * a.盈利规划综合管理费单方协议口径 / 10000
-                END
-              - CASE
-                    WHEN a.产品类型 = '地下室/车库' THEN
-              (ISNULL(b.结转面积2401, 0) + ISNULL(b.结转面积2402, 0) + ISNULL(b.结转面积2403, 0) + ISNULL(b.结转面积2404, 0))
-              * a.盈利规划税金及附加单方 / 100000000
-                    ELSE
-              (ISNULL(b.结转面积2401, 0) + ISNULL(b.结转面积2402, 0) + ISNULL(b.结转面积2403, 0) + ISNULL(b.结转面积2404, 0))
-              * a.盈利规划税金及附加单方 / 10000
-                END
-              - CASE
-                    WHEN a.产品类型 = '地下室/车库' THEN
-              (ISNULL(b.结转面积2401, 0) + ISNULL(b.结转面积2402, 0) + ISNULL(b.结转面积2403, 0) + ISNULL(b.结转面积2404, 0))
-              * a.盈利规划股权溢价单方 / 100000000
-                    ELSE
-              (ISNULL(b.结转面积2401, 0) + ISNULL(b.结转面积2402, 0) + ISNULL(b.结转面积2403, 0) + ISNULL(b.结转面积2404, 0))
-              * a.盈利规划股权溢价单方 / 10000
-                END
-          ) lr
-INTO #xmlrhz
-FROM #m002 a
-     LEFT JOIN #jzlr b ON a.明源匹配主键 = b.明源匹配主键
-GROUP BY a.projguid
-
-
-
-    SELECT a.*,
-           ISNULL(ISNULL(kq.kql, kq1.kql), 1) 平均款清率,
-           ISNULL(b.结转面积2401, 0) 结转面积2401,
-           ISNULL(b.结转金额2401, 0) 结转金额2401,
-           ISNULL(b.结转金额不含税2401, 0) 结转金额不含税2401,
-           ISNULL(b.结转利润2401, 0) 结转利润2401,
-           ISNULL(b.结转面积2402, 0) 结转面积2402,
-           ISNULL(b.结转金额2402, 0) 结转金额2402,
-           ISNULL(b.结转金额不含税2402, 0) 结转金额不含税2402,
-           ISNULL(b.结转利润2402, 0) 结转利润2402,
-           ISNULL(b.结转面积2403, 0) 结转面积2403,
-           ISNULL(b.结转金额2403, 0) 结转金额2403,
-           ISNULL(b.结转金额不含税2403, 0) 结转金额不含税2403,
-           ISNULL(b.结转利润2403, 0) 结转利润2403,
-           ISNULL(b.结转面积2404, 0) 结转面积2404,
-           ISNULL(b.结转金额2404, 0) 结转金额2404,
-           ISNULL(b.结转金额不含税2404, 0) 结转金额不含税2404,
-           ISNULL(b.结转利润2404, 0) 结转利润2404,
-
-
-           -- 25年结转数据
-           ISNULL(b.结转面积2501, 0) 结转面积2501,
-           ISNULL(b.结转金额2501, 0) 结转金额2501,
-           ISNULL(b.结转金额不含税2501, 0) 结转金额不含税2501,
-           ISNULL(b.结转利润2501, 0) 结转利润2501,
-           ISNULL(b.结转面积2502, 0) 结转面积2502,
-           ISNULL(b.结转金额2502, 0) 结转金额2502,
-           ISNULL(b.结转金额不含税2502, 0) 结转金额不含税2502,
-           ISNULL(b.结转利润2502, 0) 结转利润2502,
-           ISNULL(b.结转面积2503, 0) 结转面积2503,
-           ISNULL(b.结转金额2503, 0) 结转金额2503,
-           ISNULL(b.结转金额不含税2503, 0) 结转金额不含税2503,
-           ISNULL(b.结转利润2503, 0) 结转利润2503,
-           ISNULL(b.结转面积2504, 0) 结转面积2504,
-           ISNULL(b.结转金额2504, 0) 结转金额2504,
-           ISNULL(b.结转金额不含税2504, 0) 结转金额不含税2504,
-           ISNULL(b.结转利润2504, 0) 结转利润2504,
-           -- 26年结转数据
-           ISNULL(b.结转面积2601, 0) 结转面积2601,
-           ISNULL(b.结转金额2601, 0) 结转金额2601,
-           ISNULL(b.结转金额不含税2601, 0) 结转金额不含税2601,
-           ISNULL(b.结转利润2601, 0) 结转利润2601,
-           ISNULL(b.结转面积2602, 0) 结转面积2602,
-           ISNULL(b.结转金额2602, 0) 结转金额2602,
-           ISNULL(b.结转金额不含税2602, 0) 结转金额不含税2602,
-           ISNULL(b.结转利润2602, 0) 结转利润2602,
-           ISNULL(b.结转面积2603, 0) 结转面积2603,
-           ISNULL(b.结转金额2603, 0) 结转金额2603,
-           ISNULL(b.结转金额不含税2603, 0) 结转金额不含税2603,
-           ISNULL(b.结转利润2603, 0) 结转利润2603,
-           ISNULL(b.结转面积2604, 0) 结转面积2604,
-           ISNULL(b.结转金额2604, 0) 结转金额2604,
-           ISNULL(b.结转金额不含税2604, 0) 结转金额不含税2604,
-           ISNULL(b.结转利润2604, 0) 结转利润2604,
-           -- 27年结转数据
-           ISNULL(b.结转面积2701, 0) 结转面积2701,
-           ISNULL(b.结转金额2701, 0) 结转金额2701,
-           ISNULL(b.结转金额不含税2701, 0) 结转金额不含税2701,
-           ISNULL(b.结转利润2701, 0) 结转利润2701,
-           ISNULL(b.结转面积2702, 0) 结转面积2702,
-           ISNULL(b.结转金额2702, 0) 结转金额2702,
-           ISNULL(b.结转金额不含税2702, 0) 结转金额不含税2702,
-           ISNULL(b.结转利润2702, 0) 结转利润2702,
-           ISNULL(b.结转面积2703, 0) 结转面积2703,
-           ISNULL(b.结转金额2703, 0) 结转金额2703,
-           ISNULL(b.结转金额不含税2703, 0) 结转金额不含税2703,
-           ISNULL(b.结转利润2703, 0) 结转利润2703,
-           ISNULL(b.结转面积2704, 0) 结转面积2704,
-           ISNULL(b.结转金额2704, 0) 结转金额2704,
-           ISNULL(b.结转金额不含税2704, 0) 结转金额不含税2704,
-           ISNULL(b.结转利润2704, 0) 结转利润2704,
-
-		   ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0)  当期签约结转面积,
-		   ISNULL(b.结转金额2501, 0) +ISNULL(b.结转金额2502, 0) +ISNULL(b.结转金额2503, 0) +ISNULL(b.结转金额2504, 0)  当期签约结转金额,
-		   ISNULL(b.结转金额不含税2501, 0) +ISNULL(b.结转金额不含税2502, 0) +ISNULL(b.结转金额不含税2503, 0) +ISNULL(b.结转金额不含税2504, 0)  当期签约结转金额不含税,
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营业成本单方/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营业成本单方/10000 END 当期签约结转成本,
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划股权溢价单方/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划股权溢价单方/10000 END 当期签约结转溢价签约,
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营销费用单方/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营销费用单方/10000 END 当期签约结转营销费,
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划综合管理费单方协议口径/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划综合管理费单方协议口径/10000 END 当期签约结转管理费,
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划税金及附加单方/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划税金及附加单方/10000 END 当期签约结转税金及签约,
-            ISNULL(b.结转金额不含税2501, 0) +ISNULL(b.结转金额不含税2502, 0) +ISNULL(b.结转金额不含税2503, 0) +ISNULL(b.结转金额不含税2504, 0) -
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营业成本单方/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营业成本单方/10000 END -
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营销费用单方/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营销费用单方/10000 END-
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划综合管理费单方协议口径/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划综合管理费单方协议口径/10000 END -
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划税金及附加单方/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划税金及附加单方/10000 END  当期签约结转税前利润,
-
-        CASE WHEN  l.lr <0 THEN 0 ELSE 
-        (ISNULL(b.结转金额不含税2501, 0) +ISNULL(b.结转金额不含税2502, 0) +ISNULL(b.结转金额不含税2503, 0) +ISNULL(b.结转金额不含税2504, 0) -
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营业成本单方/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营业成本单方/10000 END -
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营销费用单方/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营销费用单方/10000 END-
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划综合管理费单方协议口径/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划综合管理费单方协议口径/10000 END -
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划税金及附加单方/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划税金及附加单方/10000 END )*0.25 END 当期签约结转所得税,
-        
-        ISNULL(b.结转金额不含税2501, 0) +ISNULL(b.结转金额不含税2502, 0) +ISNULL(b.结转金额不含税2503, 0) +ISNULL(b.结转金额不含税2504, 0) -
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营业成本单方/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营业成本单方/10000 END -
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营销费用单方/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营销费用单方/10000 END-
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划综合管理费单方协议口径/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划综合管理费单方协议口径/10000 END -
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划税金及附加单方/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划税金及附加单方/10000 END-
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划股权溢价单方/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划股权溢价单方/10000 END
-        -CASE WHEN  l.lr <0 THEN 0 ELSE 
-        (ISNULL(b.结转金额不含税2501, 0) +ISNULL(b.结转金额不含税2502, 0) +ISNULL(b.结转金额不含税2503, 0) +ISNULL(b.结转金额不含税2504, 0) -
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营业成本单方/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营业成本单方/10000 END -
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营销费用单方/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营销费用单方/10000 END-
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划综合管理费单方协议口径/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划综合管理费单方协议口径/10000 END -
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划税金及附加单方/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划税金及附加单方/10000 END )*0.25 END 当期签约结转净利润,
-
-        CASE WHEN   ISNULL(b.结转金额不含税2501, 0) +ISNULL(b.结转金额不含税2502, 0) +ISNULL(b.结转金额不含税2503, 0) +ISNULL(b.结转金额不含税2504, 0) >0
-        THEN ( ISNULL(b.结转金额不含税2501, 0) +ISNULL(b.结转金额不含税2502, 0) +ISNULL(b.结转金额不含税2503, 0) +ISNULL(b.结转金额不含税2504, 0) -
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营业成本单方/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营业成本单方/10000 END -
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营销费用单方/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划营销费用单方/10000 END-
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划综合管理费单方协议口径/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划综合管理费单方协议口径/10000 END -
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划税金及附加单方/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划税金及附加单方/10000 END-
-        CASE WHEN a.产品类型='地下室/车库' THEN   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划股权溢价单方/100000000
-        ELSE   (ISNULL(b.结转面积2501, 0) +ISNULL(b.结转面积2502, 0) +ISNULL(b.结转面积2503, 0) +ISNULL(b.结转面积2504, 0))* a.盈利规划股权溢价单方/10000 END )/(  ISNULL(b.结转金额不含税2501, 0) +ISNULL(b.结转金额不含税2502, 0) +ISNULL(b.结转金额不含税2503, 0) +ISNULL(b.结转金额不含税2504, 0) )
-        ELSE 0 END 当期签约结转净利率,
-        -- case when bdl.项目guid is null then '否' else '是' end 是否调整单方比例
-        null as 是否调整单方比例
-    FROM #m002 a
-         LEFT JOIN #jzlr b ON a.明源匹配主键 = b.明源匹配主键
-		 LEFT JOIN #xmlrhz l ON a.projguid=l.projguid
-         LEFT JOIN erp25.dbo.p_project p ON a.projguid = p.projguid
-         LEFT JOIN erp25.dbo.s_kq kq ON p.buguid = kq.buguid
-                                        AND a.Productnocode = kq.Product
-         LEFT JOIN erp25.dbo.s_kql kq1 ON p.buguid = kq1.buguid AND a.产品类型 = kq1.producttype
-         -- LEFT JOIN #bdl1 bdl ON a.projguid = bdl.项目guid  and a.业态组合键 =b.业态组合键
-    ORDER BY a.平台公司,
-             a.项目名;
-
-
-    DROP TABLE #p,
-               #db,
-               #room,
-               #s_order,
-               #s_Contract,
-               #vrt,
-               #ord,
-               #con,
-               #tmp_tax,
-               #hzyj,
-               #h,
-               #hh,
-               #s_PerformanceAppraisal,
-               #t,
-               #key,
-               #sale,
-               #ylgh,
-               #cost,
-               #xm,
-               #m002,
-               #con1,
-               #s_contract1,
-               #con2,
-               #hzyjresult1,
-               #hzyjresult,
-               #h1,
-               #key1,
-               #sale1,
-               #ylgh1,
-               #cost1,
-               #xm1,
-               #jzlr,#xmlrhz,#tsRoomAll,
-			   #tsRoomAllr,
-			   #tsRoomAllrsroom
-END;
-GO
-
-
+as
+begin
+--  select  Level,* from p_Project where  ProjGUID ='2b3b0206-f785-e911-80b7-0a94ef7517dd'
+-- declare  @var_projguid varchar(max) ='2b3b0206-f785-e911-80b7-0a94ef7517dd'
+	--已签约的合同
+	SELECT 
+        c.ContractGUID
+        ,c.ContractName
+        ,case when zjcon.是否已转总价合同 =1 then '总价包干' else   c.bgxs end  as  bgxs -- 计价方式
+        ,b.ExecutingBudgetGUID
+        ,c.HtClass 
+        ,c.JsState
+        ,zjcon.是否首次总价合同
+        ,zjcon.是否已转总价合同
+        ,SUM(a.CfAmount) AS HtCfAmount
+        ,SUM(a.YgAlterAmount) AS  YgAlterAmount
+        ,sum(case when zjcon.是否首次总价合同=1 then a.CfAmount else 0 end) as zjHtCfAmount -- 总价合同金额
+        ,sum(case when zjcon.是否已转总价合同=1 then a.CfAmount else 0 end) as yzzjHtCfAmount -- 已转总价合同金额
+        ,sum(case when isnull(c.bgxs,'')<>'总价包干' and zjcon.是否已转总价合同 <> 1 then a.CfAmount else 0 end) as djHtCfAmount -- 单价合同金额
+	INTO  #HT
+	FROM  dbo.cb_BudgetUse a WITH(NOLOCK)
+	INNER JOIN dbo.cb_Budget b WITH(NOLOCK) ON b.BudgetGUID = a.BudgetGUID 
+	INNER JOIN cb_Contract c WITH(NOLOCK) ON c.ContractGUID=a.RefGUID
+	INNER JOIN dbo.p_Project p WITH(NOLOCK) ON a.ProjectCode=p.ProjCode
+    left  join (
+            select  ContractGUID,
+            case when  bgxs='总价包干'  and  isnull(fscon.补充合同数,0)= isnull(fscon.未关联暂转固单据且未施工图结算的补充合同数,0) then 1 else 0 end as 是否首次总价合同,
+            case when isnull(fscon.有关联暂转固单据或施工图结算的补充合同数,0) > 0 then 1 else 0 end as 是否已转总价合同
+            from  cb_Contract con WITH(NOLOCK)
+            left join (
+                select  
+                MasterContractGUID,
+                count(1) as 补充合同数,
+                --计划方式=总价包干，且所有补充合同未关联暂转固单据且补充合同【是否施工图结算】字段为'否'
+                sum( case when  isnull(IsConstructionBalance ,0) = 0 
+                and  ZzgHTBalanceGUID  is null then 1 else 0 end ) as 未关联暂转固单据且未施工图结算的补充合同数,
+                -- 计划方式=总价包干，且任意一个补充合同有关联暂转固单据或任意一个补充合同【是否施工图结算】字段为'是'
+                sum(  case when  isnull(IsConstructionBalance ,0) = 1 
+                or  ZzgHTBalanceGUID  is not null then 1 else 0 end ) as 有关联暂转固单据或施工图结算的补充合同数
+                from  cb_Contract fscon WITH(NOLOCK)
+                where  HtProperty ='补充合同' 
+                group by MasterContractGUID
+            ) fscon on con.ContractGUID=fscon.MasterContractGUID
+            -- where  bgxs='总价包干' 
+        ) zjcon on zjcon.ContractGUID=a.RefGUID
+	WHERE a.IsApprove= 1  -- 审核中或已审核
+    AND	 c.IfDdhs=1  -- 是否单独核算    
+    AND ( p.ProjGUID in ( SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ',') ) or @var_projguid is null )
+    AND p.buguid in ( SELECT [Value] FROM dbo.fn_Split1(@var_buguid, ',') ) 
+	GROUP BY  c.ContractGUID,c.ContractName,c.bgxs, b.ExecutingBudgetGUID,c.HtClass ,c.JsState,zjcon.是否首次总价合同,zjcon.是否已转总价合同
+
+	--负数补协 负数补协(不含暂转固）
+	SELECT 
+        b.ExecutingBudgetGUID, 
+        ISNULL(SUM(f.CfAmount),0)  FsBxAmount
+	INTO  #fsBx
+	FROM  cb_BudgetUse f  WITH(NOLOCK)
+	INNER JOIN dbo.cb_Budget b WITH(NOLOCK) ON b.BudgetGUID = f.BudgetGUID
+	INNER JOIN cb_HTAlter g WITH(NOLOCK) ON f.RefGUID = g.HTAlterGUID  
+	INNER JOIN dbo.cb_Contract ct WITH(NOLOCK) ON  g.RefGUID=ct.ContractGUID 
+	INNER JOIN dbo.p_Project p WITH(NOLOCK) ON p.ProjCode=f.ProjectCode
+	WHERE f.CfSource = '变更' 
+		  AND f.IsApprove = 1  
+		  AND g.AlterType='附属合同'
+		  -- AND ct.ZzgHTBalanceGUID IS NULL 
+          AND ( ct.ZzgHTBalanceGUID IS NULL or isnull(ct.IsConstructionBalance,0) =0 )
+		  AND g.AlterAmount<0
+            AND ( p.ProjGUID in ( SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ',') ) or @var_projguid is null )
+            AND p.buguid in ( SELECT [Value] FROM dbo.fn_Split1(@var_buguid, ',') ) 
+	GROUP BY	b.ExecutingBudgetGUID
+
+
+    --暂转固
+	--项目下所有的转固变更
+	SELECT DISTINCT  b.ContractGUID,b.HTAlterGUID ,a.ApproveDate
+	INTO #ZZGBG
+	FROM dbo.cb_Contract a WITH(NOLOCK)
+    left join cb_Contract  ca on ca.MasterContractGUID =a.ContractGUID and ca.HtProperty ='补充合同'-- 补充协议
+	INNER JOIN dbo.cb_HTAlter b WITH(NOLOCK) ON a.ContractGUID=b.RefGUID or ca.ContractGUID =b.RefGUID
+	INNER JOIN  dbo.cb_BudgetUse bu WITH(NOLOCK) ON bu.RefGUID=b.HTAlterGUID 
+	INNER JOIN dbo.p_Project p WITH(NOLOCK) ON p.ProjCode=bu.ProjectCode
+	WHERE  ( p.ProjGUID in ( SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ',') ) or @var_projguid is null )
+     AND p.buguid in ( SELECT [Value] FROM dbo.fn_Split1(@var_buguid, ',') )  and   b.AlterType='附属合同' 
+     -- AND a.ZzgHTBalanceGUID IS NOT NULL 
+     -- 是否施工图结算为'是' 或 有暂转固单据
+    -- and  ( ( a.ZzgHTBalanceGUID IS NOT NULL  or isnull(a.IsConstructionBalance,0) =1 )  or (ca.ZzgHTBalanceGUID is not null or isnull(ca.IsConstructionBalance,0) =1 ) )
+    and  (ca.ZzgHTBalanceGUID is not null or isnull(ca.IsConstructionBalance,0) =1 )
+    --  and  isnull(ca.IsConstructionBalance,0) =1
+
+	--获取合同最新的暂转固合约规划金额 
+	SELECT d.ExecutingBudgetGUID,
+    -- ISNULL(SUM(c.ZzgAmount),0) AS ZzgAmount
+    isnull(sum(c.CfAmount),0) as ZzgAmount
+	INTO #ZZG
+	FROM dbo.cb_BudgetUse c WITH(NOLOCK)
+	INNER JOIN dbo.cb_Budget d  WITH(NOLOCK) ON d.BudgetGUID =c.BudgetGUID
+	INNER JOIN dbo.p_Project p WITH(NOLOCK) ON p.ProjCode=c.ProjectCode
+	-- INNER JOIN  (
+	-- 	SELECT ContractGUID
+	-- 	,HTAlterGUID 
+	-- 	,ROW_NUMBER() OVER(PARTITION BY ContractGUID ORDER BY ApproveDate desc) rowno 
+	-- 	FROM #ZZGBG
+	-- ) aa  ON c.RefGUID=aa.HTAlterGUID AND  aa.rowno=1
+	WHERE  ( p.ProjGUID in ( SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ',') ) or @var_projguid is null )
+            AND p.buguid in ( SELECT [Value] FROM dbo.fn_Split1(@var_buguid, ',') ) 
+    and  EXISTS ( SELECT 1 FROM #ZZGBG WHERE #ZZGBG.HTAlterGUID=c.RefGUID )
+	GROUP BY d.ExecutingBudgetGUID
+
+   -- 预留金金额
+	SELECT 
+        b.ExecutingBudgetGUID
+	,ISNULL(SUM(a.CfAmount),0)  AS YgYeAmount
+	,ISNULL(SUM(a.ygAlterAdj),0) AS ygAlterAdj
+	INTO #ylj
+	FROM cb_YgAlter2Budget a WITH(NOLOCK)
+	INNER JOIN dbo.cb_Budget b WITH(NOLOCK) ON b.BudgetGUID = a.BudgetGUID
+	where  ( b.ProjectGUID in ( SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ',') ) or @var_projguid is null )
+            AND b.BUGUID in ( SELECT [Value] FROM dbo.fn_Split1(@var_buguid, ',') ) 
+	GROUP  BY b.ExecutingBudgetGUID
+
+    --已发生
+	SELECT b.ExecutingBudgetGUID
+	,SUM(ISNULL(f.CfAmount,0) )   AS YfsCost
+	,SUM(CASE WHEN c.HTAlterGUID IS NOT NULL THEN  ISNULL(f.CfAmount,0) ELSE 0 END) ylj_yfs
+	INTO #yfs
+	FROM  cb_BudgetUse f  WITH(NOLOCK) 
+	INNER JOIN dbo.cb_Budget b WITH(NOLOCK) ON b.BudgetGUID = f.BudgetGUID
+	INNER JOIN dbo.p_Project p WITH(NOLOCK) ON p.ProjCode=f.ProjectCode
+	LEFT JOIN  dbo.cb_HTAlter c WITH(NOLOCK) ON c.HTAlterGUID=f.RefGUID AND c.isUseYgAmount=1
+	WHERE  f.IsApprove = 1 
+	AND ISNULL(f.IsFromXyl,0)=0
+            AND ( p.ProjGUID in ( SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ',') ) or @var_projguid is null )
+            AND p.buguid in ( SELECT [Value] FROM dbo.fn_Split1(@var_buguid, ',') ) 
+	GROUP  BY b.ExecutingBudgetGUID
+
+    --已结算合同-已定合同
+	SELECT
+	d.ExecutingBudgetGUID,
+        SUM(c.JsAmount) AS JsAmount
+	INTO  #JS
+	FROM dbo.cb_HTBalance a WITH(NOLOCK)
+	INNER JOIN cb_HTAlter b WITH(NOLOCK) ON a.HTBalanceGUID=b.RefGUID
+	INNER JOIN dbo.cb_BudgetUse c WITH(NOLOCK) ON c.RefGUID=b.HTAlterGUID
+	INNER JOIN dbo.cb_Budget d WITH(NOLOCK) ON d.BudgetGUID = c.BudgetGUID 
+	INNER JOIN dbo.p_Project p WITH(NOLOCK) ON c.ProjectCode=p.ProjCode
+	WHERE c.IsApprove=1  	
+            AND ( p.ProjGUID in ( SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ',') ) or @var_projguid is null )
+            AND p.buguid in ( SELECT [Value] FROM dbo.fn_Split1(@var_buguid, ',') ) 
+	GROUP BY d.ExecutingBudgetGUID
+
+--非现金变更
+	SELECT
+	d.ExecutingBudgetGUID,
+    SUM(c.CfAmount) AS fxjAmount
+	INTO  #FXJ
+	FROM cb_HTAlter b WITH(NOLOCK)
+	INNER JOIN dbo.cb_BudgetUse c WITH(NOLOCK) ON c.RefGUID=b.HTAlterGUID
+	INNER JOIN dbo.cb_Budget d WITH(NOLOCK) ON d.BudgetGUID = c.BudgetGUID 
+	INNER JOIN dbo.p_Project p WITH(NOLOCK) ON c.ProjectCode=p.ProjCode
+	WHERE c.IsApprove=1  AND b.IsFromXyl=1
+            AND ( p.ProjGUID in ( SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ',') ) or @var_projguid is null )
+            AND p.buguid in ( SELECT [Value] FROM dbo.fn_Split1(@var_buguid, ',') ) 
+	GROUP BY d.ExecutingBudgetGUID
+
+-- 查询考核版目标成本版本
+-- WITH target_versions AS (
+    -- 获取考核版目标成本的各版本信息
+    SELECT 
+        ex.buguid,
+        ex.projguid,
+        ex.targetcost,
+        ex.targetstage2projectguid,
+        trg2p.TargetStageVersion,
+        trg2p.approvedate,
+        -- 按审核日期倒序排序
+        ROW_NUMBER() OVER (PARTITION BY ex.projguid ORDER BY trg2p.approvedate DESC) AS rn,
+        -- 版本优先级:定位版>立项版>其他
+        CASE 
+            WHEN trg2p.TargetStageVersion = '定位版' AND trg2p.approvestate = '已审核' THEN 1
+            WHEN trg2p.TargetStageVersion = '立项版' AND trg2p.approvestate = '已审核' THEN 2 
+            ELSE 3
+        END AS version_priority
+    into  #target_versions
+    FROM (
+        -- 汇总考核版目标成本
+        SELECT  
+            p.buguid,
+            cbexam.projguid,
+            trg2cost.targetstage2projectguid,
+            SUM(cbexam.targetcost) AS targetcost
+        FROM cb_TargetExamineCost cbexam WITH(NOLOCK)
+        INNER JOIN p_project p WITH(NOLOCK) ON p.projguid = cbexam.projguid
+        INNER JOIN cb_TargetStage2Cost trg2cost  WITH(NOLOCK) ON trg2cost.costguid = cbexam.costguid  AND trg2cost.projguid = cbexam.projguid
+        WHERE cbexam.costcode NOT LIKE '5001.01.%' 
+            AND cbexam.costcode NOT LIKE '5001.09.%'
+            AND cbexam.costcode NOT LIKE '5001.10.%' 
+            AND cbexam.costcode NOT LIKE '5001.11%' 
+            AND cbexam.ifendcost = 1
+        GROUP BY p.buguid,cbexam.projguid, trg2cost.targetstage2projectguid
+    ) ex
+    INNER JOIN cb_TargetCostRevise_KH trg2p WITH(NOLOCK) ON trg2p.projguid = ex.projguid  -- AND ex.targetstage2projectguid = trg2p.targetstage2projectguid
+    WHERE 1=1 AND ( ex.projguid in ( SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ',') ) or @var_projguid is null )
+            AND ex.buguid in ( SELECT [Value] FROM dbo.fn_Split1(@var_buguid, ',') ) 
+
+
+-- 查询执行版目标成本
+-- execute_versions AS (
+    SELECT 
+        ex.buguid,
+        ex.projguid,
+        ex.targetcost,
+        ex.dtcostNotFxj,
+        ex.targetstage2projectguid,
+        trg2p.TargetStageVersion,
+        trg2p.approvedate,
+        -- 按审核日期倒序排序
+        ROW_NUMBER() OVER (PARTITION BY ex.projguid ORDER BY trg2p.approvedate DESC) AS rn
+    into  #execute_versions
+    FROM (
+        -- 汇总执行版目标成本
+        SELECT  
+            cost.buguid,
+            trg2cost.ProjGUID,
+            trg2cost.targetstage2projectguid,
+            SUM(cost.targetcost) AS targetcost,
+            sum( ISNULL(cost.YfsCost, 0) + ISNULL(cost.DfsCost, 0) - ISNULL(cost.FxjCost, 0) ) AS  dtcostNotFxj --'动态成本_含税_不含非现金'
+        FROM cb_cost cost WITH(NOLOCK)
+        INNER JOIN cb_TargetStage2Cost trg2cost WITH(NOLOCK)
+            ON trg2cost.costguid = cost.costguid 
+            AND trg2cost.ProjCode = cost.ProjectCode
+        WHERE cost.costcode NOT LIKE '5001.01.%' 
+            AND cost.costcode NOT LIKE '5001.09.%'
+            AND cost.costcode NOT LIKE '5001.10.%' 
+            AND cost.costcode NOT LIKE '5001.11%' 
+            AND cost.ifendcost = 1
+        GROUP BY cost.buguid, trg2cost.projguid, trg2cost.targetstage2projectguid
+    ) ex
+    INNER JOIN cb_TargetCostRevise_KH trg2p  WITH(NOLOCK) ON trg2p.projguid = ex.projguid 
+       -- AND ex.targetstage2projectguid = trg2p.targetstage2projectguid
+    WHERE 1=1  AND ( ex.projguid in ( SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ',') ) or @var_projguid is null )
+        AND ex.buguid in ( SELECT [Value] FROM dbo.fn_Split1(@var_buguid, ',') ) 
+
+
+-- 主查询:各分期成本结构报表
+SELECT  
+    -- 基本信息
+    bu.buguid AS [公司guid],
+    bu.buname AS [公司],
+    p.projname AS [项目分期名称],
+    p.projguid AS [项目guid],
+    flg.投管代码 AS [投管代码],
+    mp.ProjCode AS [明源系统代码],
+    flg.操盘方式 AS [操盘方式],
+    flg.获取时间 AS [拿地时间],
+    jd.实际开工计划完成时间 AS [计划开工时间],
+    jd.实际开工实际完成时间 AS [实际开工时间],
+    jd.竣工备案计划完成时间 AS [计划竣备时间],
+    jd.竣工备案实际完成时间 AS [实际竣备时间],
+    mdproj.SumBuildArea AS [总建筑面积],
+    mdproj.JrSaleArea AS [总可售面积],
+
+    -- 总成本情况
+    khtarget.TargetStageVersion AS [总成本情况_考核版目标成本版本名称],
+    khtarget.targetcost AS [总成本情况_考核版目标成本],
+    ex_target.TargetStageVersion AS [总成本情况_当前执行版目标成本版本名称],
+    ex_target.targetcost AS [总成本情况_当前执行版目标成本],
+    -- ex_target.dtcostNotFxj AS [总成本情况_动态成本],
+    htNewBudget.NewBudget AS [总成本情况_动态成本],
+    -- ex_target.ylc AS [总成本情况_余量池],
+    isnull(ex_target.targetcost,0) -isnull(htNewBudget.NewBudget,0) AS [总成本情况_余量池],
+
+    -- 预留金
+    htNewBudget.YljAmount AS [预留金_总预留金],
+    htNewBudget.YljAmount_Yfs AS [预留金_已发生预留金],
+    htNewBudget.dfsljAmount AS [预留金_待发生预留金],
+
+    -- 产值及支付   
+    htXmpdljwccz.Xmpdljwccz AS [产值及支付_已完成产值],
+    htXmpdljwccz.Ljsfk AS [产值及支付_已付款],
+
+    -- 合同签订情况
+    htNewBudget.HtCfAmountCount AS [合同签订情况_已签合同数],
+    htNewBudget.HtCfAmount AS [合同签订情况_已签合同金额],
+    htNewBudget.HtCfAmountWJs AS [合同签订情况_未结算的已签合同金额],
+    htNewBudget.NotBudgetAmountCount  AS [合同签订情况_未签合同数],
+    htNewBudget.NotBudgetAmount AS [合同签订情况_未签合同金额],
+
+    -- 结算
+    htNewBudget.JsHtCfAmountCount AS [结算_合同数],
+    htNewBudget.JsHtCfAmount AS [结算_首次签约金额],
+    htNewBudget.JsAmount AS [结算_结算金额],
+    htNewBudget.JshtNewBudget AS [结算_已结算最新合约规划金额],
+
+    -- 总价合同（首次签约为总价包干）   
+    htNewBudget.zjHtNewBudget AS [总价合同_首次签约为总价包干_最新合约规划金额],
+    htNewBudget.zjHtCfAmountCount  AS [总价合同_首次签约为总价包干_合同数],
+    htNewBudget.zjHtCfAmount AS [总价合同_首次签约为总价包干_首次签约金额],
+    htNewBudget.zjHtCfAmountWJs AS [总价合同_首次签约为总价包干_未结算的已签合同金额],
+    htNewBudget.zjFsBxAmount AS [总价合同_首次签约为总价包干_负数补协_不含暂转固],
+    htNewBudget.zjYljAmount AS [总价合同_首次签约为总价包干_总预留金],
+    htNewBudget.zjYljAmount_Yfs AS [总价合同_首次签约为总价包干_预留金已发生],
+    htNewBudget.zjdfsljAmount AS [总价合同_首次签约为总价包干_预留金待发生],
+
+    -- 总价合同（首次签约为单价合同，目前已转总）
+    htNewBudget.yzzjNewBudget AS [总价合同_首次签约为单价合同_目前已转总_最新合约规划金额],
+    htNewBudget.yzzjHtCfAmountCount AS [总价合同_首次签约为单价合同_目前已转总_合同数],
+    htNewBudget.yzzjHtCfAmount AS [总价合同_首次签约为单价合同_目前已转总_首次签约金额],
+    htNewBudget.yzzjHtCfAmountWJs AS [总价合同_首次签约为单价合同_目前已转总_未结算的已签合同金额],
+    htNewBudget.zjZzgAmount AS [总价合同_首次签约为单价合同_目前已转总_暂转固金额],
+    htNewBudget.yzzjFsBxAmount AS [总价合同_首次签约为单价合同_目前已转总_负数补协_不含暂转固],
+    htNewBudget.yzzjYljAmount AS [总价合同_首次签约为单价合同_目前已转总_总预留金],
+    htNewBudget.yzzjYljAmount_Yfs AS [总价合同_首次签约为单价合同_目前已转总_预留金已发生],
+    htNewBudget.yzzjdfsljAmount AS [总价合同_首次签约为单价合同_目前已转总_预留金待发生],
+
+    -- 单价合同（首次签约为单价合同且未完成转总）
+    htNewBudget.djHtNewBudget AS [单价合同_首次签约为单价合同且未完成转总_最新合约规划金额],
+    htNewBudget.djHtCfAmountCount AS [单价合同_首次签约为单价合同且未完成转总_合同数],
+    htNewBudget.djHtCfAmount AS [单价合同_首次签约为单价合同且未完成转总_首次签约金额],
+    htNewBudget.djHtCfAmountWJs AS [单价合同_首次签约为单价合同且未完成转总_未结算的已签合同金额],
+    htNewBudget.djFsBxAmount AS [单价合同_首次签约为单价合同且未完成转总_负数补协_不含暂转固],
+    htNewBudget.djYljAmount AS [单价合同_首次签约为单价合同且未完成转总_总预留金],
+    htNewBudget.djYljAmount_Yfs AS [单价合同_首次签约为单价合同且未完成转总_预留金已发生],
+    htNewBudget.djdfsljAmount AS [单价合同_首次签约为单价合同且未完成转总_预留金待发生],
+
+    -- 待签约
+    htNewBudget.NewBudgetAmountCount AS [待签约_合同数],
+    htNewBudget.NewBudgetAmount AS [待签约_合约规划金额],
+    htNewBudget.wqydfsljAmount AS [待签约_待发生预留金],
+    htNewBudget.FxjAmount AS [非现金],
+    -- 新增字段
+    htNewBudget.YljAmount_Yfs_Js AS [预留金_已发生预留金(已结算)],
+    htNewBudget.YljAmount_Yfs_WJs AS [预留金_已发生预留金(未结算)]
+FROM p_project p WITH(NOLOCK) 
+INNER JOIN mybusinessunit bu WITH(NOLOCK)   ON bu.buguid = p.buguid 
+INNER JOIN ERP25.dbo.mdm_project mp WITH(NOLOCK)  ON mp.projguid = p.ProjGUID
+LEFT JOIN erp25.dbo.vmdm_projectFlag flg WITH(NOLOCK)   ON flg.projguid = mp.ParentProjGUID
+-- 基础数据系统
+LEFT JOIN (
+    SELECT 
+        ProjGUID,
+        ParentProjGUID,
+        ProjName,
+        ProjCode,
+        AcquisitionDate,
+        SumUpArea,
+        SumDownArea, 
+        SumBuildArea,
+        SumJrArea,
+        JrSaleArea, -- 计容可售面积
+        SumSaleArea
+    FROM (
+        SELECT 
+            ROW_NUMBER() OVER (PARTITION BY ProjGUID ORDER BY CreateDate DESC) AS rowmo,
+            *
+        FROM dbo.md_Project WITH(NOLOCK)
+        WHERE ApproveState = '已审核'
+            AND Level = 3
+            AND ISNULL(CreateReason, '') <> '补录'
+    ) x
+    WHERE x.rowmo = 1
+) mdproj  ON mdproj.ProjGUID = p.ProjGUID
+-- 组团计划
+LEFT JOIN (
+    SELECT 
+        jd_PlanTaskExecuteObjectForReport.projguid,gc.isCompare,
+        MAX(实际开工计划完成时间) AS 实际开工计划完成时间,
+        MAX(实际开工实际完成时间) AS 实际开工实际完成时间,
+        MAX(竣工备案计划完成时间) AS 竣工备案计划完成时间,
+        MAX(case when gc.isCompare = '是' then 竣工备案实际完成时间 else null end ) AS 竣工备案实际完成时间
+    FROM jd_PlanTaskExecuteObjectForReport WITH(NOLOCK)
+    LEFT JOIN (
+        SELECT projguid,
+            NodeNum,
+            TaskStateNum,
+            CASE 
+                WHEN ISNULL(NodeNum,0) = ISNULL(TaskStateNum,0) THEN '是' 
+                ELSE '否' 
+            END AS isCompare
+        FROM (
+            SELECT jpe.projguid,
+                COUNT(1) AS NodeNum,
+                SUM(CASE 
+                    WHEN enumTask.EnumerationName IN ('按期完成','延期完成') THEN 1 
+                    ELSE 0 
+                END) AS TaskStateNum
+            FROM jd_ProjectPlanTaskExecute jpte
+            left JOIN jd_EnumerationDictionary enumTask   ON enumTask.EnumerationType = '工作状态枚举' AND enumTask.EnumerationValue = jpte.TaskState
+            inner  join jd_ProjectPlanExecute jpe on jpe.ID =jpte.PlanID
+            where    jpte.TaskName like '%竣工备案%'
+            GROUP BY jpe.projguid
+        ) jppt 
+    ) gc ON gc.projguid = jd_PlanTaskExecuteObjectForReport.ProjGUID
+    -- WHERE 定位报告计划完成时间 IS NOT NULL
+    GROUP BY jd_PlanTaskExecuteObjectForReport.projguid,gc.isCompare
+) jd  ON jd.projguid = p.ProjGUID
+-- 考核版-目标成本
+LEFT JOIN (
+    -- 取最新已审核的定位版的版本名称，如果没有定位则取立项版，如果都不存在则取考核版最新版本名称
+    SELECT 
+        t1.projguid,
+        t1.targetcost,                    -- 考核版目标成本含税
+        t1.targetstage2projectguid,       -- 考核版目标成本业务版本guid   
+        t1.TargetStageVersion,            -- 考核版目标成本业务版本
+        t1.approvedate                    -- 考核版目标成本业务版本审核日期
+    FROM #target_versions t1
+    INNER JOIN (
+        SELECT 
+            projguid,
+            MIN(version_priority) AS min_priority
+        FROM #target_versions 
+        WHERE rn = 1
+        GROUP BY projguid
+    ) t2 
+        ON t1.projguid = t2.projguid 
+        AND t1.version_priority = t2.min_priority 
+        AND t1.rn = 1
+) khtarget  ON khtarget.projguid = p.ProjGUID    
+-- 执行版 - 目标成本
+LEFT JOIN (
+    SELECT  
+        projguid,
+        targetcost,  --目标成本
+        dtcostNotFxj, -- 动态成本不含非现金
+        isnull(targetcost,0) - isnull(dtcostNotFxj,0) as ylc, --余量池 取含税的执行版目标成本-动态成本（不含非现金）（除地价外直投）
+        targetstage2projectguid,
+        TargetStageVersion,
+        approvedate
+    FROM #execute_versions
+    WHERE rn = 1
+) ex_target  ON ex_target.projguid = p.ProjGUID
+-- 预留金/未签合同/已签合同/变更(非现金)
+left join (
+        SELECT 
+            a.ProjectGUID,
+            sum(CASE WHEN ht.ExecutingBudgetGUID IS NOT NULL THEN ISNULL(yfs.YfsCost,0) +ISNULL(ylj.YgYeAmount,0) ELSE a.BudgetAmount END)  AS  NewBudget, -- 最近合约规划金额
+            sum(CASE WHEN ht.ExecutingBudgetGUID IS  NULL THEN  a.BudgetAmount  END  ) AS  NotBudgetAmount,  -- 未签合同金额
+            --sum( case when ht.ExecutingBudgetGUID is null then 1 else 0 end ) AS  NotBudgetAmountCount,  -- 未签合同份数
+            count(ex.ExecutingBudgetGUID) - count(DISTINCT ht.ExecutingBudgetGUID ) as NotBudgetAmountCount ,  -- 未签合同份数
+            sum(ISNULL(ht.HtCfAmount,0)) AS HtCfAmount, -- 合同首次签约金额 已签合同金额
+            sum(case when ht.jsState not in ('结算','结算中') then ISNULL(ht.HtCfAmount,0) else 0 end ) as HtCfAmountWJs, --未结算的已签合同金额
+            count(DISTINCT ht.ExecutingBudgetGUID ) AS HtCfAmountCount, -- 合同首次签约金额 已签合同数量
+
+            sum( case when ht.jsState in ('结算','结算中') then CASE WHEN ht.ExecutingBudgetGUID IS NOT NULL THEN ISNULL(yfs.YfsCost,0) +ISNULL(ylj.YgYeAmount,0) ELSE a.BudgetAmount END else 0 end )  as JshtNewBudget, -- 已结算最新合约规划金额
+            sum( case when ht.jsState  in ('结算','结算中')  then ISNULL(yfs.ylj_yfs,0) else ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) end ) AS  YljAmount , -- 总预留金
+            sum(ISNULL(yfs.ylj_yfs,0) ) AS  YljAmount_Yfs,-- 已发生预留金
+            sum(case when ht.jsState in ('结算','结算中') then ISNULL(yfs.ylj_yfs,0) else 0 end ) AS  YljAmount_Yfs_Js,-- 已发生预留金(已结算)
+            sum(case when ht.jsState not in ('结算','结算中') then ISNULL(yfs.ylj_yfs,0) else 0 end ) AS  YljAmount_Yfs_WJs,-- 已发生预留金(未结算)
+            -- 结算和结算中的待发生预留金都计算为0
+            sum( case when ht.jsState in  ('结算','结算中') then 0 else ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) - ISNULL(yfs.ylj_yfs,0) end )  AS  dfsljAmount,  -- 待发生预留金
+
+            sum(fxj.FxjAmount) as FxjAmount, -- 变更(非现金)
+            -- 结算统计
+            sum( CASE WHEN  (ht.HtClass='已定非合同' AND  ht.JsState in ('结算','结算中') ) 
+                THEN ht.HtCfAmount ELSE(  CASE WHEN js.ExecutingBudgetGUID IS NOT NULL   
+                THEN ISNULL(js.JsAmount,0) - ISNULL(fxj.fxjAmount,0) 
+            ELSE ISNULL(js.JsAmount,0) END) END) AS JsAmount, --结算金额
+            sum(case when  ht.JsState in ('结算','结算中') then  ISNULL(ht.HtCfAmount,0) else  0 end  ) as  JsHtCfAmount, --结算对应合同的首次签约金额
+            count( case when  ht.JsState  in ('结算','结算中')  then  ht.ContractGUID end  ) as  JsHtCfAmountCount,        -- 已结算的合同份数
+
+            -- 总价合同 首次签约为总价包干合同
+            sum( case when ht.是否首次总价合同 =1 and  ht.JsState not in ('结算','结算中') then  
+                  CASE WHEN ht.ExecutingBudgetGUID IS NOT NULL THEN ISNULL(yfs.YfsCost,0) +ISNULL(ylj.YgYeAmount,0) ELSE a.BudgetAmount END else 0 end ) as zjHtNewBudget, -- 总价合同首次签约为总价包干最新合约规划金额
+            count( DISTINCT case when ht.是否首次总价合同 =1 and  ht.JsState not in ('结算','结算中')  then  ht.ExecutingBudgetGUID end  ) as  zjHtCfAmountCount, -- 总价合同份数
+            sum(case when  ht.JsState not in ( '结算','结算中') then isnull(ht.zjHtCfAmount,0) else  0  end ) as zjHtCfAmount, -- 总价合同首次签约金额
+            sum(case when  ht.jsState  not in ('结算','结算中')  then  ISNULL(ht.zjHtCfAmount,0) else 0 end ) as zjHtCfAmountWJs, -- 未结算的已转总价合同金额
+            sum(case when ht.是否首次总价合同 =1 and   ht.JsState not in ('结算','结算中') then  fs.FsBxAmount else 0 end ) as zjFsBxAmount, -- 负数补协金额
+            
+            -- 判断如果合同已结算，则将预留金总额=【预留金已发生】，然后将预留金余额取为0   
+            sum(case  when  ht.是否首次总价合同 =1  and ht.jsState not in ('结算','结算中')  then 
+                    ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) else 0 end )  AS  zjYljAmount , -- 总预留金
+            sum(case when ht.是否首次总价合同 =1 and  ht.JsState not in ('结算','结算中') then  ISNULL(yfs.ylj_yfs,0) else 0 end ) AS  zjYljAmount_Yfs,-- 已发生预留金
+            -- 总预留金 - 已发生预留金
+            sum(case  when  ht.是否首次总价合同 =1  and ht.jsState not in ('结算','结算中')  then 
+                    ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) else 0 end ) 
+            - sum(case when ht.是否首次总价合同 =1 and  ht.JsState not in ('结算','结算中') then  ISNULL(yfs.ylj_yfs,0) else 0 end ) AS  zjdfsljAmount,  -- 待发生预留金
+
+            -- 总价合同 首次签约为单价合同，目前已转总价
+            sum( case when ht.是否已转总价合同 =1 and  ht.JsState not in ('结算','结算中') then 
+               CASE WHEN ht.ExecutingBudgetGUID IS NOT NULL THEN ISNULL(yfs.YfsCost,0) +ISNULL(ylj.YgYeAmount,0) ELSE a.BudgetAmount END else 0 end ) as yzzjNewBudget, -- 总价合同首次签约为单价合同，目前已转总价最新合约规划金额
+            count( DISTINCT case when ht.是否已转总价合同 =1  and  ht.JsState not  in ('结算','结算中') then  ht.ExecutingBudgetGUID end  ) as  yzzjHtCfAmountCount, -- 已转总价合同份数
+            sum(case when  ht.JsState not  in ('结算','结算中') then  isnull(ht.yzzjHtCfAmount,0) else  0 end ) as yzzjHtCfAmount, -- 已转总价合同金额
+            sum(case when  ht.jsState not  in ('结算','结算中') then  ISNULL(ht.yzzjHtCfAmount,0) else 0 end ) as yzzjHtCfAmountWJs, -- 未结算的已转总价合同金额
+            sum(case when  ht.是否已转总价合同 =1  and ht.JsState not  in ('结算','结算中')  then 
+              case when zzg.ZzgAmount is not null then isnull(ht.HtCfAmount,0) + isnull(zzg.ZzgAmount,0) else 0 end  else 0 end) as zjZzgAmount, -- 暂转固金额
+            sum(case when  ht.是否已转总价合同 =1  and ht.JsState not  in ('结算','结算中')  then  fs.fsBxAmount else 0 end ) as yzzjFsBxAmount, -- 负数补协金额 
+            -- 判断如果合同已结算，则将预留金总额=【预留金已发生】，然后将预留金余额取为0   
+            sum( case when  ht.是否已转总价合同 =1  and  ht.JsState not in  ('结算','结算中')  then  
+                            ISNULL(ht.YgAlterAmount,0) + ISNULL(ylj.ygAlterAdj,0) else 0 end ) AS  yzzjYljAmount , -- 总预留金
+            sum(case when ht.是否已转总价合同 =1 and   ht.JsState  not in  ('结算','结算中') then  ISNULL(yfs.ylj_yfs,0) else 0 end ) AS  yzzjYljAmount_Yfs,-- 已发生预留金
+              --总预留金- 已发生预留金            
+            sum( case when  ht.是否已转总价合同 =1  and  ht.JsState not in  ('结算','结算中')  then  
+                            ISNULL(ht.YgAlterAmount,0) + ISNULL(ylj.ygAlterAdj,0) else 0 end )
+            -  sum(case when ht.是否已转总价合同 =1 and   ht.JsState  not in  ('结算','结算中') then  ISNULL(yfs.ylj_yfs,0) else 0 end ) AS  yzzjdfsljAmount,  -- 待发生预留金 
+            -- 单价合同
+            sum( case when isnull(ht.bgxs,'')<>'总价包干' and   ht.JsState  not  in ('结算','结算中') then  
+                CASE WHEN ht.ExecutingBudgetGUID IS NOT NULL THEN ISNULL(yfs.YfsCost,0) +ISNULL(ylj.YgYeAmount,0) ELSE a.BudgetAmount END else 0 end ) as djHtNewBudget, -- 单价合同最新合约规划金额
+            count( DISTINCT case when isnull(ht.bgxs,'')<>'总价包干' and   ht.JsState not  in ('结算','结算中') then  ht.ExecutingBudgetGUID end  ) as  djHtCfAmountCount, -- 单价合同份数
+            sum(case when  ht.JsState not  in ('结算','结算中')  then   isnull(ht.djHtCfAmount,0) else  0  end ) as djHtCfAmount, -- 单价合同金额 
+            sum(case when  ht.jsState not  in ('结算','结算中')   then  ISNULL(ht.djHtCfAmount,0) else 0 end ) as djHtCfAmountWJs, -- 未结算的单价合同金额
+            sum(case when  isnull(ht.bgxs,'')<>'总价包干' and   ht.JsState not  in ('结算','结算中') then  fs.FsBxAmount else 0 end ) as djFsBxAmount, -- 负数补协金额
+
+            -- 判断如果合同已结算，则将预留金总额=【预留金已发生】，然后将预留金余额取为0   
+            sum(case when  isnull(ht.bgxs,'')<>'总价包干'  and ht.jsState not in ('结算','结算中')  then   
+                    ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) else 0 end ) AS  djYljAmount , -- 总预留金
+            sum(case when  isnull(ht.bgxs,'')<>'总价包干' and  ht.JsState not in ('结算','结算中') then  ISNULL(yfs.ylj_yfs,0) else 0 end ) AS  djYljAmount_Yfs,-- 已发生预留金
+            --总预留金 - 已发生预留金
+            sum(case when  isnull(ht.bgxs,'')<>'总价包干'  and ht.jsState not in ('结算','结算中')  then   
+                    ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) else 0 end ) 
+            - sum(case when  isnull(ht.bgxs,'')<>'总价包干' and  ht.JsState not in ('结算','结算中') then  ISNULL(yfs.ylj_yfs,0) else 0 end )  AS  djdfsljAmount, -- 待发生预留金
+            -- 待签约
+            count(ex.ExecutingBudgetGUID) - count(DISTINCT ht.ExecutingBudgetGUID )  as  NewBudgetAmountCount,
+            sum( case when ht.ExecutingBudgetGUID is null then ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) - ISNULL(yfs.ylj_yfs,0) else 0 end ) as  wqydfsljAmount, -- 未签约_待发生预留金
+            sum( CASE WHEN ht.ExecutingBudgetGUID IS NULL THEN a.BudgetAmount else  0 END) AS  NewBudgetAmount
+        FROM dbo.cb_Budget_Working a WITH(NOLOCK)
+        LEFT JOIN dbo.cb_Budget_Executing ex WITH(NOLOCK) ON ex.ExecutingBudgetGUID=a.WorkingBudgetGUID
+        LEFT JOIN dbo.cb_HtType b WITH(NOLOCK) ON a.BigHTTypeGUID = b.HtTypeGUID
+        LEFT JOIN #HT ht WITH(NOLOCK) ON ht.ExecutingBudgetGUID = a.WorkingBudgetGUID
+        LEFT JOIN #ZZG zzg WITH(NOLOCK) ON zzg.ExecutingBudgetGUID = a.WorkingBudgetGUID
+        LEFT JOIN #yfs yfs WITH(NOLOCK) ON yfs.ExecutingBudgetGUID = a.WorkingBudgetGUID
+        LEFT JOIN #ylj ylj WITH(NOLOCK) ON ylj.ExecutingBudgetGUID = a.WorkingBudgetGUID
+        LEFT JOIN #Fxj fxj WITH(NOLOCK) ON fxj.ExecutingBudgetGUID=a.WorkingBudgetGUID
+        LEFT JOIN #fsBx fs WITH(NOLOCK) ON fs.ExecutingBudgetGUID=a.WorkingBudgetGUID
+        LEFT JOIN #JS js WITH(NOLOCK) ON js.ExecutingBudgetGUID=a.WorkingBudgetGUID
+        WHERE b.HtTypeName not in ('土地类','管理费','营销费','财务费')  -- and a.ProjectGUID = '2b3b0206-f785-e911-80b7-0a94ef7517dd' --@ProjGUID
+        GROUP BY a.ProjectGUID
+) htNewBudget ON htNewBudget.ProjectGUID = p.ProjGUID
+-- 月度产值回顾 取上一个月拍照的已完成产值合计（除地价外直投）
+left join (       
+    SELECT  outputvalue.projguid,
+                sum(ISNULL(outputvalue.Xmpdljwccz, 0)) AS Xmpdljwccz, -- 项目盘点累计完成产值
+                sum(isnull(outputvalue.Ljyfkje,0)) as Ljyfkje, --项目盘点累计应付款
+                sum(isnull(outputvalue.yfwsAmount,0)) as yfwsAmount, -- 应付未付金额
+                sum(ISNULL(outputvalue.Ljsfk, 0)) AS Ljsfk, -- 累计实付款
+                sum(isnull(outputvalue.ydczwzfAmount,0)) as ydczwzfAmount -- 已达产值未支付金额
+    FROM    (
+            SELECT  b.projguid,
+                    b.OutputValueMonthReviewGUID,
+                    b.ReviewDate,
+                    a.BusinessGUID AS ContractGUID,
+                    a.BusinessName,
+                    a.BusinessType,
+                    Xmpdljwccz, -- 项目盘点累计完成产值
+                    Ljyfkje, -- 项目盘点累计应付款
+                    Ljsfk,-- 累计实付款
+                    isnull(Xmpdljwccz,0) - isnull(Ljsfk,0) as ydczwzfAmount, -- 已达产值未支付金额 等于 项目盘点累计完成产值 减去 累计实付款
+                    isnull(Ljyfkje,0) - isnull(Ljsfk,0) as yfwsAmount, -- 应付未付金额 等于 项目判断累计应付款 减去 累计实付款
+                    ROW_NUMBER() OVER (PARTITION BY a.BusinessGUID ORDER BY ReviewDate DESC) AS rownum
+            FROM    cb_OutputValueReviewDetail a WITH(NOLOCK)
+                    INNER JOIN cb_OutputValueMonthReview b WITH(NOLOCK) ON a.OutputValueMonthReviewGUID = b.OutputValueMonthReviewGUID
+            WHERE   a.BusinessType = '合同' and  datediff(month, b.ReviewDate,getdate()) =1
+            ) outputvalue
+    WHERE   outputvalue.rownum = 1
+    GROUP BY outputvalue.projguid
+) htXmpdljwccz ON htXmpdljwccz.projguid = p.ProjGUID
+WHERE p.Level = 3  AND  ( p.ProjGUID in (  SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ',')  ) or @var_projguid is null )
+            AND p.buguid in ( SELECT [Value] FROM dbo.fn_Split1(@var_buguid, ',') ) 
+ORDER BY bu.buname, p.projname
+
+
+--  删除临时表
+DROP TABLE IF EXISTS #HT;
+DROP TABLE IF EXISTS #ysf;
+DROP TABLE IF EXISTS #yfs;
+DROP TABLE IF EXISTS #ylj;
+DROP TABLE IF EXISTS #JS;
+DROP TABLE IF EXISTS #Fxj;
+DROP TABLE IF EXISTS #fsBx;
+DROP TABLE IF EXISTS #ZZGBG;
+DROP TABLE IF EXISTS #ZZG;
+DROP TABLE IF EXISTS #target_versions;
+DROP TABLE IF EXISTS #execute_versions;
+
+END 
+
+
+
+-- 目标成本考核版本记录
+-- SELECT 
+--     AdjustHistoryGUID,
+--     StageType,
+--     AdjustName,
+--     ApproveDate,
+--     Adjuster,
+--     ProjGUID,
+--     TargetStageVersion,
+--     ZbApproveState,
+--     ZbApproveDate,
+--     ZbApprovePerson,
+--     TargetStage2ProjectGUID,
+--     '<a herf="#" onclick="parent.parent.OpenProjectInfo('''+ CAST(ProjGUID AS VARCHAR(40))+''','''+ 
+--         case when HkbApproveGUID is NULL then '' else CAST(HkbApproveGUID AS VARCHAR(40)) end+''')"><u>' + 
+--         ProjectZbVersionName + '</u></a>' AS ProjectZbVersionNameHTML,
+--     TargetCost,
+--     TargetCostNoTax,
+--     ztTargetCost,
+--     ztTargetCostNoTax 
+-- FROM (
+--     select 
+--         p.TargetCostReviseKHGUID AS AdjustHistoryGUID,
+--         '调整单' AS StageType,
+--         p.ReviserName AS AdjustName,
+--         p.ApproveDate,
+--         p.Reviser AS Adjuster,
+--         11 as OrderCode,
+--         p.ProjGUID,
+--         proj.BUGUID,
+--         p.TargetStageVersion,
+--         p.ProjectZbVersionName,
+--         p.HkbApproveGUID,
+--         p.ZbApproveState,
+--         p.ZbApproveDate,
+--         p.ZbApprovePerson,
+--         p.TargetStage2ProjectGUID,
+--         kh.TargetCost,
+--         kh.TargetCostNoTax,
+--         zt.TargetCost AS ztTargetCost,
+--         zt.TargetCostNoTax AS ztTargetCostNoTax
+--     from cb_TargetCostRevise_KH p
+--     LEFT JOIN p_Project proj ON p.ProjGUID = proj.ProjGUID
+--     LEFT JOIN cb_TargetStage2Cost_KH kh ON kh.TargetCostReviseKHGUID = p.TargetCostReviseKHGUID 
+--         AND kh.CostCode='5001'
+--     LEFT JOIN (
+--         select 
+--             sum(p.targetcost) as targetcost,
+--             sum(p.targetcostnotax) as targetcostnotax,
+--             p.targetcostrevisekhguid
+--         from cb_targetstage2cost_kh p
+--         inner join p_project proj on p.projguid = proj.projguid
+--         inner join cb_cost b2 on p.costguid = b2.costguid
+--         where isnull(b2.costcategory, '') <> '土地成本'
+--             and isnull(b2.costkind, '') = '开发成本'
+--             and b2.ifendcost = 1
+--             and (2=2)
+--         group by p.targetcostrevisekhguid
+--     ) zt ON zt.TargetCostReviseKHGUID = p.TargetCostReviseKHGUID
+--     where p.ApproveState = '已审核'
+--         AND (2=2)
+-- ) a
+-- ORDER BY ApproveDate DESC

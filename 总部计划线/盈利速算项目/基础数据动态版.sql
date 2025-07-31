@@ -1,0 +1,1 @@
+EXEC usp_md_GetDynamicsProjInfo '','703abe5b-7964-eb11-b398-f40270d39969',1,1

@@ -486,11 +486,13 @@ SELECT
     SUM(本年结转签约_预算) AS 本年结转签约_预算,
     SUM(本年结转签约不含税_预算) AS 本年结转签约不含税_预算,
     SUM(本年结转净利润_预算) AS 本年结转净利润_预算,
-    CASE WHEN SUM(本年结转签约不含税_预算) = 0 THEN 0 ELSE SUM(本年结转净利润_预算) / SUM(本年结转签约不含税_预算) END AS 本年结转净利率_预算,
+    -- CASE WHEN SUM(本年结转签约不含税_预算) = 0 THEN 0 ELSE SUM(本年结转净利润_预算) / SUM(本年结转签约不含税_预算) END AS 本年结转净利率_预算,
+    0 as 本年结转净利率_预算,
     -- 较预算变化
     CASE WHEN SUM(本年结转签约_预算) = 0 THEN 0 ELSE SUM(本年结转签约_实际) / SUM(本年结转签约_预算) END AS 本年结转签约完成率,
-    CASE WHEN SUM(本年结转签约不含税_实际) = 0 THEN 0 ELSE SUM(本年结转净利润_实际) / SUM(本年结转签约不含税_实际) END 
-    - CASE WHEN SUM(本年结转签约不含税_预算) = 0 THEN 0 ELSE SUM(本年结转净利润_预算) / SUM(本年结转签约不含税_预算) END AS 本年结转净利率偏差率,  -- (实际-预算)/预算
+    -- CASE WHEN SUM(本年结转签约不含税_实际) = 0 THEN 0 ELSE SUM(本年结转净利润_实际) / SUM(本年结转签约不含税_实际) END 
+    -- - CASE WHEN SUM(本年结转签约不含税_预算) = 0 THEN 0 ELSE SUM(本年结转净利润_预算) / SUM(本年结转签约不含税_预算) END AS 本年结转净利率偏差率,  -- (实际-预算)/预算
+    0 as 本年结转净利率偏差率,
     -- 本月实际结转利润
     SUM(本月结转签约_实际) AS 本月结转签约_实际,
     SUM(本月结转签约不含税_实际) AS 本月结转签约不含税_实际,
@@ -780,8 +782,6 @@ SELECT
 FROM #jzlr_proj p
 WHERE year(p.获取日期) < 2022 or p.获取日期 is null
 GROUP BY p.公司,p.平台公司GUID
-
-
 
 -- 删除临时表
 DROP TABLE #proj
