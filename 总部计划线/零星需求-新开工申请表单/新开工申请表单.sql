@@ -203,10 +203,10 @@ baseproj as (
             1, 1, ''
         )
     ) AS 合作方名称及持股比例, -- 合作方及持股比例（拼接字符串）
+    LoanBalanceTotal / 10000.0 AS  累计贷款余额,
     (
         ISNULL(CollectionAmountTotal, 0)
         - ISNULL(DirectInvestmentTotal, 0)
-        - 
         - ISNULL(ManageAmount, 0)
         - ISNULL(MarketAmount, 0)
         - ISNULL(Financial, 0)
@@ -224,7 +224,7 @@ baseproj as (
     mp.TotalLandPrice/100000000.0 AS 总地价, -- 获取总成本
     mp.LMDJ AS 楼面价,           -- 楼面价
     vpInfo.SumBuildArea/10000.0 AS 项目总建面, -- 动态版总建筑面积
-    vpInfo.MqzjArea/10000.0 AS 已开工建面     -- 目前开工建筑面积
+    vpInfo.LjkgArea/10000.0 AS 已开工建面     -- 累计开工建筑面积
 FROM
     MyCost_Erp352.dbo.p_project proj
     INNER JOIN MyCost_Erp352.dbo.myBusinessUnit bu  ON proj.buguid = bu.buguid
@@ -314,7 +314,7 @@ FROM
             -- 地上、已开工、已售面积
             SUM(
                 CASE
-                    WHEN ISNULL(pnm.phyAddress, '') <> '地下'
+                    WHEN [产品类型] <> '地下室/车库' --ISNULL(pnm.phyAddress, '') <> '地下'
                          AND 实际开工完成日期 IS NOT NULL
                         THEN 已售面积
                     ELSE 0
@@ -324,7 +324,7 @@ FROM
             -- 地上、已开工、未售面积
             SUM(
                 CASE
-                    WHEN ISNULL(pnm.phyAddress, '') <> '地下'
+                    WHEN [产品类型] <> '地下室/车库'  --ISNULL(pnm.phyAddress, '') <> '地下'
                          AND 实际开工完成日期 IS NOT NULL
                         THEN 待售面积
                     ELSE 0
@@ -334,7 +334,7 @@ FROM
             -- 地上、已开工、已售货值（万元转亿元）
             SUM(
                 CASE
-                    WHEN ISNULL(pnm.phyAddress, '') <> '地下'
+                    WHEN [产品类型] <> '地下室/车库'  --ISNULL(pnm.phyAddress, '') <> '地下'
                          AND 实际开工完成日期 IS NOT NULL
                         THEN 已售货值
                     ELSE 0
@@ -344,7 +344,7 @@ FROM
             -- 地上、已开工、未售货值（万元转亿元）
             SUM(
                 CASE
-                    WHEN ISNULL(pnm.phyAddress, '') <> '地下'
+                    WHEN [产品类型] <> '地下室/车库'  --ISNULL(pnm.phyAddress, '') <> '地下'
                          AND 实际开工完成日期 IS NOT NULL
                         THEN 待售货值
                     ELSE 0
@@ -382,8 +382,7 @@ FROM
 
         FROM
             dss.[dbo].nmap_s_F05601各项目产品楼栋表系统取数原始表单_qx F05601
-            LEFT JOIN [MyCost_Erp352].dbo.md_ProductNameModule pnm
-                ON pnm.ProductName = F05601.产品名称
+           -- LEFT JOIN [MyCost_Erp352].dbo.md_ProductNameModule pnm ON pnm.ProductName = F05601.产品名称
             INNER JOIN erp25.dbo.mdm_GCBuild gb
                 ON gb.GCBldGUID = F05601.GCBldGUID
             INNER JOIN erp25.dbo.mdm_Project mp

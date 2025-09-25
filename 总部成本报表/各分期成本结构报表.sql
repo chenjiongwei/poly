@@ -1,10 +1,12 @@
 USE [MyCost_Erp352]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_rpt_cb_CostStructureReport]    Script Date: 2025/7/7 15:30:00 ******/
+/****** Object:  StoredProcedure [dbo].[usp_rpt_cb_CostStructureReport]    Script Date: 2025/8/14 12:45:54 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
+
+
 /*
  * 各分期成本结构报表
  * 主要功能:查询各分期的成本结构信息,包括基本信息、总成本情况、预留金、产值及支付等
@@ -13,6 +15,8 @@ GO
  -- exec sp_executesql N'EXEC  usp_cb_GetBudgetInfoMain  @ProjGUID ,@State,@BudgetName',N'@ProjGUID nvarchar(36),@State nvarchar(4000),@BudgetName nvarchar(4000)',@ProjGUID=N'9a86d4ea-8513-e711-80ba-e61f13c57837',@State=N'',@BudgetName=N''
  --exec [usp_rpt_cb_CostStructureReport] '4A1E877C-A0B2-476D-9F19-B5C426173C38'
  -- modify by zhangjie 2025-05-27 增加已发生预留金(已结算)和已发生预留金(未结算)字段
+ -- modify by tangqn01 20250723 增加 本年新签合同份数 /本年新签合同金额 /本年招标结余金额
+ -- modify by chenjw 2025-08-04 动态成本计算只取执行版的合约规划
 ALTER  proc [dbo].[usp_rpt_cb_CostStructureReport]
 (
     @var_buguid varchar(max) ,  -- 公司guid
@@ -37,9 +41,12 @@ begin
         ,sum(case when zjcon.是否首次总价合同=1 then a.CfAmount else 0 end) as zjHtCfAmount -- 总价合同金额
         ,sum(case when zjcon.是否已转总价合同=1 then a.CfAmount else 0 end) as yzzjHtCfAmount -- 已转总价合同金额
         ,sum(case when isnull(c.bgxs,'')<>'总价包干' and zjcon.是否已转总价合同 <> 1 then a.CfAmount else 0 end) as djHtCfAmount -- 单价合同金额
+		,c.SignDate
+		,ISNULL(SUM(b.BudgetAmount),0) - ISNULL(SUM(a.CfAmount),0) - ISNULL(SUM(a.YgAlterAmount),0) AS zbjyAmount --招标结余金额
 	INTO  #HT
 	FROM  dbo.cb_BudgetUse a WITH(NOLOCK)
 	INNER JOIN dbo.cb_Budget b WITH(NOLOCK) ON b.BudgetGUID = a.BudgetGUID 
+    INNER JOIN cb_Budget_Executing e  WITH(NOLOCK) ON e.ExecutingBudgetGUID=b.ExecutingBudgetGUID
 	INNER JOIN cb_Contract c WITH(NOLOCK) ON c.ContractGUID=a.RefGUID
 	INNER JOIN dbo.p_Project p WITH(NOLOCK) ON a.ProjectCode=p.ProjCode
     left  join (
@@ -67,7 +74,7 @@ begin
     AND	 c.IfDdhs=1  -- 是否单独核算    
     AND ( p.ProjGUID in ( SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ',') ) or @var_projguid is null )
     AND p.buguid in ( SELECT [Value] FROM dbo.fn_Split1(@var_buguid, ',') ) 
-	GROUP BY  c.ContractGUID,c.ContractName,c.bgxs, b.ExecutingBudgetGUID,c.HtClass ,c.JsState,zjcon.是否首次总价合同,zjcon.是否已转总价合同
+	GROUP BY  c.ContractGUID,c.ContractName,c.bgxs, b.ExecutingBudgetGUID,c.HtClass ,c.JsState,zjcon.是否首次总价合同,zjcon.是否已转总价合同,c.SignDate
 
 	--负数补协 负数补协(不含暂转固）
 	SELECT 
@@ -349,7 +356,40 @@ SELECT
     htNewBudget.FxjAmount AS [非现金],
     -- 新增字段
     htNewBudget.YljAmount_Yfs_Js AS [预留金_已发生预留金(已结算)],
-    htNewBudget.YljAmount_Yfs_WJs AS [预留金_已发生预留金(未结算)]
+    htNewBudget.YljAmount_Yfs_WJs AS [预留金_已发生预留金(未结算)],
+
+	--20250723 add by tangqn01    
+	htNewBudget.CurYearHtCount as 本年新签合同份数,
+	htNewBudget.CurYearHtCfAmount as 本年新签合同金额,
+	htNewBudget.CurYearzbjyAmount as 本年招标结余金额,
+	htNewBudget.CurYeardjHtCfAmount as 本年单价包干合同金额,
+	qzbg.签证变更金额 as 签证变更金额,
+	pay.PayAmount as 进度款支付金额,
+    pay.CurYearPayAmount as 本年实付金额,
+	CASE WHEN tghj.ProjGUID IS NOT NULL THEN '1' ELSE '0' END AS 停工缓建标识,
+	CASE WHEN tghj.ProjGUID IS NOT NULL THEN htNewBudget.tghjHyghCount END AS 停工缓建合约规划数量,
+    CASE WHEN tghj.ProjGUID IS NOT NULL THEN htNewBudget.tghjHyghAmount END AS 停工缓建合约规划金额,
+
+	--结算
+    ISNULL(js.本月完成合同结算份数,0) AS 本月完成合同结算份数,
+    ISNULL(js.本月完成合同结算金额,0) AS 本月完成合同结算金额,
+    ISNULL(js.本月完成合同结算送审金额,0) AS 本月完成合同结算送审金额,
+    ISNULL(js.本月完成合同结算一审金额,0) AS 本月完成合同结算一审金额,
+    CASE WHEN ISNULL(js.本月完成合同结算送审金额,0) = 0 THEN 0 ELSE (ISNULL(js.本月完成合同结算送审金额,0) - ISNULL(js.本月完成合同结算一审金额,0))/ISNULL(js.本月完成合同结算送审金额,0) END AS 本月完成合同结算一核核减率,
+    ISNULL(js.本月完成合同结算二审金额,0) AS 本月完成合同结算二审金额,
+    CASE WHEN ISNULL(js.本月完成合同结算需二审的一审金额,0) = 0 THEN 0 ELSE (ISNULL(js.本月完成合同结算需二审的一审金额,0) - ISNULL(js.本月完成合同结算二审金额,0))/ISNULL(js.本月完成合同结算需二审的一审金额,0) END AS 本月完成合同结算二核核减率,
+    CASE WHEN ISNULL(js.本月完成合同结算份数,0) = 0 THEN 0 ELSE ISNULL(js.本月完成合同结算审批时长,0)/ISNULL(js.本月完成合同结算份数,0) END AS 本月完成合同结算审批时长,
+    -- AS 在途合同结算一审审核中份数,
+    ISNULL(js.在途合同结算二审审核中份数,0) AS 在途合同结算二审审核中份数,
+
+	--20250731 add by tangqn01
+	CurYearHt.ContractNum as 本年新签合同份数_全量,
+	CurYearHt.HtAmount as 本年新签合同金额_全量,
+
+	--20250801 add 本月完成合同结算需二审的一审金额
+	js.本月完成合同结算需二审的一审金额 as 本月完成合同结算需二审的一审金额,
+	js.本年完成合同结算金额 as 本年完成合同结算金额
+
 FROM p_project p WITH(NOLOCK) 
 INNER JOIN mybusinessunit bu WITH(NOLOCK)   ON bu.buguid = p.buguid 
 INNER JOIN ERP25.dbo.mdm_project mp WITH(NOLOCK)  ON mp.projguid = p.ProjGUID
@@ -452,15 +492,15 @@ LEFT JOIN (
 left join (
         SELECT 
             a.ProjectGUID,
-            sum(CASE WHEN ht.ExecutingBudgetGUID IS NOT NULL THEN ISNULL(yfs.YfsCost,0) +ISNULL(ylj.YgYeAmount,0) ELSE a.BudgetAmount END)  AS  NewBudget, -- 最近合约规划金额
-            sum(CASE WHEN ht.ExecutingBudgetGUID IS  NULL THEN  a.BudgetAmount  END  ) AS  NotBudgetAmount,  -- 未签合同金额
+            sum(CASE WHEN ht.ExecutingBudgetGUID IS NOT NULL THEN ISNULL(yfs.YfsCost,0) +ISNULL(ylj.YgYeAmount,0) ELSE ex.BudgetAmount END)  AS  NewBudget, -- 最近合约规划金额
+            sum(CASE WHEN ht.ExecutingBudgetGUID IS  NULL THEN  ex.BudgetAmount  END  ) AS  NotBudgetAmount,  -- 未签合同金额
             --sum( case when ht.ExecutingBudgetGUID is null then 1 else 0 end ) AS  NotBudgetAmountCount,  -- 未签合同份数
             count(ex.ExecutingBudgetGUID) - count(DISTINCT ht.ExecutingBudgetGUID ) as NotBudgetAmountCount ,  -- 未签合同份数
             sum(ISNULL(ht.HtCfAmount,0)) AS HtCfAmount, -- 合同首次签约金额 已签合同金额
             sum(case when ht.jsState not in ('结算','结算中') then ISNULL(ht.HtCfAmount,0) else 0 end ) as HtCfAmountWJs, --未结算的已签合同金额
             count(DISTINCT ht.ExecutingBudgetGUID ) AS HtCfAmountCount, -- 合同首次签约金额 已签合同数量
 
-            sum( case when ht.jsState in ('结算','结算中') then CASE WHEN ht.ExecutingBudgetGUID IS NOT NULL THEN ISNULL(yfs.YfsCost,0) +ISNULL(ylj.YgYeAmount,0) ELSE a.BudgetAmount END else 0 end )  as JshtNewBudget, -- 已结算最新合约规划金额
+            sum( case when ht.jsState in ('结算','结算中') then CASE WHEN ht.ExecutingBudgetGUID IS NOT NULL THEN ISNULL(yfs.YfsCost,0) +ISNULL(ylj.YgYeAmount,0) ELSE ex.BudgetAmount END else 0 end )  as JshtNewBudget, -- 已结算最新合约规划金额
             sum( case when ht.jsState  in ('结算','结算中')  then ISNULL(yfs.ylj_yfs,0) else ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) end ) AS  YljAmount , -- 总预留金
             sum(ISNULL(yfs.ylj_yfs,0) ) AS  YljAmount_Yfs,-- 已发生预留金
             sum(case when ht.jsState in ('结算','结算中') then ISNULL(yfs.ylj_yfs,0) else 0 end ) AS  YljAmount_Yfs_Js,-- 已发生预留金(已结算)
@@ -479,7 +519,7 @@ left join (
 
             -- 总价合同 首次签约为总价包干合同
             sum( case when ht.是否首次总价合同 =1 and  ht.JsState not in ('结算','结算中') then  
-                  CASE WHEN ht.ExecutingBudgetGUID IS NOT NULL THEN ISNULL(yfs.YfsCost,0) +ISNULL(ylj.YgYeAmount,0) ELSE a.BudgetAmount END else 0 end ) as zjHtNewBudget, -- 总价合同首次签约为总价包干最新合约规划金额
+                  CASE WHEN ht.ExecutingBudgetGUID IS NOT NULL THEN ISNULL(yfs.YfsCost,0) +ISNULL(ylj.YgYeAmount,0) ELSE ex.BudgetAmount END else 0 end ) as zjHtNewBudget, -- 总价合同首次签约为总价包干最新合约规划金额
             count( DISTINCT case when ht.是否首次总价合同 =1 and  ht.JsState not in ('结算','结算中')  then  ht.ExecutingBudgetGUID end  ) as  zjHtCfAmountCount, -- 总价合同份数
             sum(case when  ht.JsState not in ( '结算','结算中') then isnull(ht.zjHtCfAmount,0) else  0  end ) as zjHtCfAmount, -- 总价合同首次签约金额
             sum(case when  ht.jsState  not in ('结算','结算中')  then  ISNULL(ht.zjHtCfAmount,0) else 0 end ) as zjHtCfAmountWJs, -- 未结算的已转总价合同金额
@@ -496,7 +536,7 @@ left join (
 
             -- 总价合同 首次签约为单价合同，目前已转总价
             sum( case when ht.是否已转总价合同 =1 and  ht.JsState not in ('结算','结算中') then 
-               CASE WHEN ht.ExecutingBudgetGUID IS NOT NULL THEN ISNULL(yfs.YfsCost,0) +ISNULL(ylj.YgYeAmount,0) ELSE a.BudgetAmount END else 0 end ) as yzzjNewBudget, -- 总价合同首次签约为单价合同，目前已转总价最新合约规划金额
+               CASE WHEN ht.ExecutingBudgetGUID IS NOT NULL THEN ISNULL(yfs.YfsCost,0) +ISNULL(ylj.YgYeAmount,0) ELSE ex.BudgetAmount END else 0 end ) as yzzjNewBudget, -- 总价合同首次签约为单价合同，目前已转总价最新合约规划金额
             count( DISTINCT case when ht.是否已转总价合同 =1  and  ht.JsState not  in ('结算','结算中') then  ht.ExecutingBudgetGUID end  ) as  yzzjHtCfAmountCount, -- 已转总价合同份数
             sum(case when  ht.JsState not  in ('结算','结算中') then  isnull(ht.yzzjHtCfAmount,0) else  0 end ) as yzzjHtCfAmount, -- 已转总价合同金额
             sum(case when  ht.jsState not  in ('结算','结算中') then  ISNULL(ht.yzzjHtCfAmount,0) else 0 end ) as yzzjHtCfAmountWJs, -- 未结算的已转总价合同金额
@@ -513,7 +553,7 @@ left join (
             -  sum(case when ht.是否已转总价合同 =1 and   ht.JsState  not in  ('结算','结算中') then  ISNULL(yfs.ylj_yfs,0) else 0 end ) AS  yzzjdfsljAmount,  -- 待发生预留金 
             -- 单价合同
             sum( case when isnull(ht.bgxs,'')<>'总价包干' and   ht.JsState  not  in ('结算','结算中') then  
-                CASE WHEN ht.ExecutingBudgetGUID IS NOT NULL THEN ISNULL(yfs.YfsCost,0) +ISNULL(ylj.YgYeAmount,0) ELSE a.BudgetAmount END else 0 end ) as djHtNewBudget, -- 单价合同最新合约规划金额
+                CASE WHEN ht.ExecutingBudgetGUID IS NOT NULL THEN ISNULL(yfs.YfsCost,0) +ISNULL(ylj.YgYeAmount,0) ELSE ex.BudgetAmount END else 0 end ) as djHtNewBudget, -- 单价合同最新合约规划金额
             count( DISTINCT case when isnull(ht.bgxs,'')<>'总价包干' and   ht.JsState not  in ('结算','结算中') then  ht.ExecutingBudgetGUID end  ) as  djHtCfAmountCount, -- 单价合同份数
             sum(case when  ht.JsState not  in ('结算','结算中')  then   isnull(ht.djHtCfAmount,0) else  0  end ) as djHtCfAmount, -- 单价合同金额 
             sum(case when  ht.jsState not  in ('结算','结算中')   then  ISNULL(ht.djHtCfAmount,0) else 0 end ) as djHtCfAmountWJs, -- 未结算的单价合同金额
@@ -530,9 +570,30 @@ left join (
             -- 待签约
             count(ex.ExecutingBudgetGUID) - count(DISTINCT ht.ExecutingBudgetGUID )  as  NewBudgetAmountCount,
             sum( case when ht.ExecutingBudgetGUID is null then ISNULL(ht.YgAlterAmount,0) +ISNULL(ylj.ygAlterAdj,0) - ISNULL(yfs.ylj_yfs,0) else 0 end ) as  wqydfsljAmount, -- 未签约_待发生预留金
-            sum( CASE WHEN ht.ExecutingBudgetGUID IS NULL THEN a.BudgetAmount else  0 END) AS  NewBudgetAmount
+            sum( CASE WHEN ht.ExecutingBudgetGUID IS NULL THEN ex.BudgetAmount else  0 END) AS  NewBudgetAmount,
+
+			--本年新签合同份数/本年新签合同金额/本年招标结余金额
+			sum(case when year(ht.SignDate) = year(getdate()) then isnull(ht.HtCfAmount,0) end) AS CurYearHtCfAmount,
+            count(DISTINCT case when year(ht.SignDate) = year(getdate()) then ht.ExecutingBudgetGUID end) AS CurYearHtCount,
+			SUM(case when year(ht.SignDate) = year(getdate()) 
+                        --剔除补录合同
+                        and ht.ContractGUID not in ('2E5B0584-B0AA-4B45-AE0F-8B46B389FF80',
+                                                    '13387399-E456-4EED-8EF6-8DE606A08FEF',
+                                                    'E44D5B0F-4A11-4D63-B500-F7FB4A0772A6',
+                                                    '07E34053-0343-4703-92F1-9E48F7F422A4',
+                                                    '10D1DA81-EA79-4FED-84B6-49C68B3FDBFE',
+                                                    '0CFC0290-0558-464D-90B0-0F00062208E4',
+                                                    '1DC5BEFA-EA69-4D50-9115-FEECEE6B1C0B',
+                                                    '6F0A46C3-E643-466E-90D8-45500A266F35',
+                                                    'BE6377B6-37AA-4C25-AF40-5DAB88E0594F')
+                then isnull(ht.zbjyAmount,0) end) AS CurYearzbjyAmount,
+			sum(case when year(ht.SignDate) = year(getdate()) then isnull(ht.djHtCfAmount,0) end) AS CurYeardjHtCfAmount,
+
+			 --停工缓建的分期，对应合约规划数量和金额（不去重），剔除已结算的合同
+            count(case when ht.jsState not in ('结算','结算中') then a.WorkingBudgetGUID end) AS tghjHyghCount,
+            sum(case when ht.jsState not in ('结算','结算中') then ex.BudgetAmount else 0 end) AS tghjHyghAmount
         FROM dbo.cb_Budget_Working a WITH(NOLOCK)
-        LEFT JOIN dbo.cb_Budget_Executing ex WITH(NOLOCK) ON ex.ExecutingBudgetGUID=a.WorkingBudgetGUID
+        inner JOIN dbo.cb_Budget_Executing ex WITH(NOLOCK) ON ex.ExecutingBudgetGUID=a.WorkingBudgetGUID
         LEFT JOIN dbo.cb_HtType b WITH(NOLOCK) ON a.BigHTTypeGUID = b.HtTypeGUID
         LEFT JOIN #HT ht WITH(NOLOCK) ON ht.ExecutingBudgetGUID = a.WorkingBudgetGUID
         LEFT JOIN #ZZG zzg WITH(NOLOCK) ON zzg.ExecutingBudgetGUID = a.WorkingBudgetGUID
@@ -544,6 +605,150 @@ left join (
         WHERE b.HtTypeName not in ('土地类','管理费','营销费','财务费')  -- and a.ProjectGUID = '2b3b0206-f785-e911-80b7-0a94ef7517dd' --@ProjGUID
         GROUP BY a.ProjectGUID
 ) htNewBudget ON htNewBudget.ProjectGUID = p.ProjGUID
+--签证变更金额
+LEFT JOIN (
+    select 
+        p.ProjGUID,
+        SUM(case when a.QrStatus ='已完工' then a.QrAlterAmount else a.AlterAmount end) as 签证变更金额
+    from MyCost_Erp352.dbo.vcb_HtAlter a
+    INNER JOIN MyCost_Erp352.dbo.cb_contract c ON a.ContractGUID = c.ContractGUID
+    LEFT JOIN p_Project p ON p.ProjCode = CASE WHEN LEN(c.ProjectCodeList) > 1 AND CHARINDEX(';', c.ProjectCodeList) < 1 THEN c.ProjectCodeList
+                                                WHEN LEN(c.ProjectCodeList) > 1 AND CHARINDEX(';', c.ProjectCodeList) >= 1 THEN LEFT(ProjectCodeList, CHARINDEX(';', c.ProjectCodeList) - 1)
+                                                ELSE NULL END
+    where a.ApproveState = '已审核'
+        AND (
+                c.HtTypeCode LIKE '04%'
+                OR c.HtTypeCode LIKE '02%'
+                OR c.HtTypeCode LIKE '06%'
+                OR c.HtTypeCode LIKE '03%'
+                OR c.HtTypeCode LIKE '05%'
+            )
+        AND c.htclass NOT LIKE '%非合同%'
+        AND a.ApproveState = '已审核'
+        AND a.AlterType IN ( '现场签证', '设计变更' )
+		AND case when a.QrStatus ='已完工' then a.QrAlterAmount else a.AlterAmount end >-2000000
+    GROUP BY p.ProjGUID
+) qzbg on qzbg.projguid = p.ProjGUID
+--实付金额
+LEFT JOIN (
+    SELECT p.ProjGUID,
+        SUM(e.PayAmount) AS PayAmount,
+        SUM(case when year(e.PayDate) = year(getdate()) then e.PayAmount else 0 end) as CurYearPayAmount
+    FROM MyCost_Erp352.dbo.cb_htfkapply a
+    LEFT JOIN MyCost_Erp352.dbo.cb_pay e ON e.htfkapplyGUID = a.htfkapplyGUID
+    INNER JOIN MyCost_Erp352.dbo.cb_contract c ON a.ContractGUID = c.ContractGUID
+    LEFT JOIN MyCost_Erp352.dbo.p_Project p ON p.ProjCode = CASE WHEN LEN(c.ProjectCodeList) > 1 AND CHARINDEX(';', c.ProjectCodeList) < 1 THEN c.ProjectCodeList
+                                                WHEN LEN(c.ProjectCodeList) > 1 AND CHARINDEX(';', c.ProjectCodeList) >= 1 THEN LEFT(ProjectCodeList, CHARINDEX(';', c.ProjectCodeList) - 1)
+                                                ELSE NULL END
+    WHERE a.ApplyState = '已审核'
+        AND (
+                c.HtTypeCode LIKE '04%'
+                OR c.HtTypeCode LIKE '02%'
+                OR c.HtTypeCode LIKE '06%'
+                OR c.HtTypeCode LIKE '03%'
+                OR c.HtTypeCode LIKE '05%'
+            )
+        AND c.htclass NOT LIKE '%非合同%'
+    group by p.ProjGUID
+) pay on pay.projguid = p.ProjGUID
+--停工缓建标识
+LEFT JOIN (
+		SELECT a.ProjGUID
+        FROM
+        (
+            SELECT d.BldGUID,
+                   ROW_NUMBER() OVER (PARTITION BY d.BldGUID ORDER BY a.ApplicationTime DESC) AS RowID,
+                   a.Type,
+                   d.SumBuildArea,
+                   d.ProjGUID
+            FROM jd_StopOrReturnWork a
+            INNER JOIN jd_ProjectPlanCompile b ON a.PlanID = b.ID
+            INNER JOIN p_BiddingBuilding2Building c ON c.BudGUID = b.ObjectID
+            INNER JOIN md_GCbuild d ON d.BldGUID = c.BuildingGUID AND d.IsActive = 1
+            WHERE  a.ApplyState = '已审核' 
+        ) a
+        WHERE a.Type IN ( '停工', '缓建' )
+              AND a.RowID = 1
+		group by a.ProjGUID
+) tghj on tghj.ProjGUID = p.ProjGUID
+--结算
+LEFT JOIN (
+    SELECT 
+        p.ProjGUID,
+        COUNT(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND MONTH(my.FinishDatetime) = MONTH(GETDATE())-1 AND htb.ApproveState ='已审核' THEN htb.HTBalanceGUID END) AS 本月完成合同结算份数,
+        sum(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND MONTH(my.FinishDatetime) = MONTH(GETDATE())-1 AND htb.ApproveState ='已审核' THEN htb.BalanceAmount ELSE 0 END) AS 本月完成合同结算金额,
+        sum(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND MONTH(my.FinishDatetime) = MONTH(GETDATE())-1 AND htb.ApproveState ='已审核' THEN htb.SsAmountBz ELSE 0 END) AS 本月完成合同结算送审金额,
+        sum(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND MONTH(my.FinishDatetime) = MONTH(GETDATE())-1 AND htb.ApproveState ='已审核' THEN case when ISNULL(htb.YsAmountBz,0) = 0 then htb.SsAmountBz else htb.YsAmountBz end
+		ELSE 0 END) AS 本月完成合同结算一审金额,
+        sum(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND MONTH(my.FinishDatetime) = MONTH(GETDATE())-1 AND htb.ApproveState ='已审核' AND (ISNULL(htb.Sfbxes,'无需二审') IN ('子公司二审','总部二审') OR ISNULL(htb.Sfkdes,'否')<>'是') THEN 
+				case when isnull(htb.YsAmountBz,0) = 0 then htb.SsAmountBz else htb.YsAmountBz end 
+			ELSE 0 END) AS 本月完成合同结算需二审的一审金额,
+        sum(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND MONTH(my.FinishDatetime) = MONTH(GETDATE())-1 AND htb.ApproveState ='已审核' AND (ISNULL(htb.Sfbxes,'无需二审')IN ('子公司二审','总部二审') OR ISNULL(htb.Sfkdes,'否')<>'是') THEN 
+			case when isnull(htb.EsAmountBz,0) = 0 then htb.BalanceAmount else htb.EsAmountBz end 
+		ELSE 0 END) AS 本月完成合同结算二审金额,
+        SUM(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND MONTH(my.FinishDatetime) = MONTH(GETDATE())-1 AND htb.ApproveState ='已审核' THEN datediff(dd,my.InitiateDatetime,my.FinishDatetime) END) AS 本月完成合同结算审批时长,
+        COUNT(CASE WHEN htb.ApproveState ='审核中' AND (ISNULL(htb.Sfbxes,'无需二审') <>'无需二审' OR ISNULL(htb.Sfkdes,'否')<>'否') THEN htb.HTBalanceGUID END) AS 在途合同结算二审审核中份数,
+		--sum(case when YEAR(htb.BalanceDate) = YEAR(GETDATE()) AND htb.ApproveState ='已审核' THEN htb.BalanceAmount ELSE 0 END) AS 本年完成合同结算金额,
+		sum(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND htb.ApproveState ='已审核' THEN htb.BalanceAmount ELSE 0 END) AS 本年完成合同结算金额
+
+    FROM cb_HTBalance htb
+    INNER JOIN MyCost_Erp352.dbo.cb_contract c ON htb.ContractGUID = c.ContractGUID
+    LEFT JOIN p_Project p ON p.ProjCode = CASE WHEN LEN(c.ProjectCodeList) > 1 AND CHARINDEX(';', c.ProjectCodeList) < 1 THEN c.ProjectCodeList
+                                                WHEN LEN(c.ProjectCodeList) > 1 AND CHARINDEX(';', c.ProjectCodeList) >= 1 THEN LEFT(ProjectCodeList, CHARINDEX(';', c.ProjectCodeList) - 1)
+                                                ELSE NULL END
+    LEFT JOIN myWorkflowProcessEntity my ON my.BusinessGUID = htb.HTBalanceGUID AND my.ProcessStatus IN ('0','1','2')
+    WHERE htb.ApproveState IN ('已审核', '审核中')
+		 AND htb.BalanceType ='结算'
+         AND (
+                c.HtTypeCode LIKE '04%'
+                OR c.HtTypeCode LIKE '02%'
+                OR c.HtTypeCode LIKE '06%'
+                OR c.HtTypeCode LIKE '03%'
+                OR c.HtTypeCode LIKE '05%'
+            )
+        AND c.htclass NOT LIKE '%非合同%'
+		AND c.ContractCode <>'海西公司-晋江中航城-2025-0506'
+		AND isnull(htb.YsAmountBz,0) <> 0
+		AND ISNULL(htb.SsAmountBz,0)<>0
+		AND ISNULL(htb.BalanceAmount,0) <>0
+    GROUP BY p.ProjGUID
+) js on js.ProjGUID = p.ProjGUID
+--本年合同
+LEFT JOIN (
+	SELECT b.ProjGUID,
+          COUNT(a.ContractGUID) AS ContractNum,
+		  SUM(a.htamount) as HtAmount
+    FROM vcb_Contract a
+    INNER JOIN (
+		SELECT 
+			a.ContractGUID,
+			a.ProjGUID,
+			row_number() over(partition by a.ContractGUID order by a.ProjGUID asc) as rn
+		FROM cb_ContractProj a
+		INNER JOIN cb_contract c ON a.ContractGUID = c.ContractGUID
+		INNER JOIN p_project p ON a.ProjGUID = p.ProjGUID
+		WHERE 1 = 1
+			AND c.IsFyControl <> 1
+			AND c.ApproveState = '已审核'
+			AND c.IfDdhs = 1
+			AND c.HtProperty IN ('补充合同','直接合同')
+			AND (
+                c.HtTypeCode LIKE '04%'
+                OR c.HtTypeCode LIKE '02%'
+                OR c.HtTypeCode LIKE '06%'
+                OR c.HtTypeCode LIKE '03%'
+                OR c.HtTypeCode LIKE '05%'
+            )
+			--AND c.htclass NOT LIKE '%非合同%'
+			AND YEAR(c.SignDate)=YEAR(GETDATE())
+    ) b ON a.ContractGUID = b.ContractGUID and b.rn = 1
+    LEFT JOIN p_Project c ON b.ProjGUID = c.ProjGUID
+	WHERE YEAR(a.SignDate)=YEAR(GETDATE())
+		AND a.IfDdhs = 1
+		AND a.ApproveState = '已审核'
+		AND a.IsFyControl <> 1
+	GROUP BY b.ProjGUID
+) CurYearHt on CurYearHt.ProjGUID = p.ProjGUID
 -- 月度产值回顾 取上一个月拍照的已完成产值合计（除地价外直投）
 left join (       
     SELECT  outputvalue.projguid,
@@ -657,3 +862,8 @@ END
 --         AND (2=2)
 -- ) a
 -- ORDER BY ApproveDate DESC
+
+
+
+
+

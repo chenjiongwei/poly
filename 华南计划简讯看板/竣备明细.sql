@@ -43,7 +43,8 @@ SELECT  DISTINCT buname ,
 --+ '个月，预计' + ISNULL(竣工备案预计完成时间, 竣工备案计划完成时间) + '完成；交付' + ISNULL(集中交付实际完成时间, 集中交付计划完成时间) + ';' 合并
 INTO    #jb
 FROM    #ms a
-WHERE  DATEDIFF(yy, 竣工备案计划完成时间, GETDATE()) >= 0 and  DATEDIFF(mm, 竣工备案计划完成时间, GETDATE()) >= 0  --and  竣工备案实际完成时间 IS NULL;
+WHERE  DATEDIFF(yy, 竣工备案计划完成时间, GETDATE()) = 0 and  DATEDIFF(mm, 竣工备案计划完成时间, GETDATE()) >= 0  --and  竣工备案实际完成时间 IS NULL;
+and  isnull(a.是否停工,'') not in ('停工','缓建')
 
 --排序
 SELECT  CASE WHEN t.序号 <= 10 THEN '是' ELSE '否' END AS 短讯是否显示 ,

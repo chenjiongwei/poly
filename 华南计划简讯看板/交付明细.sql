@@ -55,14 +55,14 @@ SELECT  DISTINCT buname,
                     convert(decimal(10,2), DATEDIFF(day, 集中交付计划完成时间, GETDATE()) *1.0/ 30.0 ) else  0 end  end 月,
                  ISNULL(集中交付预计完成时间, 集中交付计划完成时间) as 预计 ,
                  spreadname + '-' + 关联工程楼栋 + '交付：原节点' + 集中交付计划完成时间 +
-                 case when  集中交付实际完成时间 is null then
-                  '，已逾期超' + CONVERT(VARCHAR(4), DATEDIFF(mm, 集中交付计划完成时间, GETDATE())) + '个月' + ';'  else  ';实际完成：' + 集中交付实际完成时间 end  as 合并
+                 case when  集中交付实际完成时间 is null then '，已逾期超' + CONVERT(VARCHAR(4), DATEDIFF(mm, 集中交付计划完成时间, GETDATE())) + '个月' + ';'  else  ';实际完成：' + 集中交付实际完成时间 end  as 合并
 INTO    #jf
 FROM    #ms a
 left join #gc b on a.GCBldGUID = b.GCBldGUID
-WHERE DATEDIFF(yy, 集中交付计划完成时间, GETDATE()) >= 0  and  DATEDIFF(mm, 集中交付计划完成时间, GETDATE()) >= 0 
+WHERE DATEDIFF(yy, 集中交付计划完成时间, GETDATE()) = 0  and  DATEDIFF(mm, 集中交付计划完成时间, GETDATE()) >= 0 
 --AND 集中交付实际完成时间 IS NULL;
 and  a.ProductType not in ('地下室/车库','公建配套','其他')
+and isnull(a.是否停工,'') not in ('停工','缓建')
 
 
 --排序

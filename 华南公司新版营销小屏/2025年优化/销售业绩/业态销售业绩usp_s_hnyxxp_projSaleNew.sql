@@ -1,6 +1,6 @@
 USE [HighData_prod]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_s_hnyxxp_projSaleNew]    Script Date: 2025/7/29 18:14:35 ******/
+/****** Object:  StoredProcedure [dbo].[usp_s_hnyxxp_projSaleNew]    Script Date: 2025/8/25 16:19:33 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -150,11 +150,11 @@ AS
         -- INSERT  [dbo].#qtyj([项目推广名], [明源系统代码], [项目代码], [认定日期])
         -- VALUES(N'佛山保利紫晨花园', N'0757059', N'2950', N'2022-6-28');
 
-        -- INSERT  [dbo].#qtyj([项目推广名], [明源系统代码], [项目代码], [认定日期])
-        -- VALUES(N'佛山保利紫山国际', N'0757028', N'2920', N'2022-6-27');
+        INSERT  [dbo].#qtyj([项目推广名], [明源系统代码], [项目代码], [认定日期])
+        VALUES(N'佛山保利紫山国际', N'0757028', N'2920', N'2022-6-27');
 
-        -- INSERT  [dbo].#qtyj([项目推广名], [明源系统代码], [项目代码], [认定日期])
-        -- VALUES(N'茂名保利大都会', N'HN0668001', N'5801', N'2021-12-28');
+        INSERT  [dbo].#qtyj([项目推广名], [明源系统代码], [项目代码], [认定日期])
+        VALUES(N'茂名保利大都会', N'HN0668001', N'5801', N'2021-12-28');
 
         -- INSERT  [dbo].#qtyj([项目推广名], [明源系统代码], [项目代码], [认定日期])
         -- VALUES(N'茂名保利中环广场', N'0668005', N'5806', N'2021-4-26');
@@ -165,65 +165,95 @@ AS
         --VALUES(N'阳江保利海陵岛', N'0662002', N'1702', N'2021-5-24');
 
 
-
-        
-
         --查询其他业绩的签约金额
         --单独统计 物业公司车位代销 的业绩，用于后续剔除@20250707 edit by tangqn01
+        --其他业绩不按业绩认定日期统计，按照实际认购和签约日期统计
+        --这个是原来的逻辑，是算在其他业绩，不算在前面的签约业绩，新增的两类其他业绩是两列都算的。新增的两类其他业绩是在增加，签约的项目层级用平衡处理扣减
         SELECT  p.projguid ,
                 bld.TopProductTypeName ,
-
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and DATEDIFF(DAY, ISNULL(qt.认定日期,a.StatisticalDate), @var_date) = 0   THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本日认购金额 ,
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and DATEDIFF(DAY, ISNULL(qt.认定日期,a.StatisticalDate), @var_date) = 0  THEN r.CjBldArea ELSE 0 END) AS 其他业绩本日认购面积 ,
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and DATEDIFF(DAY, ISNULL(qt.认定日期,a.StatisticalDate), @var_date) = 0  THEN 1 ELSE 0 END) AS 其他业绩本日认购套数,
+                -- 其他业绩本日认购
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and DATEDIFF(DAY, case when qt.认定日期 is not null then r.RgQsDate else a.StatisticalDate end, @var_date) = 0   THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本日认购金额 ,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and DATEDIFF(DAY, case when qt.认定日期 is not null then r.RgQsDate else a.StatisticalDate end, @var_date) = 0  THEN r.CjBldArea ELSE 0 END) AS 其他业绩本日认购面积 ,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and DATEDIFF(DAY, case when qt.认定日期 is not null then r.RgQsDate else a.StatisticalDate end, @var_date) = 0  THEN 1 ELSE 0 END) AS 其他业绩本日认购套数,
 
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND DATEDIFF(DAY, a.StatisticalDate, @var_date) = 0 THEN a.OCjAmount ELSE 0 END)  AS 其他业绩本日认购金额_物业公司车位代销 ,
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND DATEDIFF(DAY, a.StatisticalDate, @var_date) = 0 THEN a.OCjArea ELSE 0 END) AS 其他业绩本日认购面积_物业公司车位代销 ,
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND DATEDIFF(DAY, a.StatisticalDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩本日认购套数_物业公司车位代销,
-
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  DATEDIFF(MONTH, ISNULL(qt.认定日期,a.StatisticalDate), @var_date) = 0 AND (ISNULL(qt.认定日期,a.StatisticalDate) BETWEEN @bzSDate AND @bzEDate) THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本周认购金额 ,
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  DATEDIFF(MONTH, ISNULL(qt.认定日期,a.StatisticalDate), @var_date) = 0 AND (ISNULL(qt.认定日期,a.StatisticalDate) BETWEEN @bzSDate AND @bzEDate) THEN r.CjBldArea ELSE 0 END)  AS 其他业绩本周认购面积 ,
-		        SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  DATEDIFF(MONTH, ISNULL(qt.认定日期,a.StatisticalDate), @var_date) = 0 AND (ISNULL(qt.认定日期,a.StatisticalDate) BETWEEN @bzSDate AND @bzEDate) THEN 1 ELSE 0 END) AS 其他业绩本周认购套数 ,
+                -- 其他业绩本周认购
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  DATEDIFF(MONTH, case when qt.认定日期 is not null then r.RgQsDate else a.StatisticalDate end, @var_date) = 0 AND (case when qt.认定日期 is not null then r.RgQsDate else a.StatisticalDate end) BETWEEN @bzSDate AND @bzEDate THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本周认购金额 ,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  DATEDIFF(MONTH, case when qt.认定日期 is not null then r.RgQsDate else a.StatisticalDate end, @var_date) = 0 AND (case when qt.认定日期 is not null then r.RgQsDate else a.StatisticalDate end) BETWEEN @bzSDate AND @bzEDate THEN r.CjBldArea ELSE 0 END)  AS 其他业绩本周认购面积 ,
+		        SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  DATEDIFF(MONTH, case when qt.认定日期 is not null then r.RgQsDate else a.StatisticalDate end, @var_date) = 0 AND (case when qt.认定日期 is not null then r.RgQsDate else a.StatisticalDate end) BETWEEN @bzSDate AND @bzEDate THEN 1 ELSE 0 END) AS 其他业绩本周认购套数 ,
 
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND DATEDIFF(MONTH, a.StatisticalDate, @var_date) = 0 AND (a.StatisticalDate BETWEEN @bzSDate AND @bzEDate) THEN a.OCjAmount ELSE 0 END)AS 其他业绩本周认购金额_物业公司车位代销 ,
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND DATEDIFF(MONTH, a.StatisticalDate, @var_date) = 0 AND (a.StatisticalDate BETWEEN @bzSDate AND @bzEDate) THEN a.OCjArea ELSE 0 END)  AS 其他业绩本周认购面积_物业公司车位代销 ,
 		        SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND DATEDIFF(MONTH, a.StatisticalDate, @var_date) = 0 AND (a.StatisticalDate BETWEEN @bzSDate AND @bzEDate) THEN 1 ELSE 0 END) AS 其他业绩本周认购套数_物业公司车位代销 ,
 
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  DATEDIFF(MONTH, ISNULL(qt.认定日期,a.StatisticalDate), @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本月认购金额 ,
-				SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  DATEDIFF(MONTH, ISNULL(qt.认定日期,a.StatisticalDate), @var_date) = 0 THEN r.CjBldArea ELSE 0 END) AS 其他业绩本月认购面积 ,
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  DATEDIFF(MONTH, ISNULL(qt.认定日期,a.StatisticalDate), @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩本月认购套数 ,
+                -- 其他业绩本月认购 
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  DATEDIFF(MONTH, case when qt.认定日期 is not null then r.RgQsDate else a.StatisticalDate end, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本月认购金额 ,
+				SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  DATEDIFF(MONTH, case when qt.认定日期 is not null then r.RgQsDate else a.StatisticalDate end, @var_date) = 0 THEN r.CjBldArea ELSE 0 END) AS 其他业绩本月认购面积 ,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  DATEDIFF(MONTH, case when qt.认定日期 is not null then r.RgQsDate else a.StatisticalDate end, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩本月认购套数 ,
 
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND DATEDIFF(MONTH, a.StatisticalDate, @var_date) = 0 THEN a.OCjAmount ELSE 0 END)  AS 其他业绩本月认购金额_物业公司车位代销 ,
 				SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND DATEDIFF(MONTH, a.StatisticalDate, @var_date) = 0 THEN a.OCjArea ELSE 0 END) AS 其他业绩本月认购面积_物业公司车位代销 ,
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND DATEDIFF(MONTH, a.StatisticalDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩本月认购套数_物业公司车位代销 ,
 
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  YEAR(ISNULL(qt.认定日期,a.StatisticalDate)) = YEAR(@var_date) THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本年认购金额 ,
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  YEAR(ISNULL(qt.认定日期,a.StatisticalDate)) = YEAR(@var_date) THEN r.CjBldArea ELSE 0 END) AS 其他业绩本年认购面积 ,
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  YEAR(ISNULL(qt.认定日期,a.StatisticalDate)) = YEAR(@var_date) THEN 1 ELSE 0 END) AS 其他业绩本年认购套数 ,
+                -- 其他业绩本年认购 
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  YEAR(case when qt.认定日期 is not null then r.RgQsDate else a.StatisticalDate end) = YEAR(@var_date) THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本年认购金额 ,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  YEAR(case when qt.认定日期 is not null then r.RgQsDate else a.StatisticalDate end) = YEAR(@var_date) THEN r.CjBldArea ELSE 0 END) AS 其他业绩本年认购面积 ,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  YEAR(case when qt.认定日期 is not null then r.RgQsDate else a.StatisticalDate end) = YEAR(@var_date) THEN 1 ELSE 0 END) AS 其他业绩本年认购套数 ,
 
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND YEAR(a.StatisticalDate) = YEAR(@var_date) THEN a.OCjAmount ELSE 0 END)  AS 其他业绩本年认购金额_物业公司车位代销 ,
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND YEAR(a.StatisticalDate) = YEAR(@var_date) THEN a.OCjArea ELSE 0 END) AS 其他业绩本年认购面积_物业公司车位代销 ,
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND YEAR(a.StatisticalDate) = YEAR(@var_date) THEN 1 ELSE 0 END) AS 其他业绩本年认购套数_物业公司车位代销 ,
 
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND   YEAR(ISNULL(qt.认定日期,a.StatisticalDate)) = YEAR(@var_date) THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本年签约金额 ,
-				SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND   YEAR(ISNULL(qt.认定日期,a.StatisticalDate)) = YEAR(@var_date) THEN r.CjBldArea ELSE 0 END) AS 其他业绩本年签约面积 ,
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND   YEAR(ISNULL(qt.认定日期,a.StatisticalDate)) = YEAR(@var_date) THEN 1 ELSE 0 END) AS 其他业绩本年签约套数 ,
+                -- 其他业绩本年签约 
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND  YEAR(case when qt.认定日期 is not null then r.QsDate else a.StatisticalDate end) = YEAR(@var_date) 
+                     THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本年签约金额 ,
+				SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND  YEAR(case when qt.认定日期 is not null then r.QsDate else a.StatisticalDate end) = YEAR(@var_date) 
+                     THEN r.CjBldArea ELSE 0 END) AS 其他业绩本年签约面积 ,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND  YEAR(case when qt.认定日期 is not null then r.QsDate else a.StatisticalDate end) = YEAR(@var_date) 
+                     THEN 1 ELSE 0 END) AS 其他业绩本年签约套数 ,
 
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND   YEAR(a.StatisticalDate) = YEAR(@var_date) THEN a.CCjAmount ELSE 0 END)  AS 其他业绩本年签约金额_物业公司车位代销 ,
 				SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND   YEAR(a.StatisticalDate) = YEAR(@var_date) THEN a.CCjArea ELSE 0 END) AS 其他业绩本年签约面积_物业公司车位代销 ,
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND   YEAR(a.StatisticalDate) = YEAR(@var_date) THEN 1 ELSE 0 END) AS 其他业绩本年签约套数_物业公司车位代销 ,
 
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND   DATEDIFF(MONTH, ISNULL(qt.认定日期,a.StatisticalDate), @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本月签约金额 ,
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND   DATEDIFF(MONTH, ISNULL(qt.认定日期,a.StatisticalDate), @var_date) = 0 THEN r.CjBldArea ELSE 0 END) AS 其他业绩本月签约面积,
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND   DATEDIFF(MONTH, ISNULL(qt.认定日期,a.StatisticalDate), @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩本月签约套数,
+                -- 其他业绩本周签约
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' 
+                          AND DATEDIFF(MONTH, case when qt.认定日期 is not null then r.QsDate else a.StatisticalDate end, @var_date) = 0 
+                          AND (case when qt.认定日期 is not null then r.QsDate else a.StatisticalDate end) BETWEEN @bzSDate AND @bzEDate
+                          THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本周签约金额 ,
+				SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' 
+                         AND DATEDIFF(MONTH, case when qt.认定日期 is not null then r.QsDate else a.StatisticalDate end, @var_date) = 0 
+                         AND (case when qt.认定日期 is not null then r.QsDate else a.StatisticalDate end) BETWEEN @bzSDate AND @bzEDate
+                         THEN r.CjBldArea ELSE 0 END) AS 其他业绩本周签约面积 ,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' 
+                         AND DATEDIFF(MONTH, case when qt.认定日期 is not null then r.QsDate else a.StatisticalDate end, @var_date) = 0 
+                         AND (case when qt.认定日期 is not null then r.QsDate else a.StatisticalDate end) BETWEEN @bzSDate AND @bzEDate
+                        THEN 1 ELSE 0 END) AS 其他业绩本周签约套数 ,
+
+                SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND  DATEDIFF(MONTH, case when qt.认定日期 is not null then r.QsDate else a.StatisticalDate end, @var_date) = 0 
+                          AND (case when qt.认定日期 is not null then r.QsDate else a.StatisticalDate end) BETWEEN @bzSDate AND @bzEDate 
+                          THEN a.CCjAmount ELSE 0 END)  AS 其他业绩本周签约金额_物业公司车位代销 ,
+				SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND  DATEDIFF(MONTH, case when qt.认定日期 is not null then r.QsDate else a.StatisticalDate end, @var_date) = 0 
+                          AND (case when qt.认定日期 is not null then r.QsDate else a.StatisticalDate end) BETWEEN @bzSDate AND @bzEDate
+                          THEN a.CCjArea ELSE 0 END) AS 其他业绩本周签约面积_物业公司车位代销 ,
+                SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND DATEDIFF(MONTH, case when qt.认定日期 is not null then r.QsDate else a.StatisticalDate end, @var_date) = 0 
+                          AND (case when qt.认定日期 is not null then r.QsDate else a.StatisticalDate end) BETWEEN @bzSDate AND @bzEDate
+                          THEN 1 ELSE 0 END) AS 其他业绩本周签约套数_物业公司车位代销 ,
+
+                -- 其他业绩本月签约 
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND   DATEDIFF(MONTH, case when qt.认定日期 is not null then r.QsDate else a.StatisticalDate end, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本月签约金额 ,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND   DATEDIFF(MONTH, case when qt.认定日期 is not null then r.QsDate else a.StatisticalDate end, @var_date) = 0 THEN r.CjBldArea ELSE 0 END) AS 其他业绩本月签约面积,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND   DATEDIFF(MONTH, case when qt.认定日期 is not null then r.QsDate else a.StatisticalDate end, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩本月签约套数,
 
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND   DATEDIFF(MONTH, a.StatisticalDate, @var_date) = 0 THEN a.CCjAmount ELSE 0 END) AS 其他业绩本月签约金额_物业公司车位代销 ,
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND   DATEDIFF(MONTH, a.StatisticalDate, @var_date) = 0 THEN a.CCjArea ELSE 0 END) AS 其他业绩本月签约面积_物业公司车位代销,
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND   DATEDIFF(MONTH, a.StatisticalDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩本月签约套数_物业公司车位代销,    
-
-                SUM(CASE WHEN a.TsyjType <>'物业公司车位代销' AND   DATEDIFF(DAY, a.StatisticalDate, @var_date) = 0 THEN a.CCjAmount ELSE 0 END)  AS 其他业绩本日签约金额 ,
-                SUM(CASE WHEN a.TsyjType <>'物业公司车位代销' AND   DATEDIFF(DAY, a.StatisticalDate, @var_date) = 0 THEN a.CCjArea ELSE 0 END) AS 其他业绩本日签约面积,
-                SUM(CASE WHEN a.TsyjType <>'物业公司车位代销' AND   DATEDIFF(DAY, a.StatisticalDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩本日签约套数,   
+                -- 其他业绩本日签约      
+                SUM(CASE WHEN a.TsyjType <>'物业公司车位代销' AND   DATEDIFF(DAY, case when qt.认定日期 is not null then r.QsDate else a.StatisticalDate end, @var_date) = 0 THEN a.CCjAmount ELSE 0 END)  AS 其他业绩本日签约金额 ,
+                SUM(CASE WHEN a.TsyjType <>'物业公司车位代销' AND   DATEDIFF(DAY, case when qt.认定日期 is not null then r.QsDate else a.StatisticalDate end, @var_date) = 0 THEN a.CCjArea ELSE 0 END) AS 其他业绩本日签约面积,
+                SUM(CASE WHEN a.TsyjType <>'物业公司车位代销' AND   DATEDIFF(DAY, case when qt.认定日期 is not null then r.QsDate else a.StatisticalDate end, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩本日签约套数,   
               
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND   DATEDIFF(DAY, a.StatisticalDate, @var_date) = 0 THEN a.CCjAmount ELSE 0 END)  AS 其他业绩本日签约金额_物业公司车位代销 ,
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND   DATEDIFF(DAY, a.StatisticalDate, @var_date) = 0 THEN a.CCjArea ELSE 0 END) AS 其他业绩本日签约面积_物业公司车位代销,
@@ -1305,9 +1335,7 @@ AS
         select @wideTableDateText = CONVERT(VARCHAR(19), LastCalcTime, 121) from mdc_table where  TableName ='data_wide_s_RoomoVerride'
 
         
-
-       
-        -- 区域层级-全部区域
+       -- 区域层级-全部区域
 		SELECT  @DateText AS 数据清洗日期 ,
 				'营销大区' AS 层级 ,
 				p.BUGUID AS 公司GUID ,
@@ -1337,24 +1365,22 @@ AS
 				pt.存量增量 ,
 				ISNULL(rs.本日认购金额, 0) + ISNULL(rg.本日认购金额, 0) + ISNULL(qt.其他业绩本日认购金额, 0) AS 本日认购金额 ,                              -- 全口径
 				ISNULL(rs.本日认购套数, 0) + ISNULL(rg.本日认购套数, 0) + ISNULL(qt.其他业绩本日认购套数, 0) AS 本日认购套数 ,
-				ISNULL(s.本日签约金额全口径, 0) AS 本日签约金额 ,
+                ISNULL(s.本日签约金额全口径, 0) -isnull(qt.其他业绩本日签约金额_物业公司车位代销,0) AS 本日签约金额 ,
 				ISNULL(s.本日签约套数全口径, 0) AS 本日签约套数 ,
 				ISNULL(rs.本周认购金额, 0) + ISNULL(rg.本周认购金额, 0) + ISNULL(qt.其他业绩本周认购金额, 0) AS 本周认购金额 ,
 				ISNULL(rs.本周认购套数, 0) + ISNULL(rg.本周认购套数, 0) + ISNULL(qt.其他业绩本周认购套数, 0) AS 本周认购套数 ,
 				rw.月度签约任务 AS 本月任务 ,
 				ISNULL(rs.本月认购金额, 0) + ISNULL(rg.本月认购金额, 0) + ISNULL(qt.其他业绩本月认购金额, 0) + ISNULL(rw.非项目本月实际认购金额, 0) AS 本月认购金额 ,
 				ISNULL(rs.本月认购套数, 0) + ISNULL(rg.本月认购套数, 0) + ISNULL(qt.其他业绩本月认购套数, 0) AS 本月认购套数 ,
-				ISNULL(qt.其他业绩本月认购金额, 0) AS 其他业绩本月认购金额 ,
-				ISNULL(qt.其他业绩本月认购套数, 0) AS 其他业绩本月认购套数 ,
-				CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0
-					 ELSE (ISNULL(rs.本月认购金额, 0) + ISNULL(rg.本月认购金额, 0) + ISNULL(qt.其他业绩本月认购金额, 0) + ISNULL(rw.非项目本月实际认购金额, 0)) / ISNULL(rw.月度签约任务, 0)
-				END AS 本月认购完成率 ,
-				ISNULL(本月签约金额全口径, 0) + ISNULL(rw.非项目本月实际签约金额, 0) AS 本月签约金额 ,
+				ISNULL(qt.其他业绩本月认购金额, 0) + ISNULL(qt.其他业绩本月认购金额_物业公司车位代销, 0)  - isnull(rw.非项目本月实际认购金额,0) AS 其他业绩本月认购金额, --非项目本月实际认购金额填报的是负数
+				ISNULL(qt.其他业绩本月认购套数, 0) + ISNULL(qt.其他业绩本月认购套数_物业公司车位代销, 0)  AS 其他业绩本月认购套数,
+                CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE (ISNULL(rs.本月认购金额, 0) + ISNULL(rg.本月认购金额, 0)+ ISNULL(qt.其他业绩本月认购金额,0) + ISNULL(rw.非项目本月实际认购金额,0)) / ISNULL(rw.月度签约任务, 0)END AS 本月认购完成率 ,
+                ISNULL(本月签约金额全口径, 0)  - isnull(qt.其他业绩本月签约金额_物业公司车位代销,0) + ISNULL(rw.非项目本月实际签约金额,0) AS 本月签约金额 ,
 				ISNULL(本月签约套数全口径, 0) AS 本月签约套数 ,
-				ISNULL(qt.其他业绩本月签约金额, 0) AS 其他业绩本月签约金额 ,                                                                        --以客户提供其他业绩认定的房间
-				ISNULL(qt.其他业绩本月签约套数, 0) AS 其他业绩本月签约套数 ,
-				CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE (ISNULL(本月签约金额全口径, 0) + ISNULL(rw.非项目本月实际签约金额, 0)) / ISNULL(rw.月度签约任务, 0)END AS 本月签约完成率 ,
-				CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE (ISNULL(本月签约金额全口径, 0) + ISNULL(qt.其他业绩本月签约金额, 0) + ISNULL(rw.非项目本月实际签约金额, 0)) / ISNULL(rw.月度签约任务, 0)END AS 本月签约完成率_含其他业绩 ,
+                ISNULL(qt.其他业绩本月签约金额, 0) + ISNULL(qt.其他业绩本月签约金额_物业公司车位代销, 0) - ISNULL(rw.非项目本月实际签约金额,0)  AS 其他业绩本月签约金额 ,                                                                    --以客户提供其他业绩认定的房间
+                ISNULL(qt.其他业绩本月签约套数, 0) + ISNULL(qt.其他业绩本月签约套数_物业公司车位代销, 0) AS 其他业绩本月签约套数 ,
+                CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE ( ISNULL(本月签约金额全口径, 0) - isnull(qt.其他业绩本月签约金额_物业公司车位代销,0) +ISNULL(rw.非项目本月实际签约金额,0) ) / ISNULL(rw.月度签约任务, 0) END AS 本月签约完成率 ,
+                CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE (ISNULL(本月签约金额全口径, 0) - isnull(qt.其他业绩本月签约金额_物业公司车位代销,0) + ISNULL(qt.其他业绩本月签约金额, 0) +  ISNULL(rw.非项目本月实际签约金额,0) ) / ISNULL(rw.月度签约任务, 0)END AS 本月签约完成率_含其他业绩 ,
 				ISNULL(rw.月度签约任务, 0) - (ISNULL(rs.本月认购金额, 0) + ISNULL(rg.本月认购金额, 0) + ISNULL(rw.非项目本月实际认购金额, 0)) AS 本月认购金额缺口 ,  --本月任务*本月时间进度分摊比-本月认购金额
 				ISNULL(rw.月度签约任务, 0) - (ISNULL(本月签约金额全口径, 0) + ISNULL(rw.非项目本月实际签约金额, 0)) AS 本月签约金额缺口 ,
 				ISNULL(pt.本月时间分摊比, 0) AS 本月时间分摊比 ,
@@ -1363,14 +1389,15 @@ AS
 				ISNULL(rw.年度签约任务, 0) AS 本年任务 ,
 				ISNULL(rs.本年认购金额, 0) + ISNULL(rg.本年认购金额, 0) + ISNULL(qt.其他业绩本年认购金额, 0) + ISNULL(rw.非项目本年实际认购金额, 0) AS 本年认购金额 ,
 				ISNULL(rs.本年认购套数, 0) + ISNULL(rg.本年认购套数, 0) + ISNULL(qt.其他业绩本年认购套数, 0) AS 本年认购套数 ,
-				ISNULL(s.本年签约金额全口径, 0) + ISNULL(rw.非项目本年实际签约金额, 0) AS 本年签约金额 ,
+                ISNULL(s.本年签约金额全口径, 0)  - isnull(qt.其他业绩本年签约金额_物业公司车位代销,0) + ISNULL(rw.非项目本年实际签约金额,0) AS 本年签约金额 ,
 				ISNULL(s.本年签约套数全口径, 0) AS 本年签约套数 ,
-				ISNULL(qt.其他业绩本年签约金额, 0) AS 其他业绩本年签约金额 ,
-				ISNULL(qt.其他业绩本年签约套数, 0) AS 其他业绩本年签约套数 ,
+
+                ISNULL(qt.其他业绩本年签约金额,0) + ISNULL(qt.其他业绩本年签约金额_物业公司车位代销,0) -ISNULL(rw.非项目本年实际签约金额,0) AS 其他业绩本年签约金额 ,
+                ISNULL(qt.其他业绩本年签约套数,0) + ISNULL(qt.其他业绩本年签约套数_物业公司车位代销,0)  AS 其他业绩本年签约套数 ,
 				CASE WHEN ISNULL(rw.年度签约任务, 0) = 0 THEN 0 ELSE (ISNULL(s.本年签约金额全口径, 0) + ISNULL(rw.非项目本年实际签约金额, 0)) / ISNULL(rw.年度签约任务, 0)END AS 本年签约完成率 ,
 				CASE WHEN ISNULL(rw.年度签约任务, 0) = 0 THEN 0 ELSE (ISNULL(s.本年签约金额全口径, 0) + ISNULL(qt.其他业绩本年签约金额, 0) + ISNULL(rw.非项目本年实际签约金额, 0)) / ISNULL(rw.年度签约任务, 0)END AS 本年签约完成率_含其他业绩 ,
-				ISNULL(rw.年度签约任务, 0) - (ISNULL(rs.本年认购金额, 0) + ISNULL(rg.本年认购金额, 0) + ISNULL(rw.非项目本年实际认购金额, 0)) AS 本年认购金额缺口 ,
-				ISNULL(rw.年度签约任务, 0) - (ISNULL(本年签约金额全口径, 0) + ISNULL(rw.非项目本年实际签约金额, 0)) AS 本年签约金额缺口 ,
+                ISNULL(rw.年度签约任务, 0)  - (ISNULL(rs.本年认购金额, 0) + ISNULL(rg.本年认购金额, 0)  + ISNULL(qt.其他业绩本年认购金额, 0)  + ISNULL(rw.非项目本年实际认购金额,0)) AS 本年认购金额缺口 ,
+                ISNULL(rw.年度签约任务, 0)  - (ISNULL(s.本年签约金额全口径, 0) + ISNULL(rw.非项目本年实际签约金额,0)) AS 本年签约金额缺口 ,
 				ISNULL(pt.本年时间分摊比, 0) AS 本年时间分摊比 ,
 				ISNULL(rw.本年存量任务, 0) AS 本年存量任务 ,
 				ISNULL(rw.本年增量任务, 0) AS 本年增量任务 ,
@@ -1392,7 +1419,7 @@ AS
 				ISNULL(qt.其他业绩产成品本月认购金额, 0) AS 其他业绩产成品本月认购金额 ,
 				ISNULL(qt.其他业绩产成品本月认购套数, 0) AS 其他业绩产成品本月认购套数 ,
 				CASE WHEN ISNULL(rw.产成品月度任务, 0) = 0 THEN 0 ELSE (ISNULL(rs.本月产成品认购金额, 0) + ISNULL(rg.本月产成品认购金额, 0) + ISNULL(qt.其他业绩产成品本月认购金额, 0)) / ISNULL(rw.产成品月度任务, 0)END AS 本月产成品认购完成率 ,
-				ISNULL(本月产成品签约金额全口径, 0) AS 本月产成品签约金额 ,
+                ISNULL(本月产成品签约金额全口径, 0) - ISNULL(qt.其他业绩产成品本月签约金额_物业公司车位代销,0)  AS 本月产成品签约金额 ,
 				ISNULL(本月产成品签约套数全口径, 0) AS 本月产成品签约套数 ,
 				ISNULL(qt.其他业绩产成品本月签约金额, 0) AS 其他业绩产成品本月签约金额 ,
 				ISNULL(qt.其他业绩产成品本月签约套数, 0) AS 其他业绩产成品本月签约套数 ,
@@ -1403,7 +1430,7 @@ AS
 				ISNULL(rw.产成品年度任务, 0) AS 本年产成品任务 ,
 				ISNULL(rs.本年产成品认购金额, 0) + ISNULL(rg.本年产成品认购金额, 0) + ISNULL(qt.其他业绩产成品本年认购金额, 0) AS 本年产成品认购金额 ,
 				ISNULL(rs.本年产成品认购套数, 0) + ISNULL(rg.本年产成品认购套数, 0) + ISNULL(qt.其他业绩产成品本年认购套数, 0) AS 本年产成品认购套数 ,
-				ISNULL(s.本年产成品签约金额全口径, 0) AS 本年产成品签约金额 ,
+                ISNULL(s.本年产成品签约金额全口径, 0) -ISNULL(qt.其他业绩产成品本年签约金额_物业公司车位代销, 0)  AS 本年产成品签约金额 ,
 				ISNULL(s.本年产成品签约套数全口径, 0) AS 本年产成品签约套数 ,
 				ISNULL(qt.其他业绩产成品本年签约金额, 0) AS 其他业绩产成品本年签约金额 ,
 				ISNULL(qt.其他业绩产成品本年签约套数, 0) AS 其他业绩产成品本年签约套数 ,
@@ -1423,50 +1450,50 @@ AS
 				ISNULL(s.本周签约金额全口径,0) AS 本周签约金额 ,
 				ISNULL(rs.本月认购面积,0) + ISNULL(rg.本月认购面积,0) + ISNULL(qt.其他业绩本月认购面积,0) AS 本月认购面积 ,
 				ISNULL(s.本月签约面积全口径, 0) AS 本月签约面积 ,
-				ISNULL(qt.其他业绩本月认购面积,0) AS 其他业绩本月认购面积 ,
-				ISNULL(qt.其他业绩本月签约面积,0) AS 其他业绩本月签约面积 ,
+                ISNULL(qt.其他业绩本月认购面积,0) + ISNULL(qt.其他业绩本月认购面积_物业公司车位代销,0) AS 其他业绩本月认购面积 ,
+                ISNULL(qt.其他业绩本月签约面积,0) + ISNULL(qt.其他业绩本月签约面积_物业公司车位代销,0) AS 其他业绩本月签约面积 ,
 				ISNULL(rs.本月产成品认购面积, 0) + ISNULL(rg.本月产成品认购面积, 0) + ISNULL(qt.其他业绩产成品本月认购面积, 0) AS 本月产成品认购面积 ,
 				ISNULL(s.本月产成品签约面积全口径,0)  AS 本月产成品签约面积 ,
-				ISNULL(qt.其他业绩产成品本月签约面积,0)  AS 其他业绩产成品本月签约面积 ,
+                ISNULL(qt.其他业绩产成品本月签约面积_物业公司车位代销,0)  AS 其他业绩产成品本月签约面积 ,
 				ISNULL(rs.累计已认购未签约面积,0) AS 已认购未签约签约面积 ,
 				ISNULL(rs.本年认购面积, 0) + ISNULL(rg.本年认购面积, 0) + ISNULL(qt.其他业绩本年认购面积, 0) AS 本年认购面积 ,
 				ISNULL(本年签约面积全口径, 0) AS 本年签约面积 ,
-				ISNULL(qt.其他业绩本年认购套数,0) AS 其他业绩本年认购套数 ,
-				ISNULL(qt.其他业绩本日认购面积,0) AS 其他业绩本年认购面积 ,
-				ISNULL(qt.其他业绩本日认购金额,0) AS 其他业绩本年认购金额 ,
+                ISNULL(qt.其他业绩本年认购套数,0) + ISNULL(qt.其他业绩本年认购套数_物业公司车位代销,0) AS 其他业绩本年认购套数 ,
+                ISNULL(qt.其他业绩本年认购面积,0) + ISNULL(qt.其他业绩本年认购面积_物业公司车位代销,0) AS 其他业绩本年认购面积 ,
+                ISNULL(qt.其他业绩本年认购金额,0)  + ISNULL(qt.其他业绩本年认购金额_物业公司车位代销,0)  - isnull(rw.非项目本年实际认购金额,0) AS 其他业绩本年认购金额 ,
 
-				ISNULL(qt.其他业绩本年签约面积,0) AS 其他业绩本年签约面积 ,
+                ISNULL(qt.其他业绩本年签约面积,0) + ISNULL(qt.其他业绩本年签约面积_物业公司车位代销,0) AS 其他业绩本年签约面积 ,
 				ISNULL(rs.本年产成品认购面积, 0) + ISNULL(rg.本年产成品认购面积, 0) + ISNULL(qt.其他业绩产成品本年认购面积, 0) AS 本年产成品认购面积 ,
 				ISNULL(s.本年产成品签约面积全口径,0) AS 本年产成品签约面积 ,
-				ISNULL(qt.其他业绩产成品本年签约面积,0 ) AS 其他业绩产成品本年签约面积,
+                ISNULL(qt.其他业绩产成品本年签约面积_物业公司车位代销,0 ) AS 其他业绩产成品本年签约面积,
                 @wideTableDateText  as 宽表最后清洗日期,
 
                 --大户型
                 ISNULL(rs.本日大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本日认购金额, 0) as 本日大户型认购金额,
                 ISNULL(rs.本日大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本日认购面积, 0)  as 本日大户型认购面积,
                 ISNULL(rs.本日大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本日认购套数, 0)  as 本日大户型认购套数,
-                ISNULL(dhx.本日大户型签约金额全口径, 0)   as 本日大户型签约金额,
+                ISNULL(dhx.本日大户型签约金额全口径, 0) - ISNULL(qt.其他业绩大户型本日签约金额_物业公司车位代销,0)    as 本日大户型签约金额,
                 ISNULL(dhx.本日大户型签约面积全口径, 0)  as 本日大户型签约面积,
                 ISNULL(dhx.本日大户型签约套数全口径, 0)  as 本日大户型签约套数,
 
                 ISNULL(rs.本周大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本周认购金额, 0) as 本周大户型认购金额,
                 ISNULL(rs.本周大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本周认购面积, 0) as 本周大户型认购面积,
                 ISNULL(rs.本周大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本周认购套数, 0) as 本周大户型认购套数,
-                ISNULL(dhx.本周大户型签约金额全口径, 0) as 本周大户型签约金额,
+                ISNULL(dhx.本周大户型签约金额全口径, 0)- ISNULL(qt.其他业绩大户型本周签约金额_物业公司车位代销, 0)   as 本周大户型签约金额,
                 ISNULL(dhx.本周大户型签约面积全口径, 0) as 本周大户型签约面积,
                 ISNULL(dhx.本周大户型签约套数全口径, 0) as 本周大户型签约套数,
 
                 ISNULL(rs.本月大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本月认购金额, 0) as 本月大户型认购金额,
                 ISNULL(rs.本月大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本月认购面积, 0) as 本月大户型认购面积,
                 ISNULL(rs.本月大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本月认购套数, 0) as 本月大户型认购套数,
-                ISNULL(dhx.本月大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本月签约金额,0) as 本月大户型签约金额,
+                ISNULL(dhx.本月大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本月签约金额,0) - ISNULL(qt.其他业绩大户型本月签约金额_物业公司车位代销, 0)  as 本月大户型签约金额,
                 ISNULL(dhx.本月大户型签约面积全口径,0) + ISNULL(qt.其他业绩大户型本月签约面积,0) as 本月大户型签约面积,
                 ISNULL(dhx.本月大户型签约套数全口径,0) + ISNULL(qt.其他业绩大户型本月签约套数,0) as 本月大户型签约套数,
 
                 ISNULL(rs.本年大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本年认购金额, 0) as 本年大户型认购金额,
                 ISNULL(rs.本年大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本年认购面积, 0) as 本年大户型认购面积,
                 ISNULL(rs.本年大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本年认购套数, 0) as 本年大户型认购套数,
-                ISNULL(dhx.本年大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本年签约金额,0) as 本年大户型签约金额,
+                ISNULL(dhx.本年大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本年签约金额,0)- ISNULL(qt.其他业绩大户型本年签约金额_物业公司车位代销,0)  as 本年大户型签约金额,
                 ISNULL(dhx.本年大户型签约面积全口径,0) + ISNULL(qt.其他业绩大户型本年签约面积,0) as 本年大户型签约面积,
                 ISNULL(dhx.本年大户型签约套数全口径,0) + ISNULL(qt.其他业绩大户型本年签约套数,0) as 本年大户型签约套数,
 
@@ -1482,28 +1509,28 @@ AS
                 ISNULL(rs.本日联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本日认购金额, 0) as 本日联动房认购金额,
                 ISNULL(rs.本日联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本日认购面积, 0)  as 本日联动房认购面积,
                 ISNULL(rs.本日联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本日认购套数, 0)  as 本日联动房认购套数,
-                ISNULL(dhx.本日联动房签约金额全口径, 0)   as 本日联动房签约金额,
+                ISNULL(dhx.本日联动房签约金额全口径, 0) - ISNULL(qt.其他业绩联动房本日签约金额_物业公司车位代销,0)  as 本日联动房签约金额,
                 ISNULL(dhx.本日联动房签约面积全口径, 0)  as 本日联动房签约面积,
                 ISNULL(dhx.本日联动房签约套数全口径, 0)  as 本日联动房签约套数,
 
                 ISNULL(rs.本周联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本周认购金额, 0) as 本周联动房认购金额,
                 ISNULL(rs.本周联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本周认购面积, 0) as 本周联动房认购面积,
                 ISNULL(rs.本周联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本周认购套数, 0) as 本周联动房认购套数,
-                ISNULL(dhx.本周联动房签约金额全口径, 0) as 本周联动房签约金额,
+                ISNULL(dhx.本周联动房签约金额全口径, 0) - ISNULL(qt.其他业绩联动房本周签约金额_物业公司车位代销, 0) as 本周联动房签约金额,
                 ISNULL(dhx.本周联动房签约面积全口径, 0) as 本周联动房签约面积,
                 ISNULL(dhx.本周联动房签约套数全口径, 0) as 本周联动房签约套数,
 
                 ISNULL(rs.本月联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本月认购金额, 0) as 本月联动房认购金额,
                 ISNULL(rs.本月联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本月认购面积, 0) as 本月联动房认购面积,
                 ISNULL(rs.本月联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本月认购套数, 0) as 本月联动房认购套数,
-                ISNULL(dhx.本月联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本月签约金额,0) as 本月联动房签约金额,
+                ISNULL(dhx.本月联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本月签约金额,0) - ISNULL(qt.其他业绩联动房本月签约金额_物业公司车位代销,0) as 本月联动房签约金额,
                 ISNULL(dhx.本月联动房签约面积全口径,0) + ISNULL(qt.其他业绩联动房本月签约面积,0) as 本月联动房签约面积,
                 ISNULL(dhx.本月联动房签约套数全口径,0) + ISNULL(qt.其他业绩联动房本月签约套数,0) as 本月联动房签约套数,
 
                 ISNULL(rs.本年联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本年认购金额, 0) as 本年联动房认购金额,
                 ISNULL(rs.本年联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本年认购面积, 0) as 本年联动房认购面积,
                 ISNULL(rs.本年联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本年认购套数, 0) as 本年联动房认购套数,
-                ISNULL(dhx.本年联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本年签约金额,0) as 本年联动房签约金额,
+                ISNULL(dhx.本年联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本年签约金额,0)-ISNULL(qt.其他业绩联动房本年签约金额_物业公司车位代销,0)   as 本年联动房签约金额,
                 ISNULL(dhx.本年联动房签约面积全口径,0) + ISNULL(qt.其他业绩联动房本年签约面积,0) as 本年联动房签约面积,
                 ISNULL(dhx.本年联动房签约套数全口径,0) + ISNULL(qt.其他业绩联动房本年签约套数,0) as 本年联动房签约套数,
 
@@ -1535,7 +1562,7 @@ AS
                 ISNULL(rs.本周准产成品认购面积, 0) + ISNULL(rg.本周准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本周认购面积, 0) AS 本周准产成品认购面积 ,
 				ISNULL(rs.本周准产成品认购套数, 0) + ISNULL(rg.本周准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本周认购套数, 0) AS 本周准产成品认购套数 ,
 
-				ISNULL(rs.本月准产成品认购金额, 0) + ISNULL(rg.本月准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本月认购金额, 0) AS 本月准产成品认购金额 ,
+                ISNULL(rs.本月准产成品认购金额, 0) + ISNULL(rg.本月准产成品认购金额, 0) - ISNULL(rg.本月准产成品认购金额_物业车位代销, 0) + ISNULL(qt.其他业绩准产成品本月认购金额, 0) AS 本月准产成品认购金额 ,
                 ISNULL(rs.本月准产成品认购面积, 0) + ISNULL(rg.本月准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本月认购面积, 0) AS 本月准产成品认购面积 ,
 				ISNULL(rs.本月准产成品认购套数, 0) + ISNULL(rg.本月准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本月认购套数, 0) AS 本月准产成品认购套数 ,
 
@@ -1543,7 +1570,7 @@ AS
                 ISNULL(qt.其他业绩准产成品本月认购面积, 0) AS 其他业绩准产成品本月认购面积 ,
 				ISNULL(qt.其他业绩准产成品本月认购套数, 0) AS 其他业绩准产成品本月认购套数 ,
 
-				ISNULL(本月准产成品签约金额全口径, 0) AS 本月准产成品签约金额 ,
+                ISNULL(s.本月准产成品签约金额全口径, 0) - ISNULL(qt.其他业绩准产成品本月签约金额_物业公司车位代销, 0) AS 本月准产成品签约金额 ,
                 ISNULL(本月准产成品签约面积全口径, 0) AS 本月准产成品签约面积 ,
 				ISNULL(本月准产成品签约套数全口径, 0) AS 本月准产成品签约套数 ,
 
@@ -1559,7 +1586,7 @@ AS
                 ISNULL(rs.本年准产成品认购面积, 0) + ISNULL(rg.本年准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本年认购面积, 0) AS 本年准产成品认购面积 ,
 				ISNULL(rs.本年准产成品认购套数, 0) + ISNULL(rg.本年准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本年认购套数, 0) AS 本年准产成品认购套数 ,
 
-				ISNULL(s.本年准产成品签约金额全口径, 0) AS 本年准产成品签约金额 ,
+                ISNULL(s.本年准产成品签约金额全口径, 0) - ISNULL(qt.其他业绩准产成品本年签约金额_物业公司车位代销, 0) AS 本年准产成品签约金额 ,
                 ISNULL(s.本年准产成品签约面积全口径, 0) AS 本年准产成品签约面积 ,
 				ISNULL(s.本年准产成品签约套数全口径, 0) AS 本年准产成品签约套数 ,
 
@@ -1609,20 +1636,20 @@ AS
 				--pt.FactFinishDate AS  实际竣备日期,
 				--CASE WHEN  YEAR(pt.FactFinishDate)  < YEAR(@var_date) THEN  '是' ELSE  '否' END  AS 是否产成品,
                 pt.存量增量 ,
-                0 AS 本日认购金额 ,                          -- 全口径
-                0 AS 本日认购套数 ,
-                0 AS 本日签约金额 ,
-                0 AS 本日签约套数 ,
-                0 AS 本周认购金额 ,
-                0 AS 本周认购套数 ,
+                ISNULL(qt.其他业绩本日认购金额, 0) + ISNULL(qt.其他业绩本日认购金额_物业公司车位代销, 0) AS 本日认购金额 ,                          -- 全口径
+                ISNULL(qt.其他业绩本日认购套数, 0) + ISNULL(qt.其他业绩本日认购套数_物业公司车位代销, 0) AS 本日认购套数 ,
+                ISNULL(qt.其他业绩本日签约金额,0) + ISNULL(qt.其他业绩本日签约金额_物业公司车位代销,0) AS 本日签约金额 ,
+                ISNULL(qt.其他业绩本日签约套数,0) + ISNULL(qt.其他业绩本日签约套数_物业公司车位代销,0) AS 本日签约套数 ,
+                ISNULL(qt.其他业绩本周认购金额, 0) + ISNULL(qt.其他业绩本周认购金额_物业公司车位代销, 0) AS 本周认购金额 ,
+                ISNULL(rg.本周认购套数_物业车位代销,0) + ISNULL(qt.其他业绩本周认购套数_物业公司车位代销, 0) AS 本周认购套数 ,
                 0 AS 本月任务 ,
-                - ISNULL(rw.非项目本月实际认购金额,0 )  AS 本月认购金额 ,
-                0 AS 本月认购套数 ,
+                ISNULL(qt.其他业绩本月认购金额, 0) + ISNULL(qt.其他业绩本月认购金额_物业公司车位代销, 0)  - isnull(rw.非项目本月实际认购金额,0)  AS 本月认购金额 ,
+                ISNULL(qt.其他业绩本月认购套数, 0) + ISNULL(qt.其他业绩本月认购套数_物业公司车位代销, 0)  AS 本月认购套数 ,
 				0 AS 其他业绩本月认购金额,
 				0 AS 其他业绩本月认购套数,
                 0 AS 本月认购完成率 ,
-                - ISNULL(rw.非项目本月实际签约金额,0 )  AS 本月签约金额 ,
-                0  AS 本月签约套数 ,
+                ISNULL(qt.其他业绩本月签约金额,0) + ISNULL(qt.其他业绩本月签约金额_物业公司车位代销,0) - ISNULL(rw.非项目本月实际签约金额,0)  AS 本月签约金额 ,
+                ISNULL(qt.其他业绩本月签约套数,0) + ISNULL(qt.其他业绩本月签约套数_物业公司车位代销,0)   AS 本月签约套数 ,
                 0 AS 其他业绩本月签约金额 ,                                                                    --以客户提供其他业绩认定的房间
                 0 AS 其他业绩本月签约套数 ,
                 0 AS 本月签约完成率 ,
@@ -1633,10 +1660,10 @@ AS
                 0 AS 已认购未签约金额 ,
                 0 AS 已认购未签约套数 ,
                 0 AS 本年任务 ,
-                - ISNULL(rw.非项目本年实际认购金额,0 ) AS 本年认购金额 ,
-                0 AS 本年认购套数 ,
-                - ISNULL(rw.非项目本年实际签约金额,0 ) AS 本年签约金额 ,
-                0 AS 本年签约套数 ,
+                ISNULL(qt.其他业绩本年认购金额, 0) + ISNULL(qt.其他业绩本年认购金额_物业公司车位代销, 0)  - isnull(rw.非项目本年实际认购金额,0)  AS 本年认购金额 ,
+                ISNULL(qt.其他业绩本年认购套数, 0) + ISNULL(qt.其他业绩本年认购套数_物业公司车位代销, 0) AS 本年认购套数 ,
+                ISNULL(qt.其他业绩本年签约金额,0) + ISNULL(qt.其他业绩本年签约金额_物业公司车位代销,0) - ISNULL(rw.非项目本年实际签约金额,0)  AS 本年签约金额 ,
+                ISNULL(qt.其他业绩本年签约套数,0) + ISNULL(qt.其他业绩本年签约套数_物业公司车位代销,0)  AS 本年签约套数 ,
                 0 AS 其他业绩本年签约金额 ,
                 0 AS 其他业绩本年签约套数 ,
                 0 AS 本年签约完成率 ,
@@ -1687,22 +1714,22 @@ AS
 				0 as 非项目本月实际认购金额,
 
 				-- 20240604 chenjw 新增面积类字段
-				0 AS 本日认购面积 ,
-				0 AS 本日签约面积 ,
-				0 AS 本周认购面积 ,
-				0 AS 本周签约套数 ,
-				0 AS 本周签约面积 ,
-				0 AS 本周签约金额 ,
-				0 AS 本月认购面积 ,
-				0 AS 本月签约面积 ,
+				ISNULL(qt.其他业绩本日认购面积, 0) + ISNULL(qt.其他业绩本日认购面积_物业公司车位代销, 0)  AS 本日认购面积 ,
+				ISNULL(qt.其他业绩本日签约面积,0) + ISNULL(qt.其他业绩本日签约面积_物业公司车位代销,0) AS 本日签约面积 ,
+				ISNULL(qt.其他业绩本周认购面积, 0) + ISNULL(qt.其他业绩本周认购面积_物业公司车位代销, 0)  AS 本周认购面积 ,
+				ISNULL(qt.其他业绩本周签约套数,0) + ISNULL(qt.其他业绩本周签约套数_物业公司车位代销,0) AS 本周签约套数 ,
+				ISNULL(qt.其他业绩本周签约面积,0) + ISNULL(qt.其他业绩本周签约面积_物业公司车位代销,0) AS 本周签约面积 ,
+				ISNULL(qt.其他业绩本周签约金额,0) + ISNULL(qt.其他业绩本周签约金额_物业公司车位代销,0) AS 本周签约金额 ,
+				ISNULL(qt.其他业绩本月认购面积, 0) + ISNULL(qt.其他业绩本月认购面积_物业公司车位代销, 0)  AS 本月认购面积 ,
+				ISNULL(qt.其他业绩本月签约面积,0) + ISNULL(qt.其他业绩本月签约面积_物业公司车位代销,0)  AS 本月签约面积 ,
 				0 AS 其他业绩本月认购面积 ,
 				0 AS 其他业绩本月签约面积 ,
 				0 AS 本月产成品认购面积 ,
 				0 AS 本月产成品签约面积 ,
 				0 AS 其他业绩产成品本月签约面积 ,
 				0 AS 已认购未签约签约面积 ,
-				0 AS 本年认购面积 ,
-				0 AS 本年签约面积 ,
+				ISNULL(qt.其他业绩本年认购面积, 0) + ISNULL(qt.其他业绩本年认购面积_物业公司车位代销, 0)  AS 本年认购面积 ,
+				ISNULL(qt.其他业绩本年签约面积,0) + ISNULL(qt.其他业绩本年签约面积_物业公司车位代销,0)  AS 本年签约面积 ,
 				0 AS 其他业绩本年认购套数 ,
 				0 AS 其他业绩本年认购面积 ,
 				0 AS 其他业绩本年认购金额 ,
@@ -1852,7 +1879,7 @@ AS
                 LEFT JOIN #qtqy qt ON qt.projguid = p.projguid AND pt.TopProductTypeName = qt.TopProductTypeName
         WHERE   Level = 2 AND   p.buguid = '70DD6DF4-47F7-46AF-B470-BC18EE57D8FF'
 	    UNION ALL
-        -- 区域层级-各区域名称
+       -- 区域层级-各区域名称
         SELECT  @DateText AS 数据清洗日期 ,
                 '营销大区' AS 层级 ,
                 p.BUGUID AS 公司GUID ,
@@ -1877,22 +1904,22 @@ AS
                 pt.存量增量 ,
                 ISNULL(rs.本日认购金额, 0) + ISNULL(rg.本日认购金额, 0) + ISNULL(qt.其他业绩本日认购金额, 0) AS 本日认购金额 ,                                                                              -- 全口径
                 ISNULL(rs.本日认购套数, 0) + ISNULL(rg.本日认购套数, 0) + ISNULL(qt.其他业绩本日认购套数, 0) AS 本日认购套数 ,
-                ISNULL(s.本日签约金额全口径, 0) AS 本日签约金额 ,
+                ISNULL(s.本日签约金额全口径, 0) -isnull(qt.其他业绩本日签约金额_物业公司车位代销,0) AS 本日签约金额 ,
                 ISNULL(s.本日签约套数全口径, 0) AS 本日签约套数 ,
                 ISNULL(rs.本周认购金额, 0) + ISNULL(rg.本周认购金额, 0) + ISNULL(qt.其他业绩本周认购金额, 0) AS 本周认购金额 ,
                 ISNULL(rs.本周认购套数, 0) + ISNULL(rg.本周认购套数, 0) + ISNULL(qt.其他业绩本周认购套数, 0) AS 本周认购套数 ,
                 rw.月度签约任务 AS 本月任务 ,
                 ISNULL(rs.本月认购金额, 0) + ISNULL(rg.本月认购金额, 0) + ISNULL(qt.其他业绩本月认购金额, 0) + ISNULL(rw.非项目本月实际认购金额,0)  AS 本月认购金额 ,
                 ISNULL(rs.本月认购套数, 0) + ISNULL(rg.本月认购套数, 0) + ISNULL(qt.其他业绩本月认购套数, 0) AS 本月认购套数 ,
-				ISNULL(qt.其他业绩本月认购金额, 0) AS 其他业绩本月认购金额,
-				ISNULL(qt.其他业绩本月认购套数, 0) AS 其他业绩本月认购套数,
+				ISNULL(qt.其他业绩本月认购金额, 0) + ISNULL(qt.其他业绩本月认购金额_物业公司车位代销, 0)  - isnull(rw.非项目本月实际认购金额,0) AS 其他业绩本月认购金额, --非项目本月实际认购金额填报的是负数
+				ISNULL(qt.其他业绩本月认购套数, 0) + ISNULL(qt.其他业绩本月认购套数_物业公司车位代销, 0)  AS 其他业绩本月认购套数,
                 CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE (ISNULL(rs.本月认购金额, 0) + ISNULL(rg.本月认购金额, 0)+ ISNULL(qt.其他业绩本月认购金额,0) + ISNULL(rw.非项目本月实际认购金额,0)) / ISNULL(rw.月度签约任务, 0)END AS 本月认购完成率 ,
-                ISNULL(本月签约金额全口径, 0) + ISNULL(rw.非项目本月实际签约金额,0) AS 本月签约金额 ,
+                ISNULL(本月签约金额全口径, 0)  - isnull(qt.其他业绩本月签约金额_物业公司车位代销,0) + ISNULL(rw.非项目本月实际签约金额,0) AS 本月签约金额 ,
                 ISNULL(本月签约套数全口径, 0) AS 本月签约套数 ,
-                ISNULL(qt.其他业绩本月签约金额, 0) AS 其他业绩本月签约金额 ,                                                                    --以客户提供其他业绩认定的房间
-                ISNULL(qt.其他业绩本月签约套数, 0) AS 其他业绩本月签约套数 ,
-                CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE ( ISNULL(本月签约金额全口径, 0) +ISNULL(rw.非项目本月实际签约金额,0) ) / ISNULL(rw.月度签约任务, 0)END AS 本月签约完成率 ,
-                CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE (ISNULL(本月签约金额全口径, 0) + ISNULL(qt.其他业绩本月签约金额, 0) +  ISNULL(rw.非项目本月实际签约金额,0) ) / ISNULL(rw.月度签约任务, 0)END AS 本月签约完成率_含其他业绩 ,
+                ISNULL(qt.其他业绩本月签约金额, 0) + ISNULL(qt.其他业绩本月签约金额_物业公司车位代销, 0) - ISNULL(rw.非项目本月实际签约金额,0)  AS 其他业绩本月签约金额 ,                                                                    --以客户提供其他业绩认定的房间
+                ISNULL(qt.其他业绩本月签约套数, 0) + ISNULL(qt.其他业绩本月签约套数_物业公司车位代销, 0) AS 其他业绩本月签约套数 ,
+                CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE ( ISNULL(本月签约金额全口径, 0) - isnull(qt.其他业绩本月签约金额_物业公司车位代销,0) +ISNULL(rw.非项目本月实际签约金额,0) ) / ISNULL(rw.月度签约任务, 0) END AS 本月签约完成率 ,
+                CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE (ISNULL(本月签约金额全口径, 0) - isnull(qt.其他业绩本月签约金额_物业公司车位代销,0) + ISNULL(qt.其他业绩本月签约金额, 0) +  ISNULL(rw.非项目本月实际签约金额,0) ) / ISNULL(rw.月度签约任务, 0)END AS 本月签约完成率_含其他业绩 ,
                 ISNULL(rw.月度签约任务, 0)  - (ISNULL(rs.本月认购金额, 0) + ISNULL(rg.本月认购金额, 0) + ISNULL(rw.非项目本月实际认购金额,0) )  AS 本月认购金额缺口 ,  --本月任务*本月时间进度分摊比-本月认购金额
                 ISNULL(rw.月度签约任务, 0)  - (ISNULL(本月签约金额全口径, 0) + ISNULL(rw.非项目本月实际签约金额,0) ) AS 本月签约金额缺口 ,
                 ISNULL(pt.本月时间分摊比, 0) AS 本月时间分摊比 ,
@@ -1901,14 +1928,15 @@ AS
                 ISNULL(rw.年度签约任务, 0) AS 本年任务 ,
                 ISNULL(rs.本年认购金额, 0) + ISNULL(rg.本年认购金额, 0) + ISNULL(qt.其他业绩本年认购金额, 0) + ISNULL(rw.非项目本年实际认购金额,0) AS 本年认购金额 ,
                 ISNULL(rs.本年认购套数, 0) + ISNULL(rg.本年认购套数, 0) + ISNULL(qt.其他业绩本年认购套数, 0) AS 本年认购套数 ,
-                ISNULL(s.本年签约金额全口径, 0) + ISNULL(rw.非项目本年实际签约金额,0) AS 本年签约金额 ,
+                ISNULL(s.本年签约金额全口径, 0)  - isnull(qt.其他业绩本年签约金额_物业公司车位代销,0) + ISNULL(rw.非项目本年实际签约金额,0) AS 本年签约金额 ,
                 ISNULL(s.本年签约套数全口径, 0) AS 本年签约套数 ,
-                ISNULL(qt.其他业绩本年签约金额, 0) AS 其他业绩本年签约金额 ,
-                ISNULL(qt.其他业绩本年签约套数, 0) AS 其他业绩本年签约套数 ,
+
+                ISNULL(qt.其他业绩本年签约金额,0) + ISNULL(qt.其他业绩本年签约金额_物业公司车位代销,0) -ISNULL(rw.非项目本年实际签约金额,0) AS 其他业绩本年签约金额 ,
+                ISNULL(qt.其他业绩本年签约套数,0) + ISNULL(qt.其他业绩本年签约套数_物业公司车位代销,0)  AS 其他业绩本年签约套数 ,
                 CASE WHEN ISNULL(rw.年度签约任务, 0) = 0 THEN 0 ELSE ( ISNULL(s.本年签约金额全口径, 0) +ISNULL(rw.非项目本年实际签约金额,0) )  / ISNULL(rw.年度签约任务, 0)END AS 本年签约完成率 ,
                 CASE WHEN ISNULL(rw.年度签约任务, 0) = 0 THEN 0 ELSE ( ISNULL(s.本年签约金额全口径, 0) + ISNULL(qt.其他业绩本年签约金额, 0) +ISNULL(rw.非项目本年实际签约金额,0) ) / ISNULL(rw.年度签约任务, 0)END AS 本年签约完成率_含其他业绩 ,
-                ISNULL(rw.年度签约任务, 0)  - (ISNULL(rs.本年认购金额, 0) + ISNULL(rg.本年认购金额, 0) +ISNULL(rw.非项目本年实际认购金额,0)) AS 本年认购金额缺口 ,
-                ISNULL(rw.年度签约任务, 0)  - (ISNULL(本年签约金额全口径, 0) +ISNULL(rw.非项目本年实际签约金额,0) ) AS 本年签约金额缺口 ,
+                ISNULL(rw.年度签约任务, 0)  - (ISNULL(rs.本年认购金额, 0) + ISNULL(rg.本年认购金额, 0)  + ISNULL(qt.其他业绩本年认购金额, 0)  + ISNULL(rw.非项目本年实际认购金额,0)) AS 本年认购金额缺口 ,
+                ISNULL(rw.年度签约任务, 0)  - (ISNULL(s.本年签约金额全口径, 0) + ISNULL(rw.非项目本年实际签约金额,0)) AS 本年签约金额缺口 ,
                 ISNULL(pt.本年时间分摊比, 0) AS 本年时间分摊比 ,
                 ISNULL(rw.本年存量任务, 0) AS 本年存量任务 ,
                 ISNULL(rw.本年增量任务, 0) AS 本年增量任务 ,
@@ -1929,7 +1957,7 @@ AS
 				ISNULL(qt.其他业绩产成品本月认购金额, 0) AS 其他业绩产成品本月认购金额,
 				ISNULL(qt.其他业绩产成品本月认购套数, 0) AS 其他业绩产成品本月认购套数,
                 CASE WHEN ISNULL(rw.产成品月度任务, 0) = 0 THEN 0 ELSE (ISNULL(rs.本月产成品认购金额, 0) + ISNULL(rg.本月产成品认购金额, 0)+ ISNULL(qt.其他业绩产成品本月认购金额,0)) / ISNULL(rw.产成品月度任务, 0)END AS 本月产成品认购完成率 ,
-                ISNULL(本月产成品签约金额全口径, 0) AS 本月产成品签约金额 ,
+                ISNULL(本月产成品签约金额全口径, 0) - ISNULL(qt.其他业绩产成品本月签约金额_物业公司车位代销,0)  AS 本月产成品签约金额 ,
                 ISNULL(本月产成品签约套数全口径, 0) AS 本月产成品签约套数,
 				ISNULL(qt.其他业绩产成品本月签约金额, 0) AS 其他业绩产成品本月签约金额 ,                                                                   
                 ISNULL(qt.其他业绩产成品本月签约套数, 0) AS 其他业绩产成品本月签约套数 ,
@@ -1941,7 +1969,7 @@ AS
 				ISNULL(rw.产成品年度任务,0)  AS  本年产成品任务,
                 ISNULL(rs.本年产成品认购金额, 0) + ISNULL(rg.本年产成品认购金额, 0) + ISNULL(qt.其他业绩产成品本年认购金额, 0) AS 本年产成品认购金额 ,
                 ISNULL(rs.本年产成品认购套数, 0) + ISNULL(rg.本年产成品认购套数, 0) + ISNULL(qt.其他业绩产成品本年认购套数, 0) AS 本年产成品认购套数 ,
-                ISNULL(s.本年产成品签约金额全口径, 0) AS 本年产成品签约金额 ,
+                ISNULL(s.本年产成品签约金额全口径, 0) -ISNULL(qt.其他业绩产成品本年签约金额_物业公司车位代销, 0)  AS 本年产成品签约金额 ,
                 ISNULL(s.本年产成品签约套数全口径, 0) AS 本年产成品签约套数 ,
                 ISNULL(qt.其他业绩产成品本年签约金额, 0) AS 其他业绩产成品本年签约金额 ,
                 ISNULL(qt.其他业绩产成品本年签约套数, 0) AS 其他业绩产成品本年签约套数 ,
@@ -1952,56 +1980,59 @@ AS
 				ISNULL(rw.非项目本年实际认购金额,0 ) AS 非项目本年实际认购金额,
 				ISNULL(rw.非项目本月实际认购金额,0 ) AS 非项目本月实际认购金额,
 				-- 20240604 chenjw 新增面积类字段
-				0 AS 本日认购面积 ,
-				0 AS 本日签约面积 ,
-				0 AS 本周认购面积 ,
-				0 AS 本周签约套数 ,
-				0 AS 本周签约面积 ,
-				0 AS 本周签约金额 ,
-				0 AS 本月认购面积 ,
-				0 AS 本月签约面积 ,
-				0 AS 其他业绩本月认购面积 ,
-				0 AS 其他业绩本月签约面积 ,
-				0 AS 本月产成品认购面积 ,
-				0 AS 本月产成品签约面积 ,
-				0 AS 其他业绩产成品本月签约面积 ,
-				0 AS 已认购未签约签约面积 ,
-				0 AS 本年认购面积 ,
-				0 AS 本年签约面积 ,
-				0 AS 其他业绩本年认购套数 ,
-				0 AS 其他业绩本年认购面积 ,
-				0 AS 其他业绩本年认购金额 ,
-				0 AS 其他业绩本年签约面积 ,
-				0 AS 本年产成品认购面积 ,
-				0 AS 本年产成品签约面积 ,
-				0 AS 其他业绩产成品本年签约面积,
+                ISNULL(rs.本日认购面积, 0) + ISNULL(rg.本日认购面积, 0) + ISNULL(qt.其他业绩本日认购金额, 0)  AS 本日认购面积 ,
+                ISNULL(s.本日签约面积全口径,0)   AS 本日签约面积 ,
+                    ISNULL(rs.本周认购面积,0) + ISNULL(rg.本周认购面积,0) + ISNULL(qt.其他业绩本周认购面积,0) AS 本周认购面积 ,
+                ISNULL(s.本周签约套数全口径,0) AS 本周签约套数 ,
+                ISNULL(s.本周签约面积全口径,0) AS 本周签约面积 ,
+                ISNULL(s.本周签约金额全口径,0) AS 本周签约金额 ,
+                ISNULL(rs.本月认购面积,0) + ISNULL(rg.本月认购面积,0) + ISNULL(qt.其他业绩本月认购面积,0) AS 本月认购面积 ,
+                ISNULL(s.本月签约面积全口径, 0) AS 本月签约面积 ,
+                ISNULL(qt.其他业绩本月认购面积,0) + ISNULL(qt.其他业绩本月认购面积_物业公司车位代销,0) AS 其他业绩本月认购面积 ,
+                ISNULL(qt.其他业绩本月签约面积,0) + ISNULL(qt.其他业绩本月签约面积_物业公司车位代销,0) AS 其他业绩本月签约面积 ,
+                ISNULL(rs.本月产成品认购面积, 0) + ISNULL(rg.本月产成品认购面积, 0) + ISNULL(qt.其他业绩产成品本月认购面积, 0) AS 本月产成品认购面积 ,
+                ISNULL(s.本月产成品签约面积全口径,0)  AS 本月产成品签约面积 ,
+
+                ISNULL(qt.其他业绩产成品本月签约面积_物业公司车位代销,0)  AS 其他业绩产成品本月签约面积 ,
+
+                ISNULL(rs.累计已认购未签约面积,0) AS 已认购未签约签约面积 ,
+                ISNULL(rs.本年认购面积, 0) + ISNULL(rg.本年认购面积, 0) + ISNULL(qt.其他业绩本年认购面积, 0) AS 本年认购面积 ,
+                ISNULL(本年签约面积全口径, 0) AS 本年签约面积 ,
+                ISNULL(qt.其他业绩本年认购套数,0) + ISNULL(qt.其他业绩本年认购套数_物业公司车位代销,0) AS 其他业绩本年认购套数 ,
+                ISNULL(qt.其他业绩本年认购面积,0) + ISNULL(qt.其他业绩本年认购面积_物业公司车位代销,0) AS 其他业绩本年认购面积 ,
+                ISNULL(qt.其他业绩本年认购金额,0)  + ISNULL(qt.其他业绩本年认购金额_物业公司车位代销,0)  - isnull(rw.非项目本年实际认购金额,0) AS 其他业绩本年认购金额 ,
+
+                ISNULL(qt.其他业绩本年签约面积,0) + ISNULL(qt.其他业绩本年签约面积_物业公司车位代销,0) AS 其他业绩本年签约面积 ,
+                ISNULL(rs.本年产成品认购面积, 0) + ISNULL(rg.本年产成品认购面积, 0) + ISNULL(qt.其他业绩产成品本年认购面积, 0) AS 本年产成品认购面积 ,
+                ISNULL(s.本年产成品签约面积全口径,0) AS 本年产成品签约面积 ,
+                ISNULL(qt.其他业绩产成品本年签约面积_物业公司车位代销,0 ) AS 其他业绩产成品本年签约面积,
                 @wideTableDateText  as 宽表最后清洗日期,
                 --大户型
                 ISNULL(rs.本日大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本日认购金额, 0) as 本日大户型认购金额,
                 ISNULL(rs.本日大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本日认购面积, 0)  as 本日大户型认购面积,
                 ISNULL(rs.本日大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本日认购套数, 0)  as 本日大户型认购套数,
-                ISNULL(dhx.本日大户型签约金额全口径, 0)   as 本日大户型签约金额,
+                ISNULL(dhx.本日大户型签约金额全口径, 0) - ISNULL(qt.其他业绩大户型本日签约金额_物业公司车位代销,0)    as 本日大户型签约金额,
                 ISNULL(dhx.本日大户型签约面积全口径, 0)  as 本日大户型签约面积,
                 ISNULL(dhx.本日大户型签约套数全口径, 0)  as 本日大户型签约套数,
 
                 ISNULL(rs.本周大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本周认购金额, 0) as 本周大户型认购金额,
                 ISNULL(rs.本周大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本周认购面积, 0) as 本周大户型认购面积,
                 ISNULL(rs.本周大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本周认购套数, 0) as 本周大户型认购套数,
-                ISNULL(dhx.本周大户型签约金额全口径, 0) as 本周大户型签约金额,
+                ISNULL(dhx.本周大户型签约金额全口径, 0)- ISNULL(qt.其他业绩大户型本周签约金额_物业公司车位代销, 0)   as 本周大户型签约金额,
                 ISNULL(dhx.本周大户型签约面积全口径, 0) as 本周大户型签约面积,
                 ISNULL(dhx.本周大户型签约套数全口径, 0) as 本周大户型签约套数,
 
                 ISNULL(rs.本月大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本月认购金额, 0) as 本月大户型认购金额,
                 ISNULL(rs.本月大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本月认购面积, 0) as 本月大户型认购面积,
                 ISNULL(rs.本月大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本月认购套数, 0) as 本月大户型认购套数,
-                ISNULL(dhx.本月大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本月签约金额,0) as 本月大户型签约金额,
+                ISNULL(dhx.本月大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本月签约金额,0) - ISNULL(qt.其他业绩大户型本月签约金额_物业公司车位代销, 0)  as 本月大户型签约金额,
                 ISNULL(dhx.本月大户型签约面积全口径,0) + ISNULL(qt.其他业绩大户型本月签约面积,0) as 本月大户型签约面积,
                 ISNULL(dhx.本月大户型签约套数全口径,0) + ISNULL(qt.其他业绩大户型本月签约套数,0) as 本月大户型签约套数,
 
                 ISNULL(rs.本年大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本年认购金额, 0) as 本年大户型认购金额,
                 ISNULL(rs.本年大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本年认购面积, 0) as 本年大户型认购面积,
                 ISNULL(rs.本年大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本年认购套数, 0) as 本年大户型认购套数,
-                ISNULL(dhx.本年大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本年签约金额,0) as 本年大户型签约金额,
+                ISNULL(dhx.本年大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本年签约金额,0)- ISNULL(qt.其他业绩大户型本年签约金额_物业公司车位代销,0)  as 本年大户型签约金额,
                 ISNULL(dhx.本年大户型签约面积全口径,0) + ISNULL(qt.其他业绩大户型本年签约面积,0) as 本年大户型签约面积,
                 ISNULL(dhx.本年大户型签约套数全口径,0) + ISNULL(qt.其他业绩大户型本年签约套数,0) as 本年大户型签约套数,
 
@@ -2017,28 +2048,28 @@ AS
                 ISNULL(rs.本日联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本日认购金额, 0) as 本日联动房认购金额,
                 ISNULL(rs.本日联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本日认购面积, 0)  as 本日联动房认购面积,
                 ISNULL(rs.本日联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本日认购套数, 0)  as 本日联动房认购套数,
-                ISNULL(dhx.本日联动房签约金额全口径, 0)   as 本日联动房签约金额,
+                ISNULL(dhx.本日联动房签约金额全口径, 0) - ISNULL(qt.其他业绩联动房本日签约金额_物业公司车位代销,0)  as 本日联动房签约金额,
                 ISNULL(dhx.本日联动房签约面积全口径, 0)  as 本日联动房签约面积,
                 ISNULL(dhx.本日联动房签约套数全口径, 0)  as 本日联动房签约套数,
 
                 ISNULL(rs.本周联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本周认购金额, 0) as 本周联动房认购金额,
                 ISNULL(rs.本周联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本周认购面积, 0) as 本周联动房认购面积,
                 ISNULL(rs.本周联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本周认购套数, 0) as 本周联动房认购套数,
-                ISNULL(dhx.本周联动房签约金额全口径, 0) as 本周联动房签约金额,
+                ISNULL(dhx.本周联动房签约金额全口径, 0) - ISNULL(qt.其他业绩联动房本周签约金额_物业公司车位代销, 0) as 本周联动房签约金额,
                 ISNULL(dhx.本周联动房签约面积全口径, 0) as 本周联动房签约面积,
                 ISNULL(dhx.本周联动房签约套数全口径, 0) as 本周联动房签约套数,
 
                 ISNULL(rs.本月联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本月认购金额, 0) as 本月联动房认购金额,
                 ISNULL(rs.本月联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本月认购面积, 0) as 本月联动房认购面积,
                 ISNULL(rs.本月联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本月认购套数, 0) as 本月联动房认购套数,
-                ISNULL(dhx.本月联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本月签约金额,0) as 本月联动房签约金额,
+                ISNULL(dhx.本月联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本月签约金额,0) - ISNULL(qt.其他业绩联动房本月签约金额_物业公司车位代销,0) as 本月联动房签约金额,
                 ISNULL(dhx.本月联动房签约面积全口径,0) + ISNULL(qt.其他业绩联动房本月签约面积,0) as 本月联动房签约面积,
                 ISNULL(dhx.本月联动房签约套数全口径,0) + ISNULL(qt.其他业绩联动房本月签约套数,0) as 本月联动房签约套数,
 
                 ISNULL(rs.本年联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本年认购金额, 0) as 本年联动房认购金额,
                 ISNULL(rs.本年联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本年认购面积, 0) as 本年联动房认购面积,
                 ISNULL(rs.本年联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本年认购套数, 0) as 本年联动房认购套数,
-                ISNULL(dhx.本年联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本年签约金额,0) as 本年联动房签约金额,
+                ISNULL(dhx.本年联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本年签约金额,0)-ISNULL(qt.其他业绩联动房本年签约金额_物业公司车位代销,0)   as 本年联动房签约金额,
                 ISNULL(dhx.本年联动房签约面积全口径,0) + ISNULL(qt.其他业绩联动房本年签约面积,0) as 本年联动房签约面积,
                 ISNULL(dhx.本年联动房签约套数全口径,0) + ISNULL(qt.其他业绩联动房本年签约套数,0) as 本年联动房签约套数,
 
@@ -2070,7 +2101,7 @@ AS
                 ISNULL(rs.本周准产成品认购面积, 0) + ISNULL(rg.本周准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本周认购面积, 0) AS 本周准产成品认购面积 ,
                 ISNULL(rs.本周准产成品认购套数, 0) + ISNULL(rg.本周准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本周认购套数, 0) AS 本周准产成品认购套数 ,
 
-                ISNULL(rs.本月准产成品认购金额, 0) + ISNULL(rg.本月准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本月认购金额, 0) AS 本月准产成品认购金额 ,
+                ISNULL(rs.本月准产成品认购金额, 0) + ISNULL(rg.本月准产成品认购金额, 0) - ISNULL(rg.本月准产成品认购金额_物业车位代销, 0) + ISNULL(qt.其他业绩准产成品本月认购金额, 0) AS 本月准产成品认购金额 ,
                 ISNULL(rs.本月准产成品认购面积, 0) + ISNULL(rg.本月准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本月认购面积, 0) AS 本月准产成品认购面积 ,
                 ISNULL(rs.本月准产成品认购套数, 0) + ISNULL(rg.本月准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本月认购套数, 0) AS 本月准产成品认购套数 ,
 
@@ -2078,7 +2109,7 @@ AS
                 ISNULL(qt.其他业绩准产成品本月认购面积, 0) AS 其他业绩准产成品本月认购面积 ,
                 ISNULL(qt.其他业绩准产成品本月认购套数, 0) AS 其他业绩准产成品本月认购套数 ,
 
-                ISNULL(本月准产成品签约金额全口径, 0) AS 本月准产成品签约金额 ,
+                ISNULL(s.本月准产成品签约金额全口径, 0) - ISNULL(qt.其他业绩准产成品本月签约金额_物业公司车位代销, 0) AS 本月准产成品签约金额 ,
                 ISNULL(本月准产成品签约面积全口径, 0) AS 本月准产成品签约面积 ,
                 ISNULL(本月准产成品签约套数全口径, 0) AS 本月准产成品签约套数 ,
 
@@ -2094,7 +2125,7 @@ AS
                 ISNULL(rs.本年准产成品认购面积, 0) + ISNULL(rg.本年准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本年认购面积, 0) AS 本年准产成品认购面积 ,
                 ISNULL(rs.本年准产成品认购套数, 0) + ISNULL(rg.本年准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本年认购套数, 0) AS 本年准产成品认购套数 ,
 
-                ISNULL(s.本年准产成品签约金额全口径, 0) AS 本年准产成品签约金额 ,
+                ISNULL(s.本年准产成品签约金额全口径, 0) - ISNULL(qt.其他业绩准产成品本年签约金额_物业公司车位代销, 0) AS 本年准产成品签约金额 ,
                 ISNULL(s.本年准产成品签约面积全口径, 0) AS 本年准产成品签约面积 ,
                 ISNULL(s.本年准产成品签约套数全口径, 0) AS 本年准产成品签约套数 ,
                 ISNULL(qt.其他业绩准产成品本年签约金额, 0) AS 其他业绩准产成品本年签约金额 ,
@@ -2142,22 +2173,22 @@ AS
                 pt.存量增量 ,
                 ISNULL(rs.本日认购金额, 0) + ISNULL(rg.本日认购金额, 0) + ISNULL(qt.其他业绩本日认购金额, 0) AS 本日认购金额 ,                          -- 全口径
                 ISNULL(rs.本日认购套数, 0) + ISNULL(rg.本日认购套数, 0) + ISNULL(qt.其他业绩本日认购套数, 0) AS 本日认购套数 ,
-                ISNULL(s.本日签约金额全口径, 0) AS 本日签约金额 ,
+                ISNULL(s.本日签约金额全口径, 0) -isnull(qt.其他业绩本日签约金额_物业公司车位代销,0) AS 本日签约金额 ,
                 ISNULL(s.本日签约套数全口径, 0) AS 本日签约套数 ,
                 ISNULL(rs.本周认购金额, 0) + ISNULL(rg.本周认购金额, 0) + ISNULL(qt.其他业绩本周认购金额, 0) AS 本周认购金额 ,
                 ISNULL(rs.本周认购套数, 0) + ISNULL(rg.本周认购套数, 0) + ISNULL(qt.其他业绩本周认购套数, 0) AS 本周认购套数 ,
                 rw.月度签约任务 AS 本月任务 ,
                 ISNULL(rs.本月认购金额, 0) + ISNULL(rg.本月认购金额, 0) + ISNULL(qt.其他业绩本月认购金额, 0) + ISNULL(rw.非项目本月实际认购金额,0)  AS 本月认购金额 ,
                 ISNULL(rs.本月认购套数, 0) + ISNULL(rg.本月认购套数, 0) + ISNULL(qt.其他业绩本月认购套数, 0) AS 本月认购套数 ,
-				ISNULL(qt.其他业绩本月认购金额, 0) AS 其他业绩本月认购金额,
-				ISNULL(qt.其他业绩本月认购套数, 0) AS 其他业绩本月认购套数,
+				ISNULL(qt.其他业绩本月认购金额, 0) + ISNULL(qt.其他业绩本月认购金额_物业公司车位代销, 0)  - isnull(rw.非项目本月实际认购金额,0) AS 其他业绩本月认购金额, --非项目本月实际认购金额填报的是负数
+				ISNULL(qt.其他业绩本月认购套数, 0) + ISNULL(qt.其他业绩本月认购套数_物业公司车位代销, 0)  AS 其他业绩本月认购套数,
                 CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE (ISNULL(rs.本月认购金额, 0) + ISNULL(rg.本月认购金额, 0)+ ISNULL(qt.其他业绩本月认购金额,0) + ISNULL(rw.非项目本月实际认购金额,0)) / ISNULL(rw.月度签约任务, 0)END AS 本月认购完成率 ,
-                ISNULL(本月签约金额全口径, 0) + ISNULL(rw.非项目本月实际签约金额,0) AS 本月签约金额 ,
+                ISNULL(本月签约金额全口径, 0)  - isnull(qt.其他业绩本月签约金额_物业公司车位代销,0) + ISNULL(rw.非项目本月实际签约金额,0) AS 本月签约金额 ,
                 ISNULL(本月签约套数全口径, 0) AS 本月签约套数 ,
-                ISNULL(qt.其他业绩本月签约金额, 0) AS 其他业绩本月签约金额 ,                                                                    --以客户提供其他业绩认定的房间
-                ISNULL(qt.其他业绩本月签约套数, 0) AS 其他业绩本月签约套数 ,
-                CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE ( ISNULL(本月签约金额全口径, 0) +ISNULL(rw.非项目本月实际签约金额,0) ) / ISNULL(rw.月度签约任务, 0)END AS 本月签约完成率 ,
-                CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE (ISNULL(本月签约金额全口径, 0) + ISNULL(qt.其他业绩本月签约金额, 0) +  ISNULL(rw.非项目本月实际签约金额,0) ) / ISNULL(rw.月度签约任务, 0)END AS 本月签约完成率_含其他业绩 ,
+                ISNULL(qt.其他业绩本月签约金额, 0) + ISNULL(qt.其他业绩本月签约金额_物业公司车位代销, 0) - ISNULL(rw.非项目本月实际签约金额,0)  AS 其他业绩本月签约金额 ,                                                                    --以客户提供其他业绩认定的房间
+                ISNULL(qt.其他业绩本月签约套数, 0) + ISNULL(qt.其他业绩本月签约套数_物业公司车位代销, 0) AS 其他业绩本月签约套数 ,
+                CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE ( ISNULL(本月签约金额全口径, 0) - isnull(qt.其他业绩本月签约金额_物业公司车位代销,0) +ISNULL(rw.非项目本月实际签约金额,0) ) / ISNULL(rw.月度签约任务, 0) END AS 本月签约完成率 ,
+                CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE (ISNULL(本月签约金额全口径, 0) - isnull(qt.其他业绩本月签约金额_物业公司车位代销,0) + ISNULL(qt.其他业绩本月签约金额, 0) +  ISNULL(rw.非项目本月实际签约金额,0) ) / ISNULL(rw.月度签约任务, 0)END AS 本月签约完成率_含其他业绩 ,
                 ISNULL(rw.月度签约任务, 0)  - (ISNULL(rs.本月认购金额, 0) + ISNULL(rg.本月认购金额, 0) + ISNULL(rw.非项目本月实际认购金额,0) )  AS 本月认购金额缺口 ,  --本月任务*本月时间进度分摊比-本月认购金额
                 ISNULL(rw.月度签约任务, 0)  - (ISNULL(本月签约金额全口径, 0) + ISNULL(rw.非项目本月实际签约金额,0) ) AS 本月签约金额缺口 ,
                 ISNULL(pt.本月时间分摊比, 0) AS 本月时间分摊比 ,
@@ -2166,14 +2197,15 @@ AS
                 ISNULL(rw.年度签约任务, 0) AS 本年任务 ,
                 ISNULL(rs.本年认购金额, 0) + ISNULL(rg.本年认购金额, 0) + ISNULL(qt.其他业绩本年认购金额, 0) + ISNULL(rw.非项目本年实际认购金额,0) AS 本年认购金额 ,
                 ISNULL(rs.本年认购套数, 0) + ISNULL(rg.本年认购套数, 0) + ISNULL(qt.其他业绩本年认购套数, 0) AS 本年认购套数 ,
-                ISNULL(s.本年签约金额全口径, 0) + ISNULL(rw.非项目本年实际签约金额,0) AS 本年签约金额 ,
+                ISNULL(s.本年签约金额全口径, 0)  - isnull(qt.其他业绩本年签约金额_物业公司车位代销,0) + ISNULL(rw.非项目本年实际签约金额,0) AS 本年签约金额 ,
                 ISNULL(s.本年签约套数全口径, 0) AS 本年签约套数 ,
-                ISNULL(qt.其他业绩本年签约金额, 0) AS 其他业绩本年签约金额 ,
-                ISNULL(qt.其他业绩本年签约套数, 0) AS 其他业绩本年签约套数 ,
+
+                ISNULL(qt.其他业绩本年签约金额,0) + ISNULL(qt.其他业绩本年签约金额_物业公司车位代销,0) -ISNULL(rw.非项目本年实际签约金额,0) AS 其他业绩本年签约金额 ,
+                ISNULL(qt.其他业绩本年签约套数,0) + ISNULL(qt.其他业绩本年签约套数_物业公司车位代销,0)  AS 其他业绩本年签约套数 ,
                 CASE WHEN ISNULL(rw.年度签约任务, 0) = 0 THEN 0 ELSE ( ISNULL(s.本年签约金额全口径, 0) +ISNULL(rw.非项目本年实际签约金额,0) )  / ISNULL(rw.年度签约任务, 0)END AS 本年签约完成率 ,
                 CASE WHEN ISNULL(rw.年度签约任务, 0) = 0 THEN 0 ELSE ( ISNULL(s.本年签约金额全口径, 0) + ISNULL(qt.其他业绩本年签约金额, 0) +ISNULL(rw.非项目本年实际签约金额,0) ) / ISNULL(rw.年度签约任务, 0)END AS 本年签约完成率_含其他业绩 ,
-                ISNULL(rw.年度签约任务, 0)  - (ISNULL(rs.本年认购金额, 0) + ISNULL(rg.本年认购金额, 0) +ISNULL(rw.非项目本年实际认购金额,0)) AS 本年认购金额缺口 ,
-                ISNULL(rw.年度签约任务, 0)  - (ISNULL(本年签约金额全口径, 0) +ISNULL(rw.非项目本年实际签约金额,0) ) AS 本年签约金额缺口 ,
+                ISNULL(rw.年度签约任务, 0)  - (ISNULL(rs.本年认购金额, 0) + ISNULL(rg.本年认购金额, 0)  + ISNULL(qt.其他业绩本年认购金额, 0)  + ISNULL(rw.非项目本年实际认购金额,0)) AS 本年认购金额缺口 ,
+                ISNULL(rw.年度签约任务, 0)  - (ISNULL(s.本年签约金额全口径, 0) + ISNULL(rw.非项目本年实际签约金额,0)) AS 本年签约金额缺口 ,
                 ISNULL(pt.本年时间分摊比, 0) AS 本年时间分摊比 ,
                 ISNULL(rw.本年存量任务, 0) AS 本年存量任务 ,
                 ISNULL(rw.本年增量任务, 0) AS 本年增量任务 ,
@@ -2194,7 +2226,7 @@ AS
 				ISNULL(qt.其他业绩产成品本月认购金额, 0) AS 其他业绩产成品本月认购金额,
 				ISNULL(qt.其他业绩产成品本月认购套数, 0) AS 其他业绩产成品本月认购套数,
                 CASE WHEN ISNULL(rw.产成品月度任务, 0) = 0 THEN 0 ELSE (ISNULL(rs.本月产成品认购金额, 0) + ISNULL(rg.本月产成品认购金额, 0)+ ISNULL(qt.其他业绩产成品本月认购金额,0)) / ISNULL(rw.产成品月度任务, 0)END AS 本月产成品认购完成率 ,
-                ISNULL(本月产成品签约金额全口径, 0) AS 本月产成品签约金额 ,
+                ISNULL(本月产成品签约金额全口径, 0) - ISNULL(qt.其他业绩产成品本月签约金额_物业公司车位代销,0)  AS 本月产成品签约金额 ,
                 ISNULL(本月产成品签约套数全口径, 0) AS 本月产成品签约套数,
 				ISNULL(qt.其他业绩产成品本月签约金额, 0) AS 其他业绩产成品本月签约金额 ,                                                                   
                 ISNULL(qt.其他业绩产成品本月签约套数, 0) AS 其他业绩产成品本月签约套数 ,
@@ -2206,7 +2238,7 @@ AS
 				ISNULL(rw.产成品年度任务,0)  AS  本年产成品任务,
                 ISNULL(rs.本年产成品认购金额, 0) + ISNULL(rg.本年产成品认购金额, 0) + ISNULL(qt.其他业绩产成品本年认购金额, 0) AS 本年产成品认购金额 ,
                 ISNULL(rs.本年产成品认购套数, 0) + ISNULL(rg.本年产成品认购套数, 0) + ISNULL(qt.其他业绩产成品本年认购套数, 0) AS 本年产成品认购套数 ,
-                ISNULL(s.本年产成品签约金额全口径, 0) AS 本年产成品签约金额 ,
+                ISNULL(s.本年产成品签约金额全口径, 0) -ISNULL(qt.其他业绩产成品本年签约金额_物业公司车位代销, 0)  AS 本年产成品签约金额 ,
                 ISNULL(s.本年产成品签约套数全口径, 0) AS 本年产成品签约套数 ,
                 ISNULL(qt.其他业绩产成品本年签约金额, 0) AS 其他业绩产成品本年签约金额 ,
                 ISNULL(qt.其他业绩产成品本年签约套数, 0) AS 其他业绩产成品本年签约套数 ,
@@ -2225,49 +2257,49 @@ AS
 				ISNULL(s.本周签约金额全口径,0) AS 本周签约金额 ,
 				ISNULL(rs.本月认购面积,0) + ISNULL(rg.本月认购面积,0) + ISNULL(qt.其他业绩本月认购面积,0) AS 本月认购面积 ,
 				ISNULL(s.本月签约面积全口径, 0) AS 本月签约面积 ,
-				ISNULL(qt.其他业绩本月认购面积,0) AS 其他业绩本月认购面积 ,
-				ISNULL(qt.其他业绩本月签约面积,0) AS 其他业绩本月签约面积 ,
+                ISNULL(qt.其他业绩本月认购面积,0) + ISNULL(qt.其他业绩本月认购面积_物业公司车位代销,0) AS 其他业绩本月认购面积 ,
+                ISNULL(qt.其他业绩本月签约面积,0) + ISNULL(qt.其他业绩本月签约面积_物业公司车位代销,0) AS 其他业绩本月签约面积 ,
 				ISNULL(rs.本月产成品认购面积, 0) + ISNULL(rg.本月产成品认购面积, 0) + ISNULL(qt.其他业绩产成品本月认购面积, 0) AS 本月产成品认购面积 ,
 				ISNULL(s.本月产成品签约面积全口径,0)  AS 本月产成品签约面积 ,
-				ISNULL(qt.其他业绩产成品本月签约面积,0)  AS 其他业绩产成品本月签约面积 ,
+                ISNULL(qt.其他业绩产成品本月签约面积_物业公司车位代销,0)  AS 其他业绩产成品本月签约面积 ,
 				ISNULL(rs.累计已认购未签约面积,0) AS 已认购未签约签约面积 ,
 				ISNULL(rs.本年认购面积, 0) + ISNULL(rg.本年认购面积, 0) + ISNULL(qt.其他业绩本年认购面积, 0) AS 本年认购面积 ,
 				ISNULL(本年签约面积全口径, 0) AS 本年签约面积 ,
-				ISNULL(qt.其他业绩本年认购套数,0) AS 其他业绩本年认购套数 ,
-				ISNULL(qt.其他业绩本日认购面积,0) AS 其他业绩本年认购面积 ,
-				ISNULL(qt.其他业绩本日认购金额,0) AS 其他业绩本年认购金额 ,
+                ISNULL(qt.其他业绩本年认购套数,0) + ISNULL(qt.其他业绩本年认购套数_物业公司车位代销,0) AS 其他业绩本年认购套数 ,
+                ISNULL(qt.其他业绩本年认购面积,0) + ISNULL(qt.其他业绩本年认购面积_物业公司车位代销,0) AS 其他业绩本年认购面积 ,
+                ISNULL(qt.其他业绩本年认购金额,0)  + ISNULL(qt.其他业绩本年认购金额_物业公司车位代销,0)  - isnull(rw.非项目本年实际认购金额,0) AS 其他业绩本年认购金额 ,
 
-				ISNULL(qt.其他业绩本年签约面积,0) AS 其他业绩本年签约面积 ,
+                ISNULL(qt.其他业绩本年签约面积,0) + ISNULL(qt.其他业绩本年签约面积_物业公司车位代销,0) AS 其他业绩本年签约面积 ,
 				ISNULL(rs.本年产成品认购面积, 0) + ISNULL(rg.本年产成品认购面积, 0) + ISNULL(qt.其他业绩产成品本年认购面积, 0) AS 本年产成品认购面积 ,
 				ISNULL(s.本年产成品签约面积全口径,0) AS 本年产成品签约面积 ,
-				ISNULL(qt.其他业绩产成品本年签约面积,0 ) AS 其他业绩产成品本年签约面积,
+                ISNULL(qt.其他业绩产成品本年签约面积_物业公司车位代销,0 ) AS 其他业绩产成品本年签约面积,
                 @wideTableDateText  as 宽表最后清洗日期,
                 --大户型
                 ISNULL(rs.本日大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本日认购金额, 0) as 本日大户型认购金额,
                 ISNULL(rs.本日大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本日认购面积, 0)  as 本日大户型认购面积,
                 ISNULL(rs.本日大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本日认购套数, 0)  as 本日大户型认购套数,
-                ISNULL(dhx.本日大户型签约金额全口径, 0)   as 本日大户型签约金额,
+                ISNULL(dhx.本日大户型签约金额全口径, 0) - ISNULL(qt.其他业绩大户型本日签约金额_物业公司车位代销,0)    as 本日大户型签约金额,
                 ISNULL(dhx.本日大户型签约面积全口径, 0)  as 本日大户型签约面积,
                 ISNULL(dhx.本日大户型签约套数全口径, 0)  as 本日大户型签约套数,
 
                 ISNULL(rs.本周大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本周认购金额, 0) as 本周大户型认购金额,
                 ISNULL(rs.本周大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本周认购面积, 0) as 本周大户型认购面积,
                 ISNULL(rs.本周大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本周认购套数, 0) as 本周大户型认购套数,
-                ISNULL(dhx.本周大户型签约金额全口径, 0) as 本周大户型签约金额,
+                ISNULL(dhx.本周大户型签约金额全口径, 0)- ISNULL(qt.其他业绩大户型本周签约金额_物业公司车位代销, 0)   as 本周大户型签约金额,
                 ISNULL(dhx.本周大户型签约面积全口径, 0) as 本周大户型签约面积,
                 ISNULL(dhx.本周大户型签约套数全口径, 0) as 本周大户型签约套数,
 
                 ISNULL(rs.本月大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本月认购金额, 0) as 本月大户型认购金额,
                 ISNULL(rs.本月大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本月认购面积, 0) as 本月大户型认购面积,
                 ISNULL(rs.本月大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本月认购套数, 0) as 本月大户型认购套数,
-                ISNULL(dhx.本月大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本月签约金额,0) as 本月大户型签约金额,
+                ISNULL(dhx.本月大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本月签约金额,0) - ISNULL(qt.其他业绩大户型本月签约金额_物业公司车位代销, 0)  as 本月大户型签约金额,
                 ISNULL(dhx.本月大户型签约面积全口径,0) + ISNULL(qt.其他业绩大户型本月签约面积,0) as 本月大户型签约面积,
                 ISNULL(dhx.本月大户型签约套数全口径,0) + ISNULL(qt.其他业绩大户型本月签约套数,0) as 本月大户型签约套数,
 
                 ISNULL(rs.本年大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本年认购金额, 0) as 本年大户型认购金额,
                 ISNULL(rs.本年大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本年认购面积, 0) as 本年大户型认购面积,
                 ISNULL(rs.本年大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本年认购套数, 0) as 本年大户型认购套数,
-                ISNULL(dhx.本年大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本年签约金额,0) as 本年大户型签约金额,
+                ISNULL(dhx.本年大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本年签约金额,0)- ISNULL(qt.其他业绩大户型本年签约金额_物业公司车位代销,0)  as 本年大户型签约金额,
                 ISNULL(dhx.本年大户型签约面积全口径,0) + ISNULL(qt.其他业绩大户型本年签约面积,0) as 本年大户型签约面积,
                 ISNULL(dhx.本年大户型签约套数全口径,0) + ISNULL(qt.其他业绩大户型本年签约套数,0) as 本年大户型签约套数,
 
@@ -2283,28 +2315,28 @@ AS
                 ISNULL(rs.本日联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本日认购金额, 0) as 本日联动房认购金额,
                 ISNULL(rs.本日联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本日认购面积, 0)  as 本日联动房认购面积,
                 ISNULL(rs.本日联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本日认购套数, 0)  as 本日联动房认购套数,
-                ISNULL(dhx.本日联动房签约金额全口径, 0)   as 本日联动房签约金额,
+                ISNULL(dhx.本日联动房签约金额全口径, 0) - ISNULL(qt.其他业绩联动房本日签约金额_物业公司车位代销,0)  as 本日联动房签约金额,
                 ISNULL(dhx.本日联动房签约面积全口径, 0)  as 本日联动房签约面积,
                 ISNULL(dhx.本日联动房签约套数全口径, 0)  as 本日联动房签约套数,
 
                 ISNULL(rs.本周联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本周认购金额, 0) as 本周联动房认购金额,
                 ISNULL(rs.本周联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本周认购面积, 0) as 本周联动房认购面积,
                 ISNULL(rs.本周联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本周认购套数, 0) as 本周联动房认购套数,
-                ISNULL(dhx.本周联动房签约金额全口径, 0) as 本周联动房签约金额,
+                ISNULL(dhx.本周联动房签约金额全口径, 0) - ISNULL(qt.其他业绩联动房本周签约金额_物业公司车位代销, 0) as 本周联动房签约金额,
                 ISNULL(dhx.本周联动房签约面积全口径, 0) as 本周联动房签约面积,
                 ISNULL(dhx.本周联动房签约套数全口径, 0) as 本周联动房签约套数,
 
                 ISNULL(rs.本月联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本月认购金额, 0) as 本月联动房认购金额,
                 ISNULL(rs.本月联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本月认购面积, 0) as 本月联动房认购面积,
                 ISNULL(rs.本月联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本月认购套数, 0) as 本月联动房认购套数,
-                ISNULL(dhx.本月联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本月签约金额,0) as 本月联动房签约金额,
+                ISNULL(dhx.本月联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本月签约金额,0) - ISNULL(qt.其他业绩联动房本月签约金额_物业公司车位代销,0) as 本月联动房签约金额,
                 ISNULL(dhx.本月联动房签约面积全口径,0) + ISNULL(qt.其他业绩联动房本月签约面积,0) as 本月联动房签约面积,
                 ISNULL(dhx.本月联动房签约套数全口径,0) + ISNULL(qt.其他业绩联动房本月签约套数,0) as 本月联动房签约套数,
 
                 ISNULL(rs.本年联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本年认购金额, 0) as 本年联动房认购金额,
                 ISNULL(rs.本年联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本年认购面积, 0) as 本年联动房认购面积,
                 ISNULL(rs.本年联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本年认购套数, 0) as 本年联动房认购套数,
-                ISNULL(dhx.本年联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本年签约金额,0) as 本年联动房签约金额,
+                ISNULL(dhx.本年联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本年签约金额,0)-ISNULL(qt.其他业绩联动房本年签约金额_物业公司车位代销,0)   as 本年联动房签约金额,
                 ISNULL(dhx.本年联动房签约面积全口径,0) + ISNULL(qt.其他业绩联动房本年签约面积,0) as 本年联动房签约面积,
                 ISNULL(dhx.本年联动房签约套数全口径,0) + ISNULL(qt.其他业绩联动房本年签约套数,0) as 本年联动房签约套数,
 
@@ -2336,7 +2368,7 @@ AS
                 ISNULL(rs.本周准产成品认购面积, 0) + ISNULL(rg.本周准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本周认购面积, 0) AS 本周准产成品认购面积 ,
                 ISNULL(rs.本周准产成品认购套数, 0) + ISNULL(rg.本周准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本周认购套数, 0) AS 本周准产成品认购套数 ,
 
-                ISNULL(rs.本月准产成品认购金额, 0) + ISNULL(rg.本月准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本月认购金额, 0) AS 本月准产成品认购金额 ,
+                ISNULL(rs.本月准产成品认购金额, 0) + ISNULL(rg.本月准产成品认购金额, 0) - ISNULL(rg.本月准产成品认购金额_物业车位代销, 0) + ISNULL(qt.其他业绩准产成品本月认购金额, 0) AS 本月准产成品认购金额 ,
                 ISNULL(rs.本月准产成品认购面积, 0) + ISNULL(rg.本月准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本月认购面积, 0) AS 本月准产成品认购面积 ,
                 ISNULL(rs.本月准产成品认购套数, 0) + ISNULL(rg.本月准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本月认购套数, 0) AS 本月准产成品认购套数 ,
 
@@ -2344,7 +2376,7 @@ AS
                 ISNULL(qt.其他业绩准产成品本月认购面积, 0) AS 其他业绩准产成品本月认购面积 ,
                 ISNULL(qt.其他业绩准产成品本月认购套数, 0) AS 其他业绩准产成品本月认购套数 ,
 
-                ISNULL(本月准产成品签约金额全口径, 0) AS 本月准产成品签约金额 ,
+                ISNULL(s.本月准产成品签约金额全口径, 0) - ISNULL(qt.其他业绩准产成品本月签约金额_物业公司车位代销, 0) AS 本月准产成品签约金额 ,
                 ISNULL(本月准产成品签约面积全口径, 0) AS 本月准产成品签约面积 ,
                 ISNULL(本月准产成品签约套数全口径, 0) AS 本月准产成品签约套数 ,
 
@@ -2360,7 +2392,7 @@ AS
                 ISNULL(rs.本年准产成品认购面积, 0) + ISNULL(rg.本年准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本年认购面积, 0) AS 本年准产成品认购面积 ,
                 ISNULL(rs.本年准产成品认购套数, 0) + ISNULL(rg.本年准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本年认购套数, 0) AS 本年准产成品认购套数 ,
 
-                ISNULL(s.本年准产成品签约金额全口径, 0) AS 本年准产成品签约金额 ,
+                ISNULL(s.本年准产成品签约金额全口径, 0) - ISNULL(qt.其他业绩准产成品本年签约金额_物业公司车位代销, 0) AS 本年准产成品签约金额 ,
                 ISNULL(s.本年准产成品签约面积全口径, 0) AS 本年准产成品签约面积 ,
                 ISNULL(s.本年准产成品签约套数全口径, 0) AS 本年准产成品签约套数 ,
                 ISNULL(qt.其他业绩准产成品本年签约金额, 0) AS 其他业绩准产成品本年签约金额 ,
@@ -2637,8 +2669,6 @@ AS
                 ISNULL(rw.准产成品年度任务, 0) AS 准产成品年度任务,
                 0 AS 大户型月度任务,
                 0 AS 大户型年度任务
-
-
         FROM    data_wide_dws_mdm_Project p
                 INNER JOIN #TopProduct pt ON pt.ParentProjGUID = p.ProjGUID
                 LEFT JOIN data_tb_hnyx_jdfxtb rw ON rw.projguid = p.ProjGUID AND   rw.业态 = pt.TopProductTypeName
@@ -2647,7 +2677,7 @@ AS
                 LEFT JOIN #szqtqy qt ON qt.projguid = p.projguid AND   pt.TopProductTypeName = qt.TopProductTypeName
         WHERE   Level = 2 AND   p.buguid = '70DD6DF4-47F7-46AF-B470-BC18EE57D8FF'
         UNION ALL
-        -- 区域层级增加 数字营销和其他非项目扣减
+     -- 区域层级增加 数字营销和其他非项目扣减
         SELECT  @DateText AS 数据清洗日期 ,
                 '组团' AS 层级 ,
                 p.BUGUID AS 公司GUID ,
@@ -2670,38 +2700,38 @@ AS
                 tb.项目负责人 ,
                 p.BeginDate AS 项目获取日期 ,
                 pt.存量增量 ,
-                -(ISNULL(sz.数字营销本日认购金额, 0) + ISNULL(qt.数字营销其他业绩本日认购金额, 0)) AS 本日认购金额 ,                                                      -- 全口径
-                -(ISNULL(sz.数字营销本日认购套数, 0) + ISNULL(qt.数字营销其他业绩本日认购套数, 0)) AS 本日认购套数 ,
-                -ISNULL(sz.数字营销本日签约金额, 0) AS 本日签约金额 ,
-                -ISNULL(sz.数字营销本日签约套数, 0) AS 本日签约套数 ,
-                -(ISNULL(sz.数字营销本周认购金额, 0) + ISNULL(qt.数字营销其他业绩本周认购金额, 0)) AS 本周认购金额 ,
-                -(ISNULL(sz.数字营销本周认购套数, 0) + ISNULL(qt.数字营销其他业绩本周认购套数, 0)) AS 本周认购套数 ,
+                ISNULL(qtNoSz.其他业绩本日认购金额, 0) + ISNULL(qtNoSz.其他业绩本日认购金额_物业公司车位代销, 0) -(ISNULL(sz.数字营销本日认购金额, 0) + ISNULL(qt.数字营销其他业绩本日认购金额, 0)) AS 本日认购金额 ,                                                      -- 全口径
+                ISNULL(qtNoSz.其他业绩本日认购套数, 0) + ISNULL(qtNoSz.其他业绩本日认购套数_物业公司车位代销, 0)-(ISNULL(sz.数字营销本日认购套数, 0) + ISNULL(qt.数字营销其他业绩本日认购套数, 0)) AS 本日认购套数 ,
+                ISNULL(qtNoSz.其他业绩本日签约金额,0) + ISNULL(qtNoSz.其他业绩本日签约金额_物业公司车位代销,0) -ISNULL(sz.数字营销本日签约金额, 0) AS 本日签约金额 ,
+                ISNULL(qtNoSz.其他业绩本日签约套数,0) + ISNULL(qtNoSz.其他业绩本日签约套数_物业公司车位代销,0) -ISNULL(sz.数字营销本日签约套数, 0) AS 本日签约套数 ,
+                ISNULL(qtNoSz.其他业绩本周认购金额, 0) + ISNULL(qtNoSz.其他业绩本周认购金额_物业公司车位代销, 0) -(ISNULL(sz.数字营销本周认购金额, 0) + ISNULL(qt.数字营销其他业绩本周认购金额, 0)) AS 本周认购金额 ,
+                ISNULL(qtNoSz.其他业绩本周认购套数, 0) + ISNULL(qtNoSz.其他业绩本周认购套数_物业公司车位代销, 0) -(ISNULL(sz.数字营销本周认购套数, 0) + ISNULL(qt.数字营销其他业绩本周认购套数, 0)) AS 本周认购套数 ,
                 -ISNULL(rw.数字营销月度任务, 0) AS 本月任务 ,
-                -(ISNULL(sz.数字营销本月认购金额, 0) + ISNULL(qt.数字营销其他业绩本月认购金额, 0)) - ISNULL(rw.非项目本月实际认购金额,0 ) AS 本月认购金额 ,
-                -(ISNULL(sz.数字营销本月认购套数, 0) + ISNULL(qt.数字营销其他业绩本月认购套数, 0)) AS 本月认购套数 ,
+                 ISNULL(qtNoSz.其他业绩本月认购金额, 0) + ISNULL(qtNoSz.其他业绩本月认购金额_物业公司车位代销, 0)  - isnull(rw.非项目本月实际认购金额,0) -(ISNULL(sz.数字营销本月认购金额, 0) + ISNULL(qt.数字营销其他业绩本月认购金额, 0))  AS 本月认购金额 ,
+                 ISNULL(qtNoSz.其他业绩本月认购套数, 0) + ISNULL(qtNoSz.其他业绩本月认购套数_物业公司车位代销, 0) -(ISNULL(sz.数字营销本月认购套数, 0) + ISNULL(qt.数字营销其他业绩本月认购套数, 0)) AS 本月认购套数 ,
 				-ISNULL(qt.数字营销其他业绩本月认购金额, 0)  AS 数字营销其他业绩本月认购金额,
 				-ISNULL(qt.数字营销其他业绩本月认购套数, 0) AS 数字营销其他业绩本月认购套数,
-                -CASE WHEN ISNULL(rw.数字营销月度任务, 0) = 0 THEN 0 ELSE (ISNULL(sz.数字营销本月认购金额, 0) + ISNULL(qt.数字营销其他业绩本月认购金额, 0)) / ISNULL(rw.数字营销月度任务, 0)END AS 本月认购完成率 ,
-                -ISNULL(sz.数字营销本月签约金额, 0) - ISNULL(rw.非项目本月实际签约金额,0 )  AS 本月签约金额 ,
-                -ISNULL(sz.数字营销本月签约套数, 0) AS 本月签约套数 ,
+                0 AS 本月认购完成率 ,
+                ISNULL(qtNoSz.其他业绩本月签约金额,0) + ISNULL(qtNoSz.其他业绩本月签约金额_物业公司车位代销,0) - ISNULL(rw.非项目本月实际签约金额,0)  -ISNULL(sz.数字营销本月签约金额, 0)  AS 本月签约金额 ,
+                ISNULL(qtNoSz.其他业绩本月签约套数,0) + ISNULL(qtNoSz.其他业绩本月签约套数_物业公司车位代销,0)  -ISNULL(sz.数字营销本月签约套数, 0) AS 本月签约套数 ,
                 -ISNULL(qt.数字营销其他业绩本月签约金额, 0) AS 其他业绩本月签约金额 ,                                                                               --以客户提供其他业绩认定的房间
                 -ISNULL(qt.数字营销其他业绩本月签约套数, 0) AS 其他业绩本月签约套数 ,
-                -CASE WHEN ISNULL(rw.数字营销月度任务, 0) = 0 THEN 0 ELSE ISNULL(数字营销本月签约金额, 0) / ISNULL(rw.数字营销月度任务, 0)END AS 本月签约完成率 ,
-                -CASE WHEN ISNULL(rw.数字营销月度任务, 0) = 0 THEN 0 ELSE (ISNULL(数字营销本月签约金额, 0) + ISNULL(qt.数字营销其他业绩本月签约金额, 0)) / ISNULL(rw.数字营销月度任务, 0)END AS 本月签约完成率_含其他业绩 ,
+                0 AS 本月签约完成率 ,
+                0 AS 本月签约完成率_含其他业绩 ,
                 -(ISNULL(rw.数字营销月度任务, 0)  - (ISNULL(sz.数字营销本月认购金额, 0) + ISNULL(qt.数字营销其他业绩本月认购金额, 0))) AS 本月认购金额缺口 , --本月任务*本月时间进度分摊比-本月认购金额
                 -(ISNULL(rw.数字营销月度任务, 0)  - ISNULL(数字营销本月签约金额, 0)) AS 本月签约金额缺口 ,
                 ISNULL(pt.本月时间分摊比, 0) AS 本月时间分摊比 ,
                 -ISNULL(sz.数字营销已认购未签约金额, 0) AS 已认购未签约金额 ,
                 -ISNULL(sz.数字营销已认购未签约套数, 0) AS 已认购未签约套数 ,
                 -ISNULL(rw.数字营销年度任务, 0) AS 本年任务 ,
-                -(ISNULL(sz.数字营销本年认购金额, 0) + ISNULL(qt.数字营销其他业绩本年认购金额, 0)) - ISNULL(rw.非项目本年实际认购金额,0 )  AS 本年认购金额 ,
-                -(ISNULL(sz.数字营销本年认购套数, 0) + ISNULL(qt.数字营销其他业绩本年认购套数, 0)) AS 本年认购套数 ,
-                -ISNULL(sz.数字营销本年签约金额, 0) - ISNULL(rw.非项目本年实际签约金额,0 ) AS 本年签约金额 ,
-                -ISNULL(sz.数字营销本年签约套数, 0) AS 本年签约套数 ,
+                ISNULL(qtNoSz.其他业绩本年认购金额, 0) + ISNULL(qtNoSz.其他业绩本年认购金额_物业公司车位代销, 0)  - isnull(rw.非项目本年实际认购金额,0) -(ISNULL(sz.数字营销本年认购金额, 0) + ISNULL(qt.数字营销其他业绩本年认购金额, 0))  AS 本年认购金额 ,
+                ISNULL(qtNoSz.其他业绩本年认购套数, 0) + ISNULL(qtNoSz.其他业绩本年认购套数_物业公司车位代销, 0) -(ISNULL(sz.数字营销本年认购套数, 0) + ISNULL(qt.数字营销其他业绩本年认购套数, 0)) AS 本年认购套数 ,
+                ISNULL(qtNoSz.其他业绩本年签约金额,0) + ISNULL(qtNoSz.其他业绩本年签约金额_物业公司车位代销,0) -ISNULL(rw.非项目本年实际签约金额,0)  -ISNULL(sz.数字营销本年签约金额, 0) AS 本年签约金额 ,
+                ISNULL(qtNoSz.其他业绩本年签约套数,0) + ISNULL(qtNoSz.其他业绩本年签约套数_物业公司车位代销,0)  -ISNULL(sz.数字营销本年签约套数, 0) AS 本年签约套数 ,
                 -ISNULL(qt.数字营销其他业绩本年签约金额, 0) AS 其他业绩本年签约金额 ,
                 -ISNULL(qt.数字营销其他业绩本年签约套数, 0) AS 其他业绩本年签约套数 ,
-                -CASE WHEN ISNULL(rw.数字营销年度任务, 0) = 0 THEN 0 ELSE ISNULL(sz.数字营销本年签约金额, 0) / ISNULL(rw.数字营销年度任务, 0)END AS 本年签约完成率 ,
-                -CASE WHEN ISNULL(rw.数字营销年度任务, 0) = 0 THEN 0 ELSE (ISNULL(sz.数字营销本年签约金额, 0) + ISNULL(qt.数字营销其他业绩本年签约金额, 0)) / ISNULL(rw.数字营销年度任务, 0)END AS 本年签约完成率_含其他业绩 ,
+                 0 AS 本年签约完成率 ,
+                 0 AS 本年签约完成率_含其他业绩 ,
                 -ISNULL(rw.数字营销年度任务, 0)  - (ISNULL(sz.数字营销本年认购金额, 0) + ISNULL(qt.数字营销其他业绩本年认购金额, 0)) AS 本年认购金额缺口 ,
                 -(ISNULL(rw.数字营销年度任务, 0) - ISNULL(sz.数字营销本年认购金额, 0)) AS 本年签约金额缺口 ,
                 ISNULL(pt.本年时间分摊比, 0) AS 本年时间分摊比 ,
@@ -2746,22 +2776,22 @@ AS
 				null  AS 非项目本年实际认购金额,
 				null  AS 非项目本月实际认购金额,
 				-- 20240604 chenjw 新增面积类字段
-				0 AS 本日认购面积 ,
-				0 AS 本日签约面积 ,
-				0 AS 本周认购面积 ,
-				-ISNULL(sz.数字营销本周签约套数,0) AS 本周签约套数 ,
-				0 AS 本周签约面积 ,
-				-ISNULL(sz.数字营销本周签约金额,0) AS 本周签约金额 ,
-				0 AS 本月认购面积 ,
-				0 AS 本月签约面积 ,
+				ISNULL(qtNoSz.其他业绩本日认购面积, 0) + ISNULL(qtNoSz.其他业绩本日认购面积_物业公司车位代销, 0) AS 本日认购面积 ,
+				ISNULL(qtNoSz.其他业绩本日签约面积,0) + ISNULL(qtNoSz.其他业绩本日签约面积_物业公司车位代销,0) AS 本日签约面积 ,
+				ISNULL(qtNoSz.其他业绩本周认购面积, 0) + ISNULL(qtNoSz.其他业绩本周认购面积_物业公司车位代销, 0)  AS 本周认购面积 ,
+				ISNULL(qtNoSz.其他业绩本周签约套数,0) + ISNULL(qtNoSz.其他业绩本周签约套数_物业公司车位代销,0) -ISNULL(sz.数字营销本周签约套数,0) AS 本周签约套数 ,
+				ISNULL(qtNoSz.其他业绩本周签约面积,0) + ISNULL(qtNoSz.其他业绩本周签约面积_物业公司车位代销,0) AS 本周签约面积 ,
+				ISNULL(qtNoSz.其他业绩本周签约金额,0) + ISNULL(qtNoSz.其他业绩本周签约金额_物业公司车位代销,0) -ISNULL(sz.数字营销本周签约金额,0) AS 本周签约金额 ,
+				ISNULL(qtNoSz.其他业绩本月认购面积, 0) + ISNULL(qtNoSz.其他业绩本月认购面积_物业公司车位代销, 0)  AS 本月认购面积 ,
+			        ISNULL(qtNoSz.其他业绩本月签约面积,0) + ISNULL(qtNoSz.其他业绩本月签约面积_物业公司车位代销,0) AS 本月签约面积 ,
 				0 AS 其他业绩本月认购面积 ,
 				0 AS 其他业绩本月签约面积 ,
 				0 AS 本月产成品认购面积 ,
 				0 AS 本月产成品签约面积 ,
 				0 AS 其他业绩产成品本月签约面积 ,
 				0 AS 已认购未签约签约面积 ,
-				0 AS 本年认购面积 ,
-				0 AS 本年签约面积 ,
+				ISNULL(qtNoSz.其他业绩本年认购面积, 0) + ISNULL(qtNoSz.其他业绩本年认购面积_物业公司车位代销, 0) AS 本年认购面积 ,
+				ISNULL(qtNoSz.其他业绩本年签约面积,0) + ISNULL(qtNoSz.其他业绩本年签约面积_物业公司车位代销,0) AS 本年签约面积 ,
 				0 AS 其他业绩本年认购套数 ,
 				0 AS 其他业绩本年认购面积 ,
 				0 AS 其他业绩本年认购金额 ,
@@ -2901,17 +2931,16 @@ AS
                 -ISNULL(rw.准产成品年度任务, 0) AS 准产成品年度任务,
                 0 AS 大户型月度任务,
                 0 AS 大户型年度任务
-
-
         FROM    data_wide_dws_mdm_Project p
                 INNER JOIN #TopProduct pt ON pt.ParentProjGUID = p.ProjGUID
                 LEFT JOIN data_tb_hnyx_jdfxtb rw ON rw.projguid = p.ProjGUID AND   rw.业态 = pt.TopProductTypeName
                 LEFT JOIN data_tb_hn_yxpq tb ON p.ProjGUID = tb.项目GUID
                 LEFT JOIN #szyx sz ON sz.ProjGUID = p.projguid AND pt.TopProductTypeName = sz.TopProductTypeName
                 LEFT JOIN #szqtqy qt ON qt.projguid = p.projguid AND   pt.TopProductTypeName = qt.TopProductTypeName
+                left join #qtqy qtNoSz on qtNoSz.projguid = p.projguid AND   pt.TopProductTypeName = qtNoSz.TopProductTypeName
         WHERE   Level = 2 AND   p.buguid = '70DD6DF4-47F7-46AF-B470-BC18EE57D8FF'
         UNION ALL
-        -- 组团层级-各区域名称
+       -- 组团层级-各区域名称
         SELECT  @DateText AS 数据清洗日期 ,
                 '组团' AS 层级 ,
                 p.BUGUID AS 公司GUID ,
@@ -2936,22 +2965,22 @@ AS
                 pt.存量增量 ,
                 ISNULL(rs.本日认购金额, 0) + ISNULL(rg.本日认购金额, 0) + ISNULL(qt.其他业绩本日认购金额, 0) AS 本日认购金额 ,                          -- 全口径
                 ISNULL(rs.本日认购套数, 0) + ISNULL(rg.本日认购套数, 0) + ISNULL(qt.其他业绩本日认购套数, 0) AS 本日认购套数 ,
-                ISNULL(s.本日签约金额全口径, 0) AS 本日签约金额 ,
+                ISNULL(s.本日签约金额全口径, 0) -isnull(qt.其他业绩本日签约金额_物业公司车位代销,0) AS 本日签约金额 ,
                 ISNULL(s.本日签约套数全口径, 0) AS 本日签约套数 ,
                 ISNULL(rs.本周认购金额, 0) + ISNULL(rg.本周认购金额, 0) + ISNULL(qt.其他业绩本周认购金额, 0) AS 本周认购金额 ,
                 ISNULL(rs.本周认购套数, 0) + ISNULL(rg.本周认购套数, 0) + ISNULL(qt.其他业绩本周认购套数, 0) AS 本周认购套数 ,
                 rw.月度签约任务 AS 本月任务 ,
                 ISNULL(rs.本月认购金额, 0) + ISNULL(rg.本月认购金额, 0) + ISNULL(qt.其他业绩本月认购金额, 0) + ISNULL(rw.非项目本月实际认购金额,0)  AS 本月认购金额 ,
                 ISNULL(rs.本月认购套数, 0) + ISNULL(rg.本月认购套数, 0) + ISNULL(qt.其他业绩本月认购套数, 0) AS 本月认购套数 ,
-				ISNULL(qt.其他业绩本月认购金额, 0) AS 其他业绩本月认购金额,
-				ISNULL(qt.其他业绩本月认购套数, 0) AS 其他业绩本月认购套数,
+				ISNULL(qt.其他业绩本月认购金额, 0) + ISNULL(qt.其他业绩本月认购金额_物业公司车位代销, 0)  - isnull(rw.非项目本月实际认购金额,0) AS 其他业绩本月认购金额, --非项目本月实际认购金额填报的是负数
+				ISNULL(qt.其他业绩本月认购套数, 0) + ISNULL(qt.其他业绩本月认购套数_物业公司车位代销, 0)  AS 其他业绩本月认购套数,
                 CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE (ISNULL(rs.本月认购金额, 0) + ISNULL(rg.本月认购金额, 0)+ ISNULL(qt.其他业绩本月认购金额,0) + ISNULL(rw.非项目本月实际认购金额,0)) / ISNULL(rw.月度签约任务, 0)END AS 本月认购完成率 ,
-                ISNULL(本月签约金额全口径, 0) + ISNULL(rw.非项目本月实际签约金额,0) AS 本月签约金额 ,
+                ISNULL(本月签约金额全口径, 0)  - isnull(qt.其他业绩本月签约金额_物业公司车位代销,0) + ISNULL(rw.非项目本月实际签约金额,0) AS 本月签约金额 ,
                 ISNULL(本月签约套数全口径, 0) AS 本月签约套数 ,
-                ISNULL(qt.其他业绩本月签约金额, 0) AS 其他业绩本月签约金额 ,                                                                    --以客户提供其他业绩认定的房间
-                ISNULL(qt.其他业绩本月签约套数, 0) AS 其他业绩本月签约套数 ,
-                CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE ( ISNULL(本月签约金额全口径, 0) +ISNULL(rw.非项目本月实际签约金额,0) ) / ISNULL(rw.月度签约任务, 0)END AS 本月签约完成率 ,
-                CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE (ISNULL(本月签约金额全口径, 0) + ISNULL(qt.其他业绩本月签约金额, 0) +  ISNULL(rw.非项目本月实际签约金额,0) ) / ISNULL(rw.月度签约任务, 0)END AS 本月签约完成率_含其他业绩 ,
+                ISNULL(qt.其他业绩本月签约金额, 0) + ISNULL(qt.其他业绩本月签约金额_物业公司车位代销, 0) - ISNULL(rw.非项目本月实际签约金额,0)  AS 其他业绩本月签约金额 ,                                                                    --以客户提供其他业绩认定的房间
+                ISNULL(qt.其他业绩本月签约套数, 0) + ISNULL(qt.其他业绩本月签约套数_物业公司车位代销, 0) AS 其他业绩本月签约套数 ,
+                CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE ( ISNULL(本月签约金额全口径, 0) - isnull(qt.其他业绩本月签约金额_物业公司车位代销,0) +ISNULL(rw.非项目本月实际签约金额,0) ) / ISNULL(rw.月度签约任务, 0) END AS 本月签约完成率 ,
+                CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE (ISNULL(本月签约金额全口径, 0) - isnull(qt.其他业绩本月签约金额_物业公司车位代销,0) + ISNULL(qt.其他业绩本月签约金额, 0) +  ISNULL(rw.非项目本月实际签约金额,0) ) / ISNULL(rw.月度签约任务, 0)END AS 本月签约完成率_含其他业绩 ,
                 ISNULL(rw.月度签约任务, 0)  - (ISNULL(rs.本月认购金额, 0) + ISNULL(rg.本月认购金额, 0) + ISNULL(rw.非项目本月实际认购金额,0) )  AS 本月认购金额缺口 ,  --本月任务*本月时间进度分摊比-本月认购金额
                 ISNULL(rw.月度签约任务, 0)  - (ISNULL(本月签约金额全口径, 0) + ISNULL(rw.非项目本月实际签约金额,0) ) AS 本月签约金额缺口 ,
                 ISNULL(pt.本月时间分摊比, 0) AS 本月时间分摊比 ,
@@ -2960,14 +2989,15 @@ AS
                 ISNULL(rw.年度签约任务, 0) AS 本年任务 ,
                 ISNULL(rs.本年认购金额, 0) + ISNULL(rg.本年认购金额, 0) + ISNULL(qt.其他业绩本年认购金额, 0) + ISNULL(rw.非项目本年实际认购金额,0) AS 本年认购金额 ,
                 ISNULL(rs.本年认购套数, 0) + ISNULL(rg.本年认购套数, 0) + ISNULL(qt.其他业绩本年认购套数, 0) AS 本年认购套数 ,
-                ISNULL(s.本年签约金额全口径, 0) + ISNULL(rw.非项目本年实际签约金额,0) AS 本年签约金额 ,
+                ISNULL(s.本年签约金额全口径, 0)  - isnull(qt.其他业绩本年签约金额_物业公司车位代销,0) + ISNULL(rw.非项目本年实际签约金额,0) AS 本年签约金额 ,
                 ISNULL(s.本年签约套数全口径, 0) AS 本年签约套数 ,
-                ISNULL(qt.其他业绩本年签约金额, 0) AS 其他业绩本年签约金额 ,
-                ISNULL(qt.其他业绩本年签约套数, 0) AS 其他业绩本年签约套数 ,
+
+                ISNULL(qt.其他业绩本年签约金额,0) + ISNULL(qt.其他业绩本年签约金额_物业公司车位代销,0) -ISNULL(rw.非项目本年实际签约金额,0) AS 其他业绩本年签约金额 ,
+                ISNULL(qt.其他业绩本年签约套数,0) + ISNULL(qt.其他业绩本年签约套数_物业公司车位代销,0)  AS 其他业绩本年签约套数 ,
                 CASE WHEN ISNULL(rw.年度签约任务, 0) = 0 THEN 0 ELSE ( ISNULL(s.本年签约金额全口径, 0) +ISNULL(rw.非项目本年实际签约金额,0) )  / ISNULL(rw.年度签约任务, 0)END AS 本年签约完成率 ,
                 CASE WHEN ISNULL(rw.年度签约任务, 0) = 0 THEN 0 ELSE ( ISNULL(s.本年签约金额全口径, 0) + ISNULL(qt.其他业绩本年签约金额, 0) +ISNULL(rw.非项目本年实际签约金额,0) ) / ISNULL(rw.年度签约任务, 0)END AS 本年签约完成率_含其他业绩 ,
-                ISNULL(rw.年度签约任务, 0)  - (ISNULL(rs.本年认购金额, 0) + ISNULL(rg.本年认购金额, 0) +ISNULL(rw.非项目本年实际认购金额,0)) AS 本年认购金额缺口 ,
-                ISNULL(rw.年度签约任务, 0)  - (ISNULL(本年签约金额全口径, 0) +ISNULL(rw.非项目本年实际签约金额,0) ) AS 本年签约金额缺口 ,
+                ISNULL(rw.年度签约任务, 0)  - (ISNULL(rs.本年认购金额, 0) + ISNULL(rg.本年认购金额, 0)  + ISNULL(qt.其他业绩本年认购金额, 0)  + ISNULL(rw.非项目本年实际认购金额,0)) AS 本年认购金额缺口 ,
+                ISNULL(rw.年度签约任务, 0)  - (ISNULL(s.本年签约金额全口径, 0) + ISNULL(rw.非项目本年实际签约金额,0)) AS 本年签约金额缺口 ,
                 ISNULL(pt.本年时间分摊比, 0) AS 本年时间分摊比 ,
                 ISNULL(rw.本年存量任务, 0) AS 本年存量任务 ,
                 ISNULL(rw.本年增量任务, 0) AS 本年增量任务 ,
@@ -2988,7 +3018,7 @@ AS
 				ISNULL(qt.其他业绩产成品本月认购金额, 0) AS 其他业绩产成品本月认购金额,
 				ISNULL(qt.其他业绩产成品本月认购套数, 0) AS 其他业绩产成品本月认购套数,
                 CASE WHEN ISNULL(rw.产成品月度任务, 0) = 0 THEN 0 ELSE (ISNULL(rs.本月产成品认购金额, 0) + ISNULL(rg.本月产成品认购金额, 0)+ ISNULL(qt.其他业绩产成品本月认购金额,0)) / ISNULL(rw.产成品月度任务, 0)END AS 本月产成品认购完成率 ,
-                ISNULL(本月产成品签约金额全口径, 0) AS 本月产成品签约金额 ,
+                ISNULL(本月产成品签约金额全口径, 0) - ISNULL(qt.其他业绩产成品本月签约金额_物业公司车位代销,0)  AS 本月产成品签约金额 ,
                 ISNULL(本月产成品签约套数全口径, 0) AS 本月产成品签约套数,
 				ISNULL(qt.其他业绩产成品本月签约金额, 0) AS 其他业绩产成品本月签约金额 ,                                                                   
                 ISNULL(qt.其他业绩产成品本月签约套数, 0) AS 其他业绩产成品本月签约套数 ,
@@ -3000,7 +3030,7 @@ AS
 				ISNULL(rw.产成品年度任务,0)  AS  本年产成品任务,
                 ISNULL(rs.本年产成品认购金额, 0) + ISNULL(rg.本年产成品认购金额, 0) + ISNULL(qt.其他业绩产成品本年认购金额, 0) AS 本年产成品认购金额 ,
                 ISNULL(rs.本年产成品认购套数, 0) + ISNULL(rg.本年产成品认购套数, 0) + ISNULL(qt.其他业绩产成品本年认购套数, 0) AS 本年产成品认购套数 ,
-                ISNULL(s.本年产成品签约金额全口径, 0) AS 本年产成品签约金额 ,
+                ISNULL(s.本年产成品签约金额全口径, 0) -ISNULL(qt.其他业绩产成品本年签约金额_物业公司车位代销, 0)  AS 本年产成品签约金额 ,
                 ISNULL(s.本年产成品签约套数全口径, 0) AS 本年产成品签约套数 ,
                 ISNULL(qt.其他业绩产成品本年签约金额, 0) AS 其他业绩产成品本年签约金额 ,
                 ISNULL(qt.其他业绩产成品本年签约套数, 0) AS 其他业绩产成品本年签约套数 ,
@@ -3011,56 +3041,59 @@ AS
 				ISNULL(rw.非项目本年实际认购金额,0 ) AS 非项目本年实际认购金额,
 				ISNULL(rw.非项目本月实际认购金额,0 ) AS 非项目本月实际认购金额,
 			    -- 20240604 chenjw 新增面积类字段
-				0 AS 本日认购面积 ,
-				0 AS 本日签约面积 ,
-				0 AS 本周认购面积 ,
-				0 AS 本周签约套数 ,
-				0 AS 本周签约面积 ,
-				0 AS 本周签约金额 ,
-				0 AS 本月认购面积 ,
-				0 AS 本月签约面积 ,
-				0 AS 其他业绩本月认购面积 ,
-				0 AS 其他业绩本月签约面积 ,
-				0 AS 本月产成品认购面积 ,
-				0 AS 本月产成品签约面积 ,
-				0 AS 其他业绩产成品本月签约面积 ,
-				0 AS 已认购未签约签约面积 ,
-				0 AS 本年认购面积 ,
-				0 AS 本年签约面积 ,
-				0 AS 其他业绩本年认购套数 ,
-				0 AS 其他业绩本年认购面积 ,
-				0 AS 其他业绩本年认购金额 ,
-				0 AS 其他业绩本年签约面积 ,
-				0 AS 本年产成品认购面积 ,
-				0 AS 本年产成品签约面积 ,
-				0 AS 其他业绩产成品本年签约面积,
+                ISNULL(rs.本日认购面积, 0) + ISNULL(rg.本日认购面积, 0) + ISNULL(qt.其他业绩本日认购金额, 0)  AS 本日认购面积 ,
+                ISNULL(s.本日签约面积全口径,0)   AS 本日签约面积 ,
+                    ISNULL(rs.本周认购面积,0) + ISNULL(rg.本周认购面积,0) + ISNULL(qt.其他业绩本周认购面积,0) AS 本周认购面积 ,
+                ISNULL(s.本周签约套数全口径,0) AS 本周签约套数 ,
+                ISNULL(s.本周签约面积全口径,0) AS 本周签约面积 ,
+                ISNULL(s.本周签约金额全口径,0) AS 本周签约金额 ,
+                ISNULL(rs.本月认购面积,0) + ISNULL(rg.本月认购面积,0) + ISNULL(qt.其他业绩本月认购面积,0) AS 本月认购面积 ,
+                ISNULL(s.本月签约面积全口径, 0) AS 本月签约面积 ,
+                ISNULL(qt.其他业绩本月认购面积,0) + ISNULL(qt.其他业绩本月认购面积_物业公司车位代销,0) AS 其他业绩本月认购面积 ,
+                ISNULL(qt.其他业绩本月签约面积,0) + ISNULL(qt.其他业绩本月签约面积_物业公司车位代销,0) AS 其他业绩本月签约面积 ,
+                ISNULL(rs.本月产成品认购面积, 0) + ISNULL(rg.本月产成品认购面积, 0) + ISNULL(qt.其他业绩产成品本月认购面积, 0) AS 本月产成品认购面积 ,
+                ISNULL(s.本月产成品签约面积全口径,0)  AS 本月产成品签约面积 ,
+
+                ISNULL(qt.其他业绩产成品本月签约面积_物业公司车位代销,0)  AS 其他业绩产成品本月签约面积 ,
+
+                ISNULL(rs.累计已认购未签约面积,0) AS 已认购未签约签约面积 ,
+                ISNULL(rs.本年认购面积, 0) + ISNULL(rg.本年认购面积, 0) + ISNULL(qt.其他业绩本年认购面积, 0) AS 本年认购面积 ,
+                ISNULL(本年签约面积全口径, 0) AS 本年签约面积 ,
+                ISNULL(qt.其他业绩本年认购套数,0) + ISNULL(qt.其他业绩本年认购套数_物业公司车位代销,0) AS 其他业绩本年认购套数 ,
+                ISNULL(qt.其他业绩本年认购面积,0) + ISNULL(qt.其他业绩本年认购面积_物业公司车位代销,0) AS 其他业绩本年认购面积 ,
+                ISNULL(qt.其他业绩本年认购金额,0)  + ISNULL(qt.其他业绩本年认购金额_物业公司车位代销,0)  - isnull(rw.非项目本年实际认购金额,0) AS 其他业绩本年认购金额 ,
+
+                ISNULL(qt.其他业绩本年签约面积,0) + ISNULL(qt.其他业绩本年签约面积_物业公司车位代销,0) AS 其他业绩本年签约面积 ,
+                ISNULL(rs.本年产成品认购面积, 0) + ISNULL(rg.本年产成品认购面积, 0) + ISNULL(qt.其他业绩产成品本年认购面积, 0) AS 本年产成品认购面积 ,
+                ISNULL(s.本年产成品签约面积全口径,0) AS 本年产成品签约面积 ,
+                ISNULL(qt.其他业绩产成品本年签约面积_物业公司车位代销,0 ) AS 其他业绩产成品本年签约面积,
                 @wideTableDateText  as 宽表最后清洗日期,
                 --大户型
                 ISNULL(rs.本日大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本日认购金额, 0) as 本日大户型认购金额,
                 ISNULL(rs.本日大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本日认购面积, 0)  as 本日大户型认购面积,
                 ISNULL(rs.本日大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本日认购套数, 0)  as 本日大户型认购套数,
-                ISNULL(dhx.本日大户型签约金额全口径, 0)   as 本日大户型签约金额,
+                ISNULL(dhx.本日大户型签约金额全口径, 0) - ISNULL(qt.其他业绩大户型本日签约金额_物业公司车位代销,0)    as 本日大户型签约金额,
                 ISNULL(dhx.本日大户型签约面积全口径, 0)  as 本日大户型签约面积,
                 ISNULL(dhx.本日大户型签约套数全口径, 0)  as 本日大户型签约套数,
 
                 ISNULL(rs.本周大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本周认购金额, 0) as 本周大户型认购金额,
                 ISNULL(rs.本周大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本周认购面积, 0) as 本周大户型认购面积,
                 ISNULL(rs.本周大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本周认购套数, 0) as 本周大户型认购套数,
-                ISNULL(dhx.本周大户型签约金额全口径, 0) as 本周大户型签约金额,
+                ISNULL(dhx.本周大户型签约金额全口径, 0)- ISNULL(qt.其他业绩大户型本周签约金额_物业公司车位代销, 0)   as 本周大户型签约金额,
                 ISNULL(dhx.本周大户型签约面积全口径, 0) as 本周大户型签约面积,
                 ISNULL(dhx.本周大户型签约套数全口径, 0) as 本周大户型签约套数,
 
                 ISNULL(rs.本月大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本月认购金额, 0) as 本月大户型认购金额,
                 ISNULL(rs.本月大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本月认购面积, 0) as 本月大户型认购面积,
                 ISNULL(rs.本月大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本月认购套数, 0) as 本月大户型认购套数,
-                ISNULL(dhx.本月大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本月签约金额,0) as 本月大户型签约金额,
+                ISNULL(dhx.本月大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本月签约金额,0) - ISNULL(qt.其他业绩大户型本月签约金额_物业公司车位代销, 0)  as 本月大户型签约金额,
                 ISNULL(dhx.本月大户型签约面积全口径,0) + ISNULL(qt.其他业绩大户型本月签约面积,0) as 本月大户型签约面积,
                 ISNULL(dhx.本月大户型签约套数全口径,0) + ISNULL(qt.其他业绩大户型本月签约套数,0) as 本月大户型签约套数,
 
                 ISNULL(rs.本年大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本年认购金额, 0) as 本年大户型认购金额,
                 ISNULL(rs.本年大户型认购面积, 0) + ISNULL(qt.其他业绩大户型本年认购面积, 0) as 本年大户型认购面积,
                 ISNULL(rs.本年大户型认购套数, 0) + ISNULL(qt.其他业绩大户型本年认购套数, 0) as 本年大户型认购套数,
-                ISNULL(dhx.本年大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本年签约金额,0) as 本年大户型签约金额,
+                ISNULL(dhx.本年大户型签约金额全口径,0) + ISNULL(qt.其他业绩大户型本年签约金额,0)- ISNULL(qt.其他业绩大户型本年签约金额_物业公司车位代销,0)  as 本年大户型签约金额,
                 ISNULL(dhx.本年大户型签约面积全口径,0) + ISNULL(qt.其他业绩大户型本年签约面积,0) as 本年大户型签约面积,
                 ISNULL(dhx.本年大户型签约套数全口径,0) + ISNULL(qt.其他业绩大户型本年签约套数,0) as 本年大户型签约套数,
 
@@ -3076,28 +3109,28 @@ AS
                 ISNULL(rs.本日联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本日认购金额, 0) as 本日联动房认购金额,
                 ISNULL(rs.本日联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本日认购面积, 0)  as 本日联动房认购面积,
                 ISNULL(rs.本日联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本日认购套数, 0)  as 本日联动房认购套数,
-                ISNULL(dhx.本日联动房签约金额全口径, 0)   as 本日联动房签约金额,
+                ISNULL(dhx.本日联动房签约金额全口径, 0) - ISNULL(qt.其他业绩联动房本日签约金额_物业公司车位代销,0)  as 本日联动房签约金额,
                 ISNULL(dhx.本日联动房签约面积全口径, 0)  as 本日联动房签约面积,
                 ISNULL(dhx.本日联动房签约套数全口径, 0)  as 本日联动房签约套数,
 
                 ISNULL(rs.本周联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本周认购金额, 0) as 本周联动房认购金额,
                 ISNULL(rs.本周联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本周认购面积, 0) as 本周联动房认购面积,
                 ISNULL(rs.本周联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本周认购套数, 0) as 本周联动房认购套数,
-                ISNULL(dhx.本周联动房签约金额全口径, 0) as 本周联动房签约金额,
+                ISNULL(dhx.本周联动房签约金额全口径, 0) - ISNULL(qt.其他业绩联动房本周签约金额_物业公司车位代销, 0) as 本周联动房签约金额,
                 ISNULL(dhx.本周联动房签约面积全口径, 0) as 本周联动房签约面积,
                 ISNULL(dhx.本周联动房签约套数全口径, 0) as 本周联动房签约套数,
 
                 ISNULL(rs.本月联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本月认购金额, 0) as 本月联动房认购金额,
                 ISNULL(rs.本月联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本月认购面积, 0) as 本月联动房认购面积,
                 ISNULL(rs.本月联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本月认购套数, 0) as 本月联动房认购套数,
-                ISNULL(dhx.本月联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本月签约金额,0) as 本月联动房签约金额,
+                ISNULL(dhx.本月联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本月签约金额,0) - ISNULL(qt.其他业绩联动房本月签约金额_物业公司车位代销,0) as 本月联动房签约金额,
                 ISNULL(dhx.本月联动房签约面积全口径,0) + ISNULL(qt.其他业绩联动房本月签约面积,0) as 本月联动房签约面积,
                 ISNULL(dhx.本月联动房签约套数全口径,0) + ISNULL(qt.其他业绩联动房本月签约套数,0) as 本月联动房签约套数,
 
                 ISNULL(rs.本年联动房认购金额, 0) + ISNULL(qt.其他业绩联动房本年认购金额, 0) as 本年联动房认购金额,
                 ISNULL(rs.本年联动房认购面积, 0) + ISNULL(qt.其他业绩联动房本年认购面积, 0) as 本年联动房认购面积,
                 ISNULL(rs.本年联动房认购套数, 0) + ISNULL(qt.其他业绩联动房本年认购套数, 0) as 本年联动房认购套数,
-                ISNULL(dhx.本年联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本年签约金额,0) as 本年联动房签约金额,
+                ISNULL(dhx.本年联动房签约金额全口径,0) + ISNULL(qt.其他业绩联动房本年签约金额,0)-ISNULL(qt.其他业绩联动房本年签约金额_物业公司车位代销,0)   as 本年联动房签约金额,
                 ISNULL(dhx.本年联动房签约面积全口径,0) + ISNULL(qt.其他业绩联动房本年签约面积,0) as 本年联动房签约面积,
                 ISNULL(dhx.本年联动房签约套数全口径,0) + ISNULL(qt.其他业绩联动房本年签约套数,0) as 本年联动房签约套数,
 
@@ -3129,7 +3162,7 @@ AS
                 ISNULL(rs.本周准产成品认购面积, 0) + ISNULL(rg.本周准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本周认购面积, 0) AS 本周准产成品认购面积 ,
                 ISNULL(rs.本周准产成品认购套数, 0) + ISNULL(rg.本周准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本周认购套数, 0) AS 本周准产成品认购套数 ,
 
-                ISNULL(rs.本月准产成品认购金额, 0) + ISNULL(rg.本月准产成品认购金额, 0) + ISNULL(qt.其他业绩准产成品本月认购金额, 0) AS 本月准产成品认购金额 ,
+                ISNULL(rs.本月准产成品认购金额, 0) + ISNULL(rg.本月准产成品认购金额, 0) - ISNULL(rg.本月准产成品认购金额_物业车位代销, 0) + ISNULL(qt.其他业绩准产成品本月认购金额, 0) AS 本月准产成品认购金额 ,
                 ISNULL(rs.本月准产成品认购面积, 0) + ISNULL(rg.本月准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本月认购面积, 0) AS 本月准产成品认购面积 ,
                 ISNULL(rs.本月准产成品认购套数, 0) + ISNULL(rg.本月准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本月认购套数, 0) AS 本月准产成品认购套数 ,
 
@@ -3137,7 +3170,7 @@ AS
                 ISNULL(qt.其他业绩准产成品本月认购面积, 0) AS 其他业绩准产成品本月认购面积 ,
                 ISNULL(qt.其他业绩准产成品本月认购套数, 0) AS 其他业绩准产成品本月认购套数 ,
 
-                ISNULL(本月准产成品签约金额全口径, 0) AS 本月准产成品签约金额 ,
+                ISNULL(s.本月准产成品签约金额全口径, 0) - ISNULL(qt.其他业绩准产成品本月签约金额_物业公司车位代销, 0) AS 本月准产成品签约金额 ,
                 ISNULL(本月准产成品签约面积全口径, 0) AS 本月准产成品签约面积 ,
                 ISNULL(本月准产成品签约套数全口径, 0) AS 本月准产成品签约套数 ,
 
@@ -3153,7 +3186,7 @@ AS
                 ISNULL(rs.本年准产成品认购面积, 0) + ISNULL(rg.本年准产成品认购面积, 0) + ISNULL(qt.其他业绩准产成品本年认购面积, 0) AS 本年准产成品认购面积 ,
                 ISNULL(rs.本年准产成品认购套数, 0) + ISNULL(rg.本年准产成品认购套数, 0) + ISNULL(qt.其他业绩准产成品本年认购套数, 0) AS 本年准产成品认购套数 ,
 
-                ISNULL(s.本年准产成品签约金额全口径, 0) AS 本年准产成品签约金额 ,
+                ISNULL(s.本年准产成品签约金额全口径, 0) - ISNULL(qt.其他业绩准产成品本年签约金额_物业公司车位代销, 0) AS 本年准产成品签约金额 ,
                 ISNULL(s.本年准产成品签约面积全口径, 0) AS 本年准产成品签约面积 ,
                 ISNULL(s.本年准产成品签约套数全口径, 0) AS 本年准产成品签约套数 ,
                 ISNULL(qt.其他业绩准产成品本年签约金额, 0) AS 其他业绩准产成品本年签约金额 ,
@@ -3470,13 +3503,13 @@ AS
                 rw.月度签约任务 AS 本月任务 ,
                 ISNULL(rs.本月认购金额, 0) + ISNULL(rg.本月认购金额, 0) + ISNULL(qt.其他业绩本月认购金额, 0) + ISNULL(rw.非项目本月实际认购金额,0)  AS 本月认购金额 ,
                 ISNULL(rs.本月认购套数, 0) + ISNULL(rg.本月认购套数, 0) + ISNULL(qt.其他业绩本月认购套数, 0) AS 本月认购套数 ,
-				ISNULL(qt.其他业绩本月认购金额, 0) AS 其他业绩本月认购金额,
-				ISNULL(qt.其他业绩本月认购套数, 0) AS 其他业绩本月认购套数,
+				ISNULL(qt.其他业绩本月认购金额, 0) + ISNULL(qt.其他业绩本月认购金额_物业公司车位代销, 0)  - isnull(rw.非项目本月实际认购金额,0) AS 其他业绩本月认购金额, --非项目本月实际认购金额填报的是负数
+				ISNULL(qt.其他业绩本月认购套数, 0) + ISNULL(qt.其他业绩本月认购套数_物业公司车位代销, 0)  AS 其他业绩本月认购套数,
                 CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE (ISNULL(rs.本月认购金额, 0) + ISNULL(rg.本月认购金额, 0)+ ISNULL(qt.其他业绩本月认购金额,0) + ISNULL(rw.非项目本月实际认购金额,0)) / ISNULL(rw.月度签约任务, 0)END AS 本月认购完成率 ,
                 ISNULL(本月签约金额全口径, 0)  - isnull(qt.其他业绩本月签约金额_物业公司车位代销,0) + ISNULL(rw.非项目本月实际签约金额,0) AS 本月签约金额 ,
                 ISNULL(本月签约套数全口径, 0) AS 本月签约套数 ,
-                ISNULL(qt.其他业绩本月签约金额, 0) AS 其他业绩本月签约金额 ,                                                                    --以客户提供其他业绩认定的房间
-                ISNULL(qt.其他业绩本月签约套数, 0) AS 其他业绩本月签约套数 ,
+                ISNULL(qt.其他业绩本月签约金额, 0) + ISNULL(qt.其他业绩本月签约金额_物业公司车位代销, 0) - ISNULL(rw.非项目本月实际签约金额,0)  AS 其他业绩本月签约金额 ,                                                                    --以客户提供其他业绩认定的房间
+                ISNULL(qt.其他业绩本月签约套数, 0) + ISNULL(qt.其他业绩本月签约套数_物业公司车位代销, 0) AS 其他业绩本月签约套数 ,
                 CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE ( ISNULL(本月签约金额全口径, 0) - isnull(qt.其他业绩本月签约金额_物业公司车位代销,0) +ISNULL(rw.非项目本月实际签约金额,0) ) / ISNULL(rw.月度签约任务, 0) END AS 本月签约完成率 ,
                 CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE (ISNULL(本月签约金额全口径, 0) - isnull(qt.其他业绩本月签约金额_物业公司车位代销,0) + ISNULL(qt.其他业绩本月签约金额, 0) +  ISNULL(rw.非项目本月实际签约金额,0) ) / ISNULL(rw.月度签约任务, 0)END AS 本月签约完成率_含其他业绩 ,
                 ISNULL(rw.月度签约任务, 0)  - (ISNULL(rs.本月认购金额, 0) + ISNULL(rg.本月认购金额, 0) + ISNULL(rw.非项目本月实际认购金额,0) )  AS 本月认购金额缺口 ,  --本月任务*本月时间进度分摊比-本月认购金额
@@ -3489,8 +3522,10 @@ AS
                 ISNULL(rs.本年认购套数, 0) + ISNULL(rg.本年认购套数, 0) + ISNULL(qt.其他业绩本年认购套数, 0) AS 本年认购套数 ,
                 ISNULL(s.本年签约金额全口径, 0)  - isnull(qt.其他业绩本年签约金额_物业公司车位代销,0) + ISNULL(rw.非项目本年实际签约金额,0) AS 本年签约金额 ,
                 ISNULL(s.本年签约套数全口径, 0) AS 本年签约套数 ,
-                ISNULL(qt.其他业绩本年签约金额, 0) + ISNULL(qt.其他业绩本年签约金额_物业公司车位代销,0)  AS 其他业绩本年签约金额 ,
-                ISNULL(qt.其他业绩本年签约套数, 0) + ISNULL(qt.其他业绩本年签约套数_物业公司车位代销,0) AS 其他业绩本年签约套数 ,
+
+                ISNULL(qt.其他业绩本年签约金额,0) + ISNULL(qt.其他业绩本年签约金额_物业公司车位代销,0) -ISNULL(rw.非项目本年实际签约金额,0) AS 其他业绩本年签约金额 ,
+                ISNULL(qt.其他业绩本年签约套数,0) + ISNULL(qt.其他业绩本年签约套数_物业公司车位代销,0)  AS 其他业绩本年签约套数 ,
+                
                 CASE WHEN ISNULL(rw.年度签约任务, 0) = 0 THEN 0 ELSE ( ISNULL(s.本年签约金额全口径, 0) +ISNULL(rw.非项目本年实际签约金额,0) )  / ISNULL(rw.年度签约任务, 0)END AS 本年签约完成率 ,
                 CASE WHEN ISNULL(rw.年度签约任务, 0) = 0 THEN 0 ELSE ( ISNULL(s.本年签约金额全口径, 0) + ISNULL(qt.其他业绩本年签约金额, 0) +ISNULL(rw.非项目本年实际签约金额,0) ) / ISNULL(rw.年度签约任务, 0)END AS 本年签约完成率_含其他业绩 ,
                 ISNULL(rw.年度签约任务, 0)  - (ISNULL(rs.本年认购金额, 0) + ISNULL(rg.本年认购金额, 0)  + ISNULL(qt.其他业绩本年认购金额, 0)  + ISNULL(rw.非项目本年实际认购金额,0)) AS 本年认购金额缺口 ,
@@ -3512,13 +3547,16 @@ AS
                 rw.产成品月度任务 AS 本月产成品任务 ,
                 ISNULL(rs.本月产成品认购金额, 0) + ISNULL(rg.本月产成品认购金额, 0) + ISNULL(qt.其他业绩产成品本月认购金额, 0) AS 本月产成品认购金额 ,
                 ISNULL(rs.本月产成品认购套数, 0) + ISNULL(rg.本月产成品认购套数, 0) + ISNULL(qt.其他业绩产成品本月认购套数, 0) AS 本月产成品认购套数 ,
+
 				ISNULL(qt.其他业绩产成品本月认购金额, 0) AS 其他业绩产成品本月认购金额,
 				ISNULL(qt.其他业绩产成品本月认购套数, 0) AS 其他业绩产成品本月认购套数,
                 CASE WHEN ISNULL(rw.产成品月度任务, 0) = 0 THEN 0 ELSE (ISNULL(rs.本月产成品认购金额, 0) + ISNULL(rg.本月产成品认购金额, 0)+ ISNULL(qt.其他业绩产成品本月认购金额,0)) / ISNULL(rw.产成品月度任务, 0)END AS 本月产成品认购完成率 ,
                 ISNULL(本月产成品签约金额全口径, 0) - ISNULL(qt.其他业绩产成品本月签约金额_物业公司车位代销,0)  AS 本月产成品签约金额 ,
                 ISNULL(本月产成品签约套数全口径, 0) AS 本月产成品签约套数,
+
 				ISNULL(qt.其他业绩产成品本月签约金额, 0) AS 其他业绩产成品本月签约金额 ,                                                                   
                 ISNULL(qt.其他业绩产成品本月签约套数, 0) AS 其他业绩产成品本月签约套数 ,
+
                 CASE WHEN ISNULL(rw.产成品月度任务, 0) = 0 THEN 0 ELSE ISNULL(本月产成品签约金额全口径, 0) / ISNULL(rw.产成品月度任务, 0)END AS 本月产成品签约完成率 ,
                 CASE WHEN ISNULL(rw.产成品月度任务, 0) = 0 THEN 0 ELSE (ISNULL(本月产成品签约金额全口径, 0) + ISNULL(qt.其他业绩产成品本月签约金额, 0)) / ISNULL(rw.产成品月度任务, 0)END AS 本月产成品签约完成率_含其他业绩 ,
 				ISNULL(rs.累计产成品已认购未签约金额, 0) AS 累计产成品已认购未签约金额 ,
@@ -3529,8 +3567,10 @@ AS
                 ISNULL(rs.本年产成品认购套数, 0) + ISNULL(rg.本年产成品认购套数, 0) + ISNULL(qt.其他业绩产成品本年认购套数, 0) AS 本年产成品认购套数 ,
                 ISNULL(s.本年产成品签约金额全口径, 0) -ISNULL(qt.其他业绩产成品本年签约金额_物业公司车位代销, 0)  AS 本年产成品签约金额 ,
                 ISNULL(s.本年产成品签约套数全口径, 0) AS 本年产成品签约套数 ,
+
                 ISNULL(qt.其他业绩产成品本年签约金额, 0) AS 其他业绩产成品本年签约金额 ,
                 ISNULL(qt.其他业绩产成品本年签约套数, 0) AS 其他业绩产成品本年签约套数 ,
+
                 CASE WHEN ISNULL(rw.产成品年度任务, 0) = 0 THEN 0 ELSE ISNULL(s.本年产成品签约金额全口径, 0) / ISNULL(rw.产成品年度任务, 0)END AS 本年产成品签约完成率 ,
                 CASE WHEN ISNULL(rw.产成品年度任务, 0) = 0 THEN 0 ELSE (ISNULL(s.本年产成品签约金额全口径, 0) + ISNULL(qt.其他业绩产成品本年签约金额, 0)) / ISNULL(rw.产成品年度任务, 0)END AS 本年产成品签约完成率_含其他业绩 , 
 				ISNULL(rw.非项目本年实际签约金额,0 ) AS 非项目本年实际签约金额,
@@ -3539,29 +3579,31 @@ AS
 				ISNULL(rw.非项目本月实际认购金额,0 ) AS 非项目本月实际认购金额,
 		        -- 20240604 chenjw 新增面积类字段
                 ISNULL(rs.本日认购面积, 0) + ISNULL(rg.本日认购面积, 0) + ISNULL(qt.其他业绩本日认购金额, 0)  AS 本日认购面积 ,
-		ISNULL(s.本日签约面积全口径,0)   AS 本日签约面积 ,
-	        ISNULL(rs.本周认购面积,0) + ISNULL(rg.本周认购面积,0) + ISNULL(qt.其他业绩本周认购面积,0) AS 本周认购面积 ,
-		ISNULL(s.本周签约套数全口径,0) AS 本周签约套数 ,
-		ISNULL(s.本周签约面积全口径,0) AS 本周签约面积 ,
-		ISNULL(s.本周签约金额全口径,0) AS 本周签约金额 ,
-		ISNULL(rs.本月认购面积,0) + ISNULL(rg.本月认购面积,0) + ISNULL(qt.其他业绩本月认购面积,0) AS 本月认购面积 ,
-		ISNULL(s.本月签约面积全口径, 0) AS 本月签约面积 ,
-		ISNULL(qt.其他业绩本月认购面积,0) AS 其他业绩本月认购面积 ,
-		ISNULL(qt.其他业绩本月签约面积,0) AS 其他业绩本月签约面积 ,
-		ISNULL(rs.本月产成品认购面积, 0) + ISNULL(rg.本月产成品认购面积, 0) + ISNULL(qt.其他业绩产成品本月认购面积, 0) AS 本月产成品认购面积 ,
-		ISNULL(s.本月产成品签约面积全口径,0)  AS 本月产成品签约面积 ,
-		ISNULL(qt.其他业绩产成品本月签约面积,0)  AS 其他业绩产成品本月签约面积 ,
-		ISNULL(rs.累计已认购未签约面积,0) AS 已认购未签约签约面积 ,
-		ISNULL(rs.本年认购面积, 0) + ISNULL(rg.本年认购面积, 0) + ISNULL(qt.其他业绩本年认购面积, 0) AS 本年认购面积 ,
-		ISNULL(本年签约面积全口径, 0) AS 本年签约面积 ,
-		ISNULL(qt.其他业绩本年认购套数,0) AS 其他业绩本年认购套数 ,
-		ISNULL(qt.其他业绩本日认购面积,0) AS 其他业绩本年认购面积 ,
-		ISNULL(qt.其他业绩本日认购金额,0) AS 其他业绩本年认购金额 ,
+                ISNULL(s.本日签约面积全口径,0)   AS 本日签约面积 ,
+                    ISNULL(rs.本周认购面积,0) + ISNULL(rg.本周认购面积,0) + ISNULL(qt.其他业绩本周认购面积,0) AS 本周认购面积 ,
+                ISNULL(s.本周签约套数全口径,0) AS 本周签约套数 ,
+                ISNULL(s.本周签约面积全口径,0) AS 本周签约面积 ,
+                ISNULL(s.本周签约金额全口径,0) AS 本周签约金额 ,
+                ISNULL(rs.本月认购面积,0) + ISNULL(rg.本月认购面积,0) + ISNULL(qt.其他业绩本月认购面积,0) AS 本月认购面积 ,
+                ISNULL(s.本月签约面积全口径, 0) AS 本月签约面积 ,
+                ISNULL(qt.其他业绩本月认购面积,0) + ISNULL(qt.其他业绩本月认购面积_物业公司车位代销,0) AS 其他业绩本月认购面积 ,
+                ISNULL(qt.其他业绩本月签约面积,0) + ISNULL(qt.其他业绩本月签约面积_物业公司车位代销,0) AS 其他业绩本月签约面积 ,
+                ISNULL(rs.本月产成品认购面积, 0) + ISNULL(rg.本月产成品认购面积, 0) + ISNULL(qt.其他业绩产成品本月认购面积, 0) AS 本月产成品认购面积 ,
+                ISNULL(s.本月产成品签约面积全口径,0)  AS 本月产成品签约面积 ,
 
-		ISNULL(qt.其他业绩本年签约面积,0) AS 其他业绩本年签约面积 ,
-		ISNULL(rs.本年产成品认购面积, 0) + ISNULL(rg.本年产成品认购面积, 0) + ISNULL(qt.其他业绩产成品本年认购面积, 0) AS 本年产成品认购面积 ,
-		ISNULL(s.本年产成品签约面积全口径,0) AS 本年产成品签约面积 ,
-		ISNULL(qt.其他业绩产成品本年签约面积,0 ) AS 其他业绩产成品本年签约面积,
+                ISNULL(qt.其他业绩产成品本月签约面积_物业公司车位代销,0)  AS 其他业绩产成品本月签约面积 ,
+
+                ISNULL(rs.累计已认购未签约面积,0) AS 已认购未签约签约面积 ,
+                ISNULL(rs.本年认购面积, 0) + ISNULL(rg.本年认购面积, 0) + ISNULL(qt.其他业绩本年认购面积, 0) AS 本年认购面积 ,
+                ISNULL(本年签约面积全口径, 0) AS 本年签约面积 ,
+                ISNULL(qt.其他业绩本年认购套数,0) + ISNULL(qt.其他业绩本年认购套数_物业公司车位代销,0) AS 其他业绩本年认购套数 ,
+                ISNULL(qt.其他业绩本年认购面积,0) + ISNULL(qt.其他业绩本年认购面积_物业公司车位代销,0) AS 其他业绩本年认购面积 ,
+                ISNULL(qt.其他业绩本年认购金额,0)  + ISNULL(qt.其他业绩本年认购金额_物业公司车位代销,0)  - isnull(rw.非项目本年实际认购金额,0) AS 其他业绩本年认购金额 ,
+
+                ISNULL(qt.其他业绩本年签约面积,0) + ISNULL(qt.其他业绩本年签约面积_物业公司车位代销,0) AS 其他业绩本年签约面积 ,
+                ISNULL(rs.本年产成品认购面积, 0) + ISNULL(rg.本年产成品认购面积, 0) + ISNULL(qt.其他业绩产成品本年认购面积, 0) AS 本年产成品认购面积 ,
+                ISNULL(s.本年产成品签约面积全口径,0) AS 本年产成品签约面积 ,
+                ISNULL(qt.其他业绩产成品本年签约面积_物业公司车位代销,0 ) AS 其他业绩产成品本年签约面积,
                 @wideTableDateText  as 宽表最后清洗日期 ,
                 --大户型
                 ISNULL(rs.本日大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本日认购金额, 0) as 本日大户型认购金额,
@@ -3727,20 +3769,20 @@ AS
                 tb.项目负责人 ,
                 p.BeginDate AS 项目获取日期 ,
                 pt.存量增量 ,
-                ISNULL(rg.本日认购金额_物业车位代销, 0) + ISNULL(qt.其他业绩本日认购金额_物业公司车位代销,0) AS 本日认购金额 ,                          -- 全口径
-                ISNULL(rg.本日认购套数_物业车位代销, 0) + ISNULL(qt.其他业绩本日认购套数_物业公司车位代销,0) AS 本日认购套数 ,
-                ISNULL(qt.其他业绩本日签约金额_物业公司车位代销,0) AS 本日签约金额 ,
-                ISNULL(qt.其他业绩本日签约套数_物业公司车位代销,0) AS 本日签约套数 ,
-                ISNULL(rg.本周认购金额_物业车位代销,0) - ISNULL(qt.其他业绩本周认购金额_物业公司车位代销, 0) AS 本周认购金额 ,
-                ISNULL(rg.本周认购套数_物业车位代销,0) - ISNULL(qt.其他业绩本周认购套数_物业公司车位代销, 0) AS 本周认购套数 ,
+                ISNULL(qt.其他业绩本日认购金额, 0) + ISNULL(qt.其他业绩本日认购金额_物业公司车位代销, 0) AS 本日认购金额 ,                          -- 全口径
+                ISNULL(qt.其他业绩本日认购套数, 0) + ISNULL(qt.其他业绩本日认购套数_物业公司车位代销, 0) AS 本日认购套数 ,
+                ISNULL(qt.其他业绩本日签约金额,0) + ISNULL(qt.其他业绩本日签约金额_物业公司车位代销,0) AS 本日签约金额 ,
+                ISNULL(qt.其他业绩本日签约套数,0) + ISNULL(qt.其他业绩本日签约套数_物业公司车位代销,0) AS 本日签约套数 ,
+                ISNULL(qt.其他业绩本周认购金额, 0) + ISNULL(qt.其他业绩本周认购金额_物业公司车位代销, 0) AS 本周认购金额 ,
+                ISNULL(qt.其他业绩本周认购套数, 0) + ISNULL(qt.其他业绩本周认购套数_物业公司车位代销, 0) AS 本周认购套数 ,
                 0 AS 本月任务 ,
-                ISNULL(rg.本月认购金额_物业车位代销,0)  + ISNULL(qt.其他业绩本月认购金额_物业公司车位代销,0) - ISNULL(rw.非项目本月实际认购金额,0 )  AS 本月认购金额 ,
-                ISNULL(rg.本月认购套数_物业车位代销,0)  + ISNULL(qt.其他业绩本月认购套数_物业公司车位代销,0)  AS 本月认购套数 ,
+                ISNULL(qt.其他业绩本月认购金额, 0) + ISNULL(qt.其他业绩本月认购金额_物业公司车位代销, 0)  - isnull(rw.非项目本月实际认购金额,0)  AS 本月认购金额 ,
+                ISNULL(qt.其他业绩本月认购套数, 0) + ISNULL(qt.其他业绩本月认购套数_物业公司车位代销, 0)  AS 本月认购套数 ,
 				0 AS 其他业绩本月认购金额,
 				0 AS 其他业绩本月认购套数,
                 0 AS 本月认购完成率 ,
-                ISNULL(qt.其他业绩本月签约金额_物业公司车位代销,0) - ISNULL(rw.非项目本月实际签约金额,0 )  AS 本月签约金额 ,
-                ISNULL(qt.其他业绩本月签约套数_物业公司车位代销,0)   AS 本月签约套数 ,
+                ISNULL(qt.其他业绩本月签约金额,0) + ISNULL(qt.其他业绩本月签约金额_物业公司车位代销,0) - ISNULL(rw.非项目本月实际签约金额,0)  AS 本月签约金额 ,
+                ISNULL(qt.其他业绩本月签约套数,0) + ISNULL(qt.其他业绩本月签约套数_物业公司车位代销,0)   AS 本月签约套数 ,
                 0 AS 其他业绩本月签约金额 ,                                                                    --以客户提供其他业绩认定的房间
                 0 AS 其他业绩本月签约套数 ,
                 0 AS 本月签约完成率 ,
@@ -3751,12 +3793,12 @@ AS
                 0 AS 已认购未签约金额 ,
                 0 AS 已认购未签约套数 ,
                 0 AS 本年任务 ,
-                ISNULL(rg.本年认购金额_物业车位代销,0) + ISNULL(qt.其他业绩本年认购金额_物业公司车位代销,0) - ISNULL(rw.非项目本年实际认购金额,0 ) AS 本年认购金额 ,
-                ISNULL(rg.本年认购套数_物业车位代销,0)+ISNULL(qt.其他业绩本年认购套数_物业公司车位代销,0) AS 本年认购套数 ,
-                ISNULL(qt.其他业绩本年签约金额_物业公司车位代销,0) - ISNULL(rw.非项目本年实际签约金额,0 ) AS 本年签约金额 ,
-                ISNULL(qt.其他业绩本年签约套数_物业公司车位代销,0) AS 本年签约套数 ,
-                - ISNULL(qt.其他业绩本年签约金额_物业公司车位代销,0) AS 其他业绩本年签约金额 ,
-                - ISNULL(qt.其他业绩本年签约套数_物业公司车位代销,0) AS 其他业绩本年签约套数 ,
+                ISNULL(qt.其他业绩本年认购金额, 0) + ISNULL(qt.其他业绩本年认购金额_物业公司车位代销, 0)  - isnull(rw.非项目本年实际认购金额,0)  AS 本年认购金额 ,
+                ISNULL(qt.其他业绩本年认购套数, 0) + ISNULL(qt.其他业绩本年认购套数_物业公司车位代销, 0) AS 本年认购套数 ,
+                ISNULL(qt.其他业绩本年签约金额,0) + ISNULL(qt.其他业绩本年签约金额_物业公司车位代销,0) - ISNULL(rw.非项目本年实际签约金额,0)  AS 本年签约金额 ,
+                ISNULL(qt.其他业绩本年签约套数,0) + ISNULL(qt.其他业绩本年签约套数_物业公司车位代销,0)  AS 本年签约套数 ,
+                0 AS 其他业绩本年签约金额 ,
+                0 AS 其他业绩本年签约套数 ,
                 0 AS 本年签约完成率 ,
                 0 AS 本年签约完成率_含其他业绩 ,
                 0 AS 本年认购金额缺口 ,
@@ -3770,32 +3812,32 @@ AS
                 0 AS 本月增量任务 ,
                 0 本月新增量任务,
 				-- 产成品
-                ISNULL(rg.本日产成品认购金额_物业车位代销,0) + ISNULL(qt.其他业绩产成品本日认购金额_物业公司车位代销,0) AS 本日产成品认购金额 ,  
-                ISNULL(rg.本日产成品认购套数_物业车位代销,0) + ISNULL(qt.其他业绩产成品本日认购套数_物业公司车位代销,0) AS 本日产成品认购套数 ,
+                - ISNULL(rg.本日产成品认购金额_物业车位代销,0) - ISNULL(qt.其他业绩产成品本日认购金额_物业公司车位代销,0) AS 本日产成品认购金额 ,  
+                - ISNULL(rg.本日产成品认购套数_物业车位代销,0) - ISNULL(qt.其他业绩产成品本日认购套数_物业公司车位代销,0) AS 本日产成品认购套数 ,
                 0 AS 本日产成品签约金额 ,
                 0 AS 本日产成品签约套数 ,
-                ISNULL(rg.本周产成品认购金额_物业车位代销,0) + ISNULL(qt.其他业绩产成品本周认购金额_物业公司车位代销, 0) AS 本周产成品认购金额 ,
-                ISNULL(rg.本周产成品认购套数_物业车位代销,0) + ISNULL(qt.其他业绩产成品本周认购套数_物业公司车位代销, 0) AS 本周产成品认购套数 ,
+                - ISNULL(rg.本周产成品认购金额_物业车位代销,0) - ISNULL(qt.其他业绩产成品本周认购金额_物业公司车位代销, 0) AS 本周产成品认购金额 ,
+                - ISNULL(rg.本周产成品认购套数_物业车位代销,0) - ISNULL(qt.其他业绩产成品本周认购套数_物业公司车位代销, 0) AS 本周产成品认购套数 ,
                 0 AS 本月产成品任务 ,
-                ISNULL(rg.本月产成品认购金额_物业车位代销,0) + ISNULL(qt.其他业绩产成品本月认购金额_物业公司车位代销,0) AS 本月产成品认购金额 ,
-                ISNULL(rg.本月产成品认购套数_物业车位代销,0) + ISNULL(qt.其他业绩产成品本月认购套数_物业公司车位代销,0) AS 本月产成品认购套数 ,
-				ISNULL(qt.其他业绩产成品本月认购金额_物业公司车位代销,0) AS 其他业绩产成品本月认购金额,
-				ISNULL(qt.其他业绩产成品本月认购套数_物业公司车位代销,0) AS 其他业绩产成品本月认购套数,
+                - ISNULL(rg.本月产成品认购金额_物业车位代销,0) - ISNULL(qt.其他业绩产成品本月认购金额_物业公司车位代销,0) AS 本月产成品认购金额 ,
+                - ISNULL(rg.本月产成品认购套数_物业车位代销,0) - ISNULL(qt.其他业绩产成品本月认购套数_物业公司车位代销,0) AS 本月产成品认购套数 ,
+				- ISNULL(qt.其他业绩产成品本月认购金额_物业公司车位代销,0) AS 其他业绩产成品本月认购金额,
+				- ISNULL(qt.其他业绩产成品本月认购套数_物业公司车位代销,0) AS 其他业绩产成品本月认购套数,
                 0 AS 本月产成品认购完成率 ,
-                ISNULL(qt.其他业绩产成品本月签约金额_物业公司车位代销,0) AS 本月产成品签约金额 ,
-                ISNULL(qt.其他业绩产成品本月签约套数_物业公司车位代销,0) AS 本月产成品签约套数,
-				ISNULL(qt.其他业绩产成品本月签约金额_物业公司车位代销,0) AS 其他业绩产成品本月签约金额 ,                                                                   
-                ISNULL(qt.其他业绩产成品本月签约套数_物业公司车位代销,0) AS 其他业绩产成品本月签约套数 ,
+                - ISNULL(qt.其他业绩产成品本月签约金额_物业公司车位代销,0) AS 本月产成品签约金额 ,
+                - ISNULL(qt.其他业绩产成品本月签约套数_物业公司车位代销,0) AS 本月产成品签约套数,
+				- ISNULL(qt.其他业绩产成品本月签约金额_物业公司车位代销,0) AS 其他业绩产成品本月签约金额 ,                                                                   
+                - ISNULL(qt.其他业绩产成品本月签约套数_物业公司车位代销,0) AS 其他业绩产成品本月签约套数 ,
                 0 AS 本月产成品签约完成率 ,
                 0 AS 本月产成品签约完成率_含其他业绩 ,
 				0 AS 累计产成品已认购未签约金额 ,
                 0 AS 累计产成品已认购未签约套数 ,
 
 				0 AS  本年产成品任务,
-                ISNULL(rg.本年产成品认购金额_物业车位代销, 0) + ISNULL(qt.其他业绩产成品本年认购金额_物业公司车位代销, 0) AS 本年产成品认购金额 ,
-                ISNULL(rg.本年产成品认购套数_物业车位代销, 0) + ISNULL(qt.其他业绩产成品本年认购套数_物业公司车位代销, 0) AS 本年产成品认购套数 ,
-                ISNULL(qt.其他业绩产成品本年签约金额_物业公司车位代销, 0) AS 本年产成品签约金额 ,
-                ISNULL(qt.其他业绩产成品本年签约套数_物业公司车位代销, 0) AS 本年产成品签约套数 ,
+                - ISNULL(rg.本年产成品认购金额_物业车位代销, 0) - ISNULL(qt.其他业绩产成品本年认购金额_物业公司车位代销, 0) AS 本年产成品认购金额 ,
+                - ISNULL(rg.本年产成品认购套数_物业车位代销, 0) - ISNULL(qt.其他业绩产成品本年认购套数_物业公司车位代销, 0) AS 本年产成品认购套数 ,
+                - ISNULL(qt.其他业绩产成品本年签约金额_物业公司车位代销, 0) AS 本年产成品签约金额 ,
+                - ISNULL(qt.其他业绩产成品本年签约套数_物业公司车位代销, 0) AS 本年产成品签约套数 ,
                 0 AS 其他业绩产成品本年签约金额 ,
                 0 AS 其他业绩产成品本年签约套数 ,
                 0 AS 本年产成品签约完成率 ,
@@ -3805,22 +3847,22 @@ AS
 				0 as 非项目本年实际认购金额,
 				0 as 非项目本月实际认购金额,
 			    -- 20240604 chenjw 新增面积类字段
-				0 AS 本日认购面积 ,
-				0 AS 本日签约面积 ,
-				0 AS 本周认购面积 ,
-				0 AS 本周签约套数 ,
-				0 AS 本周签约面积 ,
-				0 AS 本周签约金额 ,
-				0 AS 本月认购面积 ,
-				0 AS 本月签约面积 ,
+				ISNULL(qt.其他业绩本日认购面积, 0) + ISNULL(qt.其他业绩本日认购面积_物业公司车位代销, 0)  AS 本日认购面积 ,
+				ISNULL(qt.其他业绩本日签约面积,0) + ISNULL(qt.其他业绩本日签约面积_物业公司车位代销,0) AS 本日签约面积 ,
+				ISNULL(qt.其他业绩本周认购面积, 0) + ISNULL(qt.其他业绩本周认购面积_物业公司车位代销, 0)  AS 本周认购面积 ,
+				ISNULL(qt.其他业绩本周签约套数,0) + ISNULL(qt.其他业绩本周签约套数_物业公司车位代销,0) AS 本周签约套数 ,
+				ISNULL(qt.其他业绩本周签约面积,0) + ISNULL(qt.其他业绩本周签约面积_物业公司车位代销,0) AS 本周签约面积 ,
+				ISNULL(qt.其他业绩本周签约金额,0) + ISNULL(qt.其他业绩本周签约金额_物业公司车位代销,0) AS 本周签约金额 ,
+				ISNULL(qt.其他业绩本月认购面积, 0) + ISNULL(qt.其他业绩本月认购面积_物业公司车位代销, 0)  AS 本月认购面积 ,
+				ISNULL(qt.其他业绩本月签约面积,0) + ISNULL(qt.其他业绩本月签约面积_物业公司车位代销,0)  AS 本月签约面积 ,
 				0 AS 其他业绩本月认购面积 ,
 				0 AS 其他业绩本月签约面积 ,
 				0 AS 本月产成品认购面积 ,
 				0 AS 本月产成品签约面积 ,
 				0 AS 其他业绩产成品本月签约面积 ,
 				0 AS 已认购未签约签约面积 ,
-				0 AS 本年认购面积 ,
-				0 AS 本年签约面积 ,
+				ISNULL(qt.其他业绩本年认购面积, 0) + ISNULL(qt.其他业绩本年认购面积_物业公司车位代销, 0)  AS 本年认购面积 ,
+				ISNULL(qt.其他业绩本年签约面积,0) + ISNULL(qt.其他业绩本年签约面积_物业公司车位代销,0)  AS 本年签约面积 ,
 				0 AS 其他业绩本年认购套数 ,
 				0 AS 其他业绩本年认购面积 ,
 				0 AS 其他业绩本年认购金额 ,
@@ -3830,33 +3872,33 @@ AS
 				0 AS 其他业绩产成品本年签约面积,
                 @wideTableDateText  as 宽表最后清洗日期 ,
                 --大户型
-                ISNULL(qt.其他业绩大户型本日认购金额_物业公司车位代销, 0) as 本日大户型认购金额,
-                ISNULL(qt.其他业绩大户型本日认购面积_物业公司车位代销, 0) as 本日大户型认购面积,
-                ISNULL(qt.其他业绩大户型本日认购套数_物业公司车位代销, 0) as 本日大户型认购套数,
-                ISNULL(qt.其他业绩大户型本日签约金额_物业公司车位代销,0)  as 本日大户型签约金额,
-                ISNULL(qt.其他业绩大户型本日签约面积_物业公司车位代销,0)  as 本日大户型签约面积,
-                ISNULL(qt.其他业绩大户型本日签约套数_物业公司车位代销,0)  as 本日大户型签约套数,
+                -ISNULL(qt.其他业绩大户型本日认购金额_物业公司车位代销, 0) as 本日大户型认购金额,
+                -ISNULL(qt.其他业绩大户型本日认购面积_物业公司车位代销, 0) as 本日大户型认购面积,
+                -ISNULL(qt.其他业绩大户型本日认购套数_物业公司车位代销, 0) as 本日大户型认购套数,
+                -ISNULL(qt.其他业绩大户型本日签约金额_物业公司车位代销,0)  as 本日大户型签约金额,
+                -ISNULL(qt.其他业绩大户型本日签约面积_物业公司车位代销,0)  as 本日大户型签约面积,
+                -ISNULL(qt.其他业绩大户型本日签约套数_物业公司车位代销,0)  as 本日大户型签约套数,
 
-                ISNULL(qt.其他业绩大户型本周认购金额_物业公司车位代销, 0) as 本周大户型认购金额,
-                ISNULL(qt.其他业绩大户型本周认购面积_物业公司车位代销, 0) as 本周大户型认购面积,
-                ISNULL(qt.其他业绩大户型本周认购套数_物业公司车位代销, 0) as 本周大户型认购套数,
-                ISNULL(qt.其他业绩大户型本周签约金额_物业公司车位代销, 0) as 本周大户型签约金额,
-                ISNULL(qt.其他业绩大户型本周签约面积_物业公司车位代销, 0) as 本周大户型签约面积,
-                ISNULL(qt.其他业绩大户型本周签约套数_物业公司车位代销, 0) as 本周大户型签约套数,
+                -ISNULL(qt.其他业绩大户型本周认购金额_物业公司车位代销, 0) as 本周大户型认购金额,
+                -ISNULL(qt.其他业绩大户型本周认购面积_物业公司车位代销, 0) as 本周大户型认购面积,
+                -ISNULL(qt.其他业绩大户型本周认购套数_物业公司车位代销, 0) as 本周大户型认购套数,
+                -ISNULL(qt.其他业绩大户型本周签约金额_物业公司车位代销, 0) as 本周大户型签约金额,
+                -ISNULL(qt.其他业绩大户型本周签约面积_物业公司车位代销, 0) as 本周大户型签约面积,
+                -ISNULL(qt.其他业绩大户型本周签约套数_物业公司车位代销, 0) as 本周大户型签约套数,
 
-                ISNULL(qt.其他业绩大户型本月认购金额_物业公司车位代销,0) as 本月大户型认购金额,
-                ISNULL(qt.其他业绩大户型本月认购面积_物业公司车位代销,0) as 本月大户型认购面积,
-                ISNULL(qt.其他业绩大户型本月认购套数_物业公司车位代销,0) as 本月大户型认购套数,
-                ISNULL(qt.其他业绩大户型本月签约金额_物业公司车位代销,0) as 本月大户型签约金额,
-                ISNULL(qt.其他业绩大户型本月签约面积_物业公司车位代销,0) as 本月大户型签约面积,
-                ISNULL(qt.其他业绩大户型本月签约套数_物业公司车位代销,0) as 本月大户型签约套数,
+                -ISNULL(qt.其他业绩大户型本月认购金额_物业公司车位代销,0) as 本月大户型认购金额,
+                -ISNULL(qt.其他业绩大户型本月认购面积_物业公司车位代销,0) as 本月大户型认购面积,
+                -ISNULL(qt.其他业绩大户型本月认购套数_物业公司车位代销,0) as 本月大户型认购套数,
+                -ISNULL(qt.其他业绩大户型本月签约金额_物业公司车位代销,0) as 本月大户型签约金额,
+                -ISNULL(qt.其他业绩大户型本月签约面积_物业公司车位代销,0) as 本月大户型签约面积,
+                -ISNULL(qt.其他业绩大户型本月签约套数_物业公司车位代销,0) as 本月大户型签约套数,
 
-                ISNULL(qt.其他业绩大户型本年认购金额_物业公司车位代销,0) as 本年大户型认购金额,
-                ISNULL(qt.其他业绩大户型本年认购面积_物业公司车位代销,0) as 本年大户型认购面积,
-                ISNULL(qt.其他业绩大户型本年认购套数_物业公司车位代销,0) as 本年大户型认购套数,
-                ISNULL(qt.其他业绩大户型本年签约金额_物业公司车位代销,0) as 本年大户型签约金额,
-                ISNULL(qt.其他业绩大户型本年签约面积_物业公司车位代销,0) as 本年大户型签约面积,
-                ISNULL(qt.其他业绩大户型本年签约套数_物业公司车位代销,0) as 本年大户型签约套数,
+                -ISNULL(qt.其他业绩大户型本年认购金额_物业公司车位代销,0) as 本年大户型认购金额,
+                -ISNULL(qt.其他业绩大户型本年认购面积_物业公司车位代销,0) as 本年大户型认购面积,
+                -ISNULL(qt.其他业绩大户型本年认购套数_物业公司车位代销,0) as 本年大户型认购套数,
+                -ISNULL(qt.其他业绩大户型本年签约金额_物业公司车位代销,0) as 本年大户型签约金额,
+                -ISNULL(qt.其他业绩大户型本年签约面积_物业公司车位代销,0) as 本年大户型签约面积,
+                -ISNULL(qt.其他业绩大户型本年签约套数_物业公司车位代销,0) as 本年大户型签约套数,
 
                 0 as 累计大户型已认购未签约金额,
                 0 as 累计大户型已认购未签约面积,
@@ -3867,33 +3909,33 @@ AS
                 0 as 本月大户型已认购未签约套数,
 
                 --联动房
-                ISNULL(qt.其他业绩联动房本日认购金额_物业公司车位代销,0) as 本日联动房认购金额,
-                ISNULL(qt.其他业绩联动房本日认购面积_物业公司车位代销,0) as 本日联动房认购面积,
-                ISNULL(qt.其他业绩联动房本日认购套数_物业公司车位代销,0) as 本日联动房认购套数,
-                ISNULL(qt.其他业绩联动房本日签约金额_物业公司车位代销,0) as 本日联动房签约金额,
-                ISNULL(qt.其他业绩联动房本日签约面积_物业公司车位代销,0) as 本日联动房签约面积,
-                ISNULL(qt.其他业绩联动房本日签约套数_物业公司车位代销,0) as 本日联动房签约套数,
+                -ISNULL(qt.其他业绩联动房本日认购金额_物业公司车位代销,0) as 本日联动房认购金额,
+                -ISNULL(qt.其他业绩联动房本日认购面积_物业公司车位代销,0) as 本日联动房认购面积,
+                -ISNULL(qt.其他业绩联动房本日认购套数_物业公司车位代销,0) as 本日联动房认购套数,
+                -ISNULL(qt.其他业绩联动房本日签约金额_物业公司车位代销,0) as 本日联动房签约金额,
+                -ISNULL(qt.其他业绩联动房本日签约面积_物业公司车位代销,0) as 本日联动房签约面积,
+                -ISNULL(qt.其他业绩联动房本日签约套数_物业公司车位代销,0) as 本日联动房签约套数,
 
-                ISNULL(qt.其他业绩联动房本周认购金额_物业公司车位代销,0) as 本周联动房认购金额,
-                ISNULL(qt.其他业绩联动房本周认购面积_物业公司车位代销,0) as 本周联动房认购面积,
-                ISNULL(qt.其他业绩联动房本周认购套数_物业公司车位代销,0) as 本周联动房认购套数,
-                ISNULL(qt.其他业绩联动房本周签约金额_物业公司车位代销,0) as 本周联动房签约金额,
-                ISNULL(qt.其他业绩联动房本周签约面积_物业公司车位代销,0) as 本周联动房签约面积,
-                ISNULL(qt.其他业绩联动房本周签约套数_物业公司车位代销,0) as 本周联动房签约套数,
+                -ISNULL(qt.其他业绩联动房本周认购金额_物业公司车位代销,0) as 本周联动房认购金额,
+                -ISNULL(qt.其他业绩联动房本周认购面积_物业公司车位代销,0) as 本周联动房认购面积,
+                -ISNULL(qt.其他业绩联动房本周认购套数_物业公司车位代销,0) as 本周联动房认购套数,
+                -ISNULL(qt.其他业绩联动房本周签约金额_物业公司车位代销,0) as 本周联动房签约金额,
+                -ISNULL(qt.其他业绩联动房本周签约面积_物业公司车位代销,0) as 本周联动房签约面积,
+                -ISNULL(qt.其他业绩联动房本周签约套数_物业公司车位代销,0) as 本周联动房签约套数,
 
-                ISNULL(qt.其他业绩联动房本月认购金额_物业公司车位代销,0) as 本月联动房认购金额,
-                ISNULL(qt.其他业绩联动房本月认购面积_物业公司车位代销,0) as 本月联动房认购面积,
-                ISNULL(qt.其他业绩联动房本月认购套数_物业公司车位代销,0) as 本月联动房认购套数,
-                ISNULL(qt.其他业绩联动房本月签约金额_物业公司车位代销,0) as 本月联动房签约金额,
-                ISNULL(qt.其他业绩联动房本月签约面积_物业公司车位代销,0) as 本月联动房签约面积,
-                ISNULL(qt.其他业绩联动房本月签约套数_物业公司车位代销,0) as 本月联动房签约套数,
+                -ISNULL(qt.其他业绩联动房本月认购金额_物业公司车位代销,0) as 本月联动房认购金额,
+                -ISNULL(qt.其他业绩联动房本月认购面积_物业公司车位代销,0) as 本月联动房认购面积,
+                -ISNULL(qt.其他业绩联动房本月认购套数_物业公司车位代销,0) as 本月联动房认购套数,
+                -ISNULL(qt.其他业绩联动房本月签约金额_物业公司车位代销,0) as 本月联动房签约金额,
+                -ISNULL(qt.其他业绩联动房本月签约面积_物业公司车位代销,0) as 本月联动房签约面积,
+                -ISNULL(qt.其他业绩联动房本月签约套数_物业公司车位代销,0) as 本月联动房签约套数,
 
-                ISNULL(qt.其他业绩联动房本年认购金额_物业公司车位代销,0) as 本年联动房认购金额,
-                ISNULL(qt.其他业绩联动房本年认购面积_物业公司车位代销,0) as 本年联动房认购面积,
-                ISNULL(qt.其他业绩联动房本年认购套数_物业公司车位代销,0) as 本年联动房认购套数,
-                ISNULL(qt.其他业绩联动房本年签约金额_物业公司车位代销,0) as 本年联动房签约金额,
-                ISNULL(qt.其他业绩联动房本年签约面积_物业公司车位代销,0) as 本年联动房签约面积,
-                ISNULL(qt.其他业绩联动房本年签约套数_物业公司车位代销,0) as 本年联动房签约套数,
+                -ISNULL(qt.其他业绩联动房本年认购金额_物业公司车位代销,0) as 本年联动房认购金额,
+                -ISNULL(qt.其他业绩联动房本年认购面积_物业公司车位代销,0) as 本年联动房认购面积,
+                -ISNULL(qt.其他业绩联动房本年认购套数_物业公司车位代销,0) as 本年联动房认购套数,
+                -ISNULL(qt.其他业绩联动房本年签约金额_物业公司车位代销,0) as 本年联动房签约金额,
+                -ISNULL(qt.其他业绩联动房本年签约面积_物业公司车位代销,0) as 本年联动房签约面积,
+                -ISNULL(qt.其他业绩联动房本年签约套数_物业公司车位代销,0) as 本年联动房签约套数,
 
                 0 AS 累计联动房已认购未签约金额,
                 0 AS 累计联动房已认购未签约面积,
@@ -3911,29 +3953,29 @@ AS
                 0 as 其他业绩大户型本年签约套数,
 
                 --准产成品
-                ISNULL(rg.本日准产成品认购金额_物业车位代销, 0) + ISNULL(qt.其他业绩准产成品本日认购金额_物业公司车位代销, 0) AS 本日准产成品认购金额,
-                ISNULL(rg.本日准产成品认购面积_物业车位代销, 0) + ISNULL(qt.其他业绩准产成品本日认购面积_物业公司车位代销, 0) AS 本日准产成品认购面积,
-                ISNULL(rg.本日准产成品认购套数_物业车位代销, 0) + ISNULL(qt.其他业绩准产成品本日认购套数_物业公司车位代销, 0) AS 本日准产成品认购套数,
+                -ISNULL(rg.本日准产成品认购金额_物业车位代销, 0) - ISNULL(qt.其他业绩准产成品本日认购金额_物业公司车位代销, 0) AS 本日准产成品认购金额,
+                -ISNULL(rg.本日准产成品认购面积_物业车位代销, 0) - ISNULL(qt.其他业绩准产成品本日认购面积_物业公司车位代销, 0) AS 本日准产成品认购面积,
+                -ISNULL(rg.本日准产成品认购套数_物业车位代销, 0) - ISNULL(qt.其他业绩准产成品本日认购套数_物业公司车位代销, 0) AS 本日准产成品认购套数,
 
                 0 AS 本日准产成品签约金额 ,
                 0 AS 本日准产成品签约面积 ,
                 0 AS 本日准产成品签约套数 ,
 
-                ISNULL(rg.本周准产成品认购金额_物业车位代销, 0) + ISNULL(qt.其他业绩准产成品本周认购金额_物业公司车位代销, 0) AS 本周准产成品认购金额 ,
-                ISNULL(rg.本周准产成品认购面积_物业车位代销, 0) + ISNULL(qt.其他业绩准产成品本周认购面积_物业公司车位代销, 0) AS 本周准产成品认购面积 ,
-                ISNULL(rg.本周准产成品认购套数_物业车位代销, 0) + ISNULL(qt.其他业绩准产成品本周认购套数_物业公司车位代销, 0) AS 本周准产成品认购套数 ,
+                -ISNULL(rg.本周准产成品认购金额_物业车位代销, 0) - ISNULL(qt.其他业绩准产成品本周认购金额_物业公司车位代销, 0) AS 本周准产成品认购金额 ,
+                -ISNULL(rg.本周准产成品认购面积_物业车位代销, 0) - ISNULL(qt.其他业绩准产成品本周认购面积_物业公司车位代销, 0) AS 本周准产成品认购面积 ,
+                -ISNULL(rg.本周准产成品认购套数_物业车位代销, 0) - ISNULL(qt.其他业绩准产成品本周认购套数_物业公司车位代销, 0) AS 本周准产成品认购套数 ,
 
-                ISNULL(rg.本月准产成品认购金额_物业车位代销, 0) + ISNULL(qt.其他业绩准产成品本月认购金额_物业公司车位代销, 0) AS 本月准产成品认购金额 ,
-                ISNULL(rg.本月准产成品认购面积_物业车位代销, 0) + ISNULL(qt.其他业绩准产成品本月认购面积_物业公司车位代销, 0) AS 本月准产成品认购面积 ,
-                ISNULL(rg.本月准产成品认购套数_物业车位代销, 0) + ISNULL(qt.其他业绩准产成品本月认购套数_物业公司车位代销, 0) AS 本月准产成品认购套数 ,
+                -ISNULL(rg.本月准产成品认购金额_物业车位代销, 0) - ISNULL(qt.其他业绩准产成品本月认购金额_物业公司车位代销, 0) AS 本月准产成品认购金额 ,
+                -ISNULL(rg.本月准产成品认购面积_物业车位代销, 0) - ISNULL(qt.其他业绩准产成品本月认购面积_物业公司车位代销, 0) AS 本月准产成品认购面积 ,
+                -ISNULL(rg.本月准产成品认购套数_物业车位代销, 0) - ISNULL(qt.其他业绩准产成品本月认购套数_物业公司车位代销, 0) AS 本月准产成品认购套数 ,
 
                 0 AS 其他业绩准产成品本月认购金额 ,
                 0 AS 其他业绩准产成品本月认购面积 ,
                 0 AS 其他业绩准产成品本月认购套数 ,
 
-                ISNULL(qt.其他业绩准产成品本月签约金额_物业公司车位代销, 0) AS 本月准产成品签约金额 ,
-                ISNULL(qt.其他业绩准产成品本月签约面积_物业公司车位代销, 0) AS 本月准产成品签约面积 ,
-                ISNULL(qt.其他业绩准产成品本月签约套数_物业公司车位代销, 0) AS 本月准产成品签约套数 ,
+                -ISNULL(qt.其他业绩准产成品本月签约金额_物业公司车位代销, 0) AS 本月准产成品签约金额 ,
+                -ISNULL(qt.其他业绩准产成品本月签约面积_物业公司车位代销, 0) AS 本月准产成品签约面积 ,
+                -ISNULL(qt.其他业绩准产成品本月签约套数_物业公司车位代销, 0) AS 本月准产成品签约套数 ,
 
                 0 AS 其他业绩准产成品本月签约金额 ,
                 0 AS 其他业绩准产成品本月签约面积 ,
@@ -3943,13 +3985,13 @@ AS
                 0 AS 累计准产成品已认购未签约面积 ,
                 0 AS 累计准产成品已认购未签约套数 ,
 
-                ISNULL(rg.本年准产成品认购金额_物业车位代销, 0) + ISNULL(qt.其他业绩准产成品本年认购金额_物业公司车位代销, 0) AS 本年准产成品认购金额 ,
-                ISNULL(rg.本年准产成品认购面积_物业车位代销, 0) + ISNULL(qt.其他业绩准产成品本年认购面积_物业公司车位代销, 0) AS 本年准产成品认购面积 ,
-                ISNULL(rg.本年准产成品认购套数_物业车位代销, 0) + ISNULL(qt.其他业绩准产成品本年认购套数_物业公司车位代销, 0) AS 本年准产成品认购套数 ,
+                -ISNULL(rg.本年准产成品认购金额_物业车位代销, 0) - ISNULL(qt.其他业绩准产成品本年认购金额_物业公司车位代销, 0) AS 本年准产成品认购金额 ,
+                -ISNULL(rg.本年准产成品认购面积_物业车位代销, 0) - ISNULL(qt.其他业绩准产成品本年认购面积_物业公司车位代销, 0) AS 本年准产成品认购面积 ,
+                -ISNULL(rg.本年准产成品认购套数_物业车位代销, 0) - ISNULL(qt.其他业绩准产成品本年认购套数_物业公司车位代销, 0) AS 本年准产成品认购套数 ,
 
-                ISNULL(qt.其他业绩准产成品本年签约金额_物业公司车位代销, 0) AS 本年准产成品签约金额 ,
-                ISNULL(qt.其他业绩准产成品本年签约面积_物业公司车位代销, 0) AS 本年准产成品签约面积 ,
-                ISNULL(qt.其他业绩准产成品本年签约套数_物业公司车位代销, 0) AS 本年准产成品签约套数 ,
+                -ISNULL(qt.其他业绩准产成品本年签约金额_物业公司车位代销, 0) AS 本年准产成品签约金额 ,
+                -ISNULL(qt.其他业绩准产成品本年签约面积_物业公司车位代销, 0) AS 本年准产成品签约面积 ,
+                -ISNULL(qt.其他业绩准产成品本年签约套数_物业公司车位代销, 0) AS 本年准产成品签约套数 ,
 
                 0 AS 其他业绩准产成品本年签约金额 ,
                 0 AS 其他业绩准产成品本年签约面积 ,                
@@ -3970,7 +4012,7 @@ AS
                 LEFT JOIN #rg rg ON rg.ProjGUID = p.ProjGUID AND   pt.TopProductTypeName = rg.TopProductTypeName
                 LEFT JOIN #qtqy qt ON qt.projguid = p.projguid AND pt.TopProductTypeName = qt.TopProductTypeName
         WHERE   Level = 2 AND   p.buguid = '70DD6DF4-47F7-46AF-B470-BC18EE57D8FF' 
-        -- 项目层级-各项目名称
+       -- 项目层级-各项目名称
         UNION ALL
         SELECT  @DateText AS 数据清洗日期 ,
                 '项目' AS 层级 ,
@@ -4003,13 +4045,13 @@ AS
                 rw.月度签约任务 AS 本月任务 ,
                 ISNULL(rs.本月认购金额, 0) + ISNULL(rg.本月认购金额, 0) + ISNULL(qt.其他业绩本月认购金额, 0) + ISNULL(rw.非项目本月实际认购金额,0)  AS 本月认购金额 ,
                 ISNULL(rs.本月认购套数, 0) + ISNULL(rg.本月认购套数, 0) + ISNULL(qt.其他业绩本月认购套数, 0) AS 本月认购套数 ,
-				ISNULL(qt.其他业绩本月认购金额, 0) AS 其他业绩本月认购金额,
-				ISNULL(qt.其他业绩本月认购套数, 0) AS 其他业绩本月认购套数,
+				ISNULL(qt.其他业绩本月认购金额, 0) + ISNULL(qt.其他业绩本月认购金额_物业公司车位代销, 0)  - isnull(rw.非项目本月实际认购金额,0) AS 其他业绩本月认购金额, --非项目本月实际认购金额填报的是负数
+				ISNULL(qt.其他业绩本月认购套数, 0) + ISNULL(qt.其他业绩本月认购套数_物业公司车位代销, 0)  AS 其他业绩本月认购套数,
                 CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE (ISNULL(rs.本月认购金额, 0) + ISNULL(rg.本月认购金额, 0)+ ISNULL(qt.其他业绩本月认购金额,0) + ISNULL(rw.非项目本月实际认购金额,0)) / ISNULL(rw.月度签约任务, 0)END AS 本月认购完成率 ,
                 ISNULL(本月签约金额全口径, 0)  - isnull(qt.其他业绩本月签约金额_物业公司车位代销,0) + ISNULL(rw.非项目本月实际签约金额,0) AS 本月签约金额 ,
                 ISNULL(本月签约套数全口径, 0) AS 本月签约套数 ,
-                ISNULL(qt.其他业绩本月签约金额, 0) AS 其他业绩本月签约金额 ,                                                                    --以客户提供其他业绩认定的房间
-                ISNULL(qt.其他业绩本月签约套数, 0) AS 其他业绩本月签约套数 ,
+                ISNULL(qt.其他业绩本月签约金额, 0) + ISNULL(qt.其他业绩本月签约金额_物业公司车位代销, 0) - ISNULL(rw.非项目本月实际签约金额,0)  AS 其他业绩本月签约金额 ,                                                                    --以客户提供其他业绩认定的房间
+                ISNULL(qt.其他业绩本月签约套数, 0) + ISNULL(qt.其他业绩本月签约套数_物业公司车位代销, 0) AS 其他业绩本月签约套数 ,
                 CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE ( ISNULL(本月签约金额全口径, 0) - isnull(qt.其他业绩本月签约金额_物业公司车位代销,0) +ISNULL(rw.非项目本月实际签约金额,0) ) / ISNULL(rw.月度签约任务, 0) END AS 本月签约完成率 ,
                 CASE WHEN ISNULL(rw.月度签约任务, 0) = 0 THEN 0 ELSE (ISNULL(本月签约金额全口径, 0) - isnull(qt.其他业绩本月签约金额_物业公司车位代销,0) + ISNULL(qt.其他业绩本月签约金额, 0) +  ISNULL(rw.非项目本月实际签约金额,0) ) / ISNULL(rw.月度签约任务, 0)END AS 本月签约完成率_含其他业绩 ,
                 ISNULL(rw.月度签约任务, 0)  - (ISNULL(rs.本月认购金额, 0) + ISNULL(rg.本月认购金额, 0) + ISNULL(rw.非项目本月实际认购金额,0) )  AS 本月认购金额缺口 ,  --本月任务*本月时间进度分摊比-本月认购金额
@@ -4024,8 +4066,8 @@ AS
                 ISNULL(s.本年签约金额全口径, 0) - ISNULL(qt.其他业绩本年签约金额_物业公司车位代销,0) + ISNULL(rw.非项目本年实际签约金额,0) AS 本年签约金额 ,
                 ISNULL(s.本年签约套数全口径, 0) AS 本年签约套数 ,
 
-                ISNULL(qt.其他业绩本年签约金额, 0) + ISNULL(qt.其他业绩本年签约金额_物业公司车位代销,0)  AS 其他业绩本年签约金额 ,
-                ISNULL(qt.其他业绩本年签约套数, 0) + ISNULL(qt.其他业绩本年签约套数_物业公司车位代销,0) AS 其他业绩本年签约套数 ,
+                ISNULL(qt.其他业绩本年签约金额,0) + ISNULL(qt.其他业绩本年签约金额_物业公司车位代销,0) -ISNULL(rw.非项目本年实际签约金额,0) AS 其他业绩本年签约金额 ,
+                ISNULL(qt.其他业绩本年签约套数,0) + ISNULL(qt.其他业绩本年签约套数_物业公司车位代销,0)  AS 其他业绩本年签约套数 ,
                 CASE WHEN ISNULL(rw.年度签约任务, 0) = 0 THEN 0 ELSE ( ISNULL(s.本年签约金额全口径, 0) +ISNULL(rw.非项目本年实际签约金额,0) )  / ISNULL(rw.年度签约任务, 0)END AS 本年签约完成率 ,
                 CASE WHEN ISNULL(rw.年度签约任务, 0) = 0 THEN 0 ELSE ( ISNULL(s.本年签约金额全口径, 0) + ISNULL(qt.其他业绩本年签约金额, 0) +ISNULL(rw.非项目本年实际签约金额,0) ) / ISNULL(rw.年度签约任务, 0)END AS 本年签约完成率_含其他业绩 ,
                 ISNULL(rw.年度签约任务, 0)  - (ISNULL(rs.本年认购金额, 0) + ISNULL(rg.本年认购金额, 0)  + ISNULL(qt.其他业绩本年认购金额, 0)  + ISNULL(rw.非项目本年实际认购金额,0)) AS 本年认购金额缺口 ,
@@ -4073,7 +4115,7 @@ AS
 				ISNULL(rw.非项目本年实际认购金额,0 ) AS 非项目本年实际认购金额,
 				ISNULL(rw.非项目本月实际认购金额,0 ) AS 非项目本月实际认购金额,
 			    -- 20240604 chenjw 新增面积类字段
-                            ISNULL(rs.本日认购面积, 0) + ISNULL(rg.本日认购面积, 0) + ISNULL(qt.其他业绩本日认购金额, 0)  AS 本日认购面积 ,
+                ISNULL(rs.本日认购面积, 0) + ISNULL(rg.本日认购面积, 0) + ISNULL(qt.其他业绩本日认购金额, 0)  AS 本日认购面积 ,
 				ISNULL(s.本日签约面积全口径,0)   AS 本日签约面积 ,
 			    ISNULL(rs.本周认购面积,0) + ISNULL(rg.本周认购面积,0) + ISNULL(qt.其他业绩本周认购面积,0) AS 本周认购面积 ,
 				ISNULL(s.本周签约套数全口径,0) AS 本周签约套数 ,
@@ -4081,22 +4123,22 @@ AS
 				ISNULL(s.本周签约金额全口径,0) AS 本周签约金额 ,
 				ISNULL(rs.本月认购面积,0) + ISNULL(rg.本月认购面积,0) + ISNULL(qt.其他业绩本月认购面积,0) AS 本月认购面积 ,
 				ISNULL(s.本月签约面积全口径, 0) AS 本月签约面积 ,
-				ISNULL(qt.其他业绩本月认购面积,0) AS 其他业绩本月认购面积 ,
-				ISNULL(qt.其他业绩本月签约面积,0) AS 其他业绩本月签约面积 ,
+                ISNULL(qt.其他业绩本月认购面积,0) + ISNULL(qt.其他业绩本月认购面积_物业公司车位代销,0) AS 其他业绩本月认购面积 ,
+                ISNULL(qt.其他业绩本月签约面积,0) + ISNULL(qt.其他业绩本月签约面积_物业公司车位代销,0) AS 其他业绩本月签约面积 ,
 				ISNULL(rs.本月产成品认购面积, 0) + ISNULL(rg.本月产成品认购面积, 0) + ISNULL(qt.其他业绩产成品本月认购面积, 0) AS 本月产成品认购面积 ,
 				ISNULL(s.本月产成品签约面积全口径,0)  AS 本月产成品签约面积 ,
-				ISNULL(qt.其他业绩产成品本月签约面积,0)  AS 其他业绩产成品本月签约面积 ,
+				ISNULL(qt.其他业绩产成品本月签约面积_物业公司车位代销,0)  AS 其他业绩产成品本月签约面积 ,
 				ISNULL(rs.累计已认购未签约面积,0) AS 已认购未签约签约面积 ,
 				ISNULL(rs.本年认购面积, 0) + ISNULL(rg.本年认购面积, 0) + ISNULL(qt.其他业绩本年认购面积, 0) AS 本年认购面积 ,
 				ISNULL(本年签约面积全口径, 0) AS 本年签约面积 ,
-				ISNULL(qt.其他业绩本年认购套数,0) AS 其他业绩本年认购套数 ,
-				ISNULL(qt.其他业绩本日认购面积,0) AS 其他业绩本年认购面积 ,
-				ISNULL(qt.其他业绩本日认购金额,0) AS 其他业绩本年认购金额 ,
+                ISNULL(qt.其他业绩本年认购套数,0) + ISNULL(qt.其他业绩本年认购套数_物业公司车位代销,0) AS 其他业绩本年认购套数 ,
+                ISNULL(qt.其他业绩本年认购面积,0) + ISNULL(qt.其他业绩本年认购面积_物业公司车位代销,0) AS 其他业绩本年认购面积 ,
+                ISNULL(qt.其他业绩本年认购金额,0)  + ISNULL(qt.其他业绩本年认购金额_物业公司车位代销,0)  - isnull(rw.非项目本年实际认购金额,0) AS 其他业绩本年认购金额 ,
 
-				ISNULL(qt.其他业绩本年签约面积,0) AS 其他业绩本年签约面积 ,
+                ISNULL(qt.其他业绩本年签约面积,0) + ISNULL(qt.其他业绩本年签约面积_物业公司车位代销,0) AS 其他业绩本年签约面积 ,
 				ISNULL(rs.本年产成品认购面积, 0) + ISNULL(rg.本年产成品认购面积, 0) + ISNULL(qt.其他业绩产成品本年认购面积, 0) AS 本年产成品认购面积 ,
 				ISNULL(s.本年产成品签约面积全口径,0) AS 本年产成品签约面积 ,
-				ISNULL(qt.其他业绩产成品本年签约面积,0 ) AS 其他业绩产成品本年签约面积,
+                ISNULL(qt.其他业绩产成品本年签约面积_物业公司车位代销,0 ) AS 其他业绩产成品本年签约面积,
                 @wideTableDateText  as 宽表最后清洗日期 ,
                 --大户型
                 ISNULL(rs.本日大户型认购金额, 0) + ISNULL(qt.其他业绩大户型本日认购金额, 0) as 本日大户型认购金额,
@@ -4526,11 +4568,3 @@ AS
         DROP TABLE #qtyj;
 		DROP TABLE #s_hnyxxp_projSaleNew;
     END;
-
-
-
-
-
-
-
-

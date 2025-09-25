@@ -9,16 +9,23 @@
 
 -- 1. 判断是否首开
 
-SELECT ISNULL(p1.projguid, p.projguid) projguid,
-       MIN(o.qsdate) stdate
-INTO #sk
-FROM s_order o
-     LEFT JOIN p_project p ON o.projguid = p.projguid
-     LEFT JOIN p_project p1 ON p.parentcode = p1.projcode
-                               AND p1.applysys LIKE '%0101%'
-WHERE o.status = '激活'
-      OR o.closereason = '转签约'
-GROUP BY ISNULL(p1.projguid, p.projguid);
+SELECT 
+    ISNULL(p1.projguid, p.projguid) AS projguid,
+    MIN(o.qsdate) AS stdate
+INTO 
+    #sk
+FROM 
+    s_order o
+    LEFT JOIN p_project p 
+        ON o.projguid = p.projguid
+    LEFT JOIN p_project p1 
+        ON p.parentcode = p1.projcode
+        AND p1.applysys LIKE '%0101%'
+WHERE 
+    o.status = '激活'
+    OR o.closereason = '转签约'
+GROUP BY 
+    ISNULL(p1.projguid, p.projguid);
 
 -- 2. 获取项目业绩区分信息
 -- 建议添加索引优化:

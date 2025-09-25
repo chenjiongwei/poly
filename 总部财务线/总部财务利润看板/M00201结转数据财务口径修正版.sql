@@ -8,7 +8,6 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 
- 
 alter   PROC [dbo].[usp_s_m00201当年签约结转数据_盈利规划单方锁定版调整]
 (
     @var_buGUID VARCHAR(MAX),

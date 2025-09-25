@@ -107,11 +107,12 @@ CREATE NONCLUSTERED INDEX IX_cb_temp01_OrgGUID ON #cb_temp01(OrgGUID)
 CREATE NONCLUSTERED INDEX IX_cb_temp01_ProjGUID ON #cb_temp01(ProjGUID)
 
 --超限科目数 ，分期
-select '直投'type,
-ProjGUID,sum(case when ISNULL((TargetCost-DynamicCost_HFXJ)/NULLIF(TargetCost,0),0) <0 then 1 else 0 end) as 超限科目数
-,sum(case when TargetCost<>0 or DynamicCost_HFXJ<>0 and ISNULL((TargetCost-DynamicCost_HFXJ)/NULLIF(TargetCost,0),0) >=0 and ISNULL((TargetCost-DynamicCost_HFXJ)/NULLIF(TargetCost,0),0) <0.01 then 1 else 0 end) as 预警科目数
-,sum(case when ISNULL((TargetCost-DynamicCost_HFXJ)/NULLIF(TargetCost,0),0) >0.03 then 1 else 0 end) as 异常科目数
-,sum(case when ISNULL((TargetCost-DynamicCost_HFXJ)/NULLIF(TargetCost,0),0) between 0.01 and 0.03 then 1 else 0 end) as 正常科目数
+select 
+'直投'type,
+ProjGUID,sum(case when ISNULL((TargetCost-DynamicCost_HFXJ)/NULLIF(TargetCost,0),0) <0 then 1 else 0 end) as 超限科目数,
+sum(case when TargetCost<>0 or DynamicCost_HFXJ<>0 and ISNULL((TargetCost-DynamicCost_HFXJ)/NULLIF(TargetCost,0),0) >=0 and ISNULL((TargetCost-DynamicCost_HFXJ)/NULLIF(TargetCost,0),0) <0.01 then 1 else 0 end) as 预警科目数,
+sum(case when ISNULL((TargetCost-DynamicCost_HFXJ)/NULLIF(TargetCost,0),0) >0.03 then 1 else 0 end) as 异常科目数,
+sum(case when ISNULL((TargetCost-DynamicCost_HFXJ)/NULLIF(TargetCost,0),0) between 0.01 and 0.03 then 1 else 0 end) as 正常科目数
 into #cx_proj
 from data_wide_cb_ProjCostAccount where ifendcost =1 and (costcode not like '5001.01%' or costcode not like '5001.09%' or costcode not like '5001.10%' or costcode not like '5001.11%')
 group by ProjGUID

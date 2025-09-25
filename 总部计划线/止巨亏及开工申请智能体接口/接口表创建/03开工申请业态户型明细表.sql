@@ -1,0 +1,40 @@
+--创建 开工申请业态户型明细表
+drop  table s_集团开工申请业态户型明细表智能体数据提取
+go
+CREATE TABLE s_集团开工申请业态户型明细表智能体数据提取
+(
+    公司名称	Varchar(200),
+    公司GUID	uniqueidentifier,
+    项目名称	Varchar(200),
+    推广名称	Varchar(200),
+    项目GUID	uniqueidentifier,
+    业态	Varchar(200),
+    产品类型 Varchar(200),
+    产品名称 Varchar(200),
+    户型	Varchar(200),
+    总可售面积	decimal(38,10),
+    总货值	decimal(38,10),
+    开工套数	int,
+    已售套数	int,
+    已开工未售套数	int,
+    其中已达预售条件未售套数	int,
+    开工面积	decimal(38,10),
+    已售面积	decimal(38,10),
+    已开工未售面积	decimal(38,10),
+    其中已达预售条件未售面积	decimal(38,10),
+    其中已推未售面积	decimal(38,10),
+    近6个月的总签约面积	decimal(38,10),
+    近6月平均流速	decimal(38,10),
+    已售部分含税货值	decimal(38,10),
+    已售部分不含税货值	decimal(38,10),
+    已售部分销售均价	decimal(18,6),
+    已售部分的税后净利润	decimal(38,10),
+    已售部分的销净率	decimal(18,6),
+    已售部分推货去化率	decimal(18,6),
+    户型产销比	decimal(18,6),
+    剩余存销比	decimal(18,6),
+    项目历史供货周期	decimal(18,6),
+    户型是否滞销	Varchar(10),
+    偏差	decimal(18,6),
+    清洗日期	Datetime
+)

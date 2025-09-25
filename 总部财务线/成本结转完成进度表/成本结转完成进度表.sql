@@ -39,7 +39,8 @@ FROM
             SUM(
                 ISNULL(sb.UpBuildArea, 0) + ISNULL(sb.DownBuildArea, 0)
             ) AS BuildArea,
-            SUM(ISNULL(sb.SaleArea, 0)) AS SaleArea,
+            -- SUM(ISNULL(sb.SaleArea, 0)) AS SaleArea,
+            SUM(ISNULL(lddb.zksmj, 0)) AS SaleArea, --取楼栋底表的总可售面积
             SUM(ISNULL(lddb.ytwsmj, 0) + ISNULL(lddb.wtmj, 0)) AS symj,
             SUM(
                 CASE
@@ -49,9 +50,14 @@ FROM
                 END
             ) AS jbbuildarea530, --获取竣备证日期在530以前的楼栋建面之和 
             SUM(case when lddb.SJjgbadate IS NOT NULL  -- AND DATEDIFF(DAY, lddb.SJjgbadate, '2025-05-31') <= 0  
-			   then ISNULL(sb.SaleArea, 0) else  0 end  ) AS SaleArea530,
+			   then ISNULL(lddb.zksmj, 0) else  0 end  ) AS SaleArea530,
             sum(case when lddb.IsHold ='是' and lddb.SJjgbadate IS NOT NULL  -- AND DATEDIFF(DAY, lddb.SJjgbadate, '2025-05-31') <= 0 
-                then ISNULL(sb.UpBuildArea, 0) + ISNULL(sb.DownBuildArea, 0) else 0 end) as IsHoldArea530 -- 截止530之前的自持建筑面积
+                     then ISNULL(sb.UpBuildArea, 0) + ISNULL(sb.DownBuildArea, 0) 
+                   else  
+                       --ISNULL(sb.UpBuildArea, 0) + ISNULL(sb.DownBuildArea, 0) - ISNULL(lddb.zksmj, 0)  
+                       isnull( mdroom.zcbldarea,0 )
+                   end
+            ) as IsHoldArea530 -- 截止530之前的自持建筑面积
         FROM
             [172.16.4.129].erp25.dbo.p_lddbamj lddb
             LEFT JOIN [172.16.4.129].erp25.dbo.mdm_SaleBuild sb ON sb.SaleBldGUID = lddb.SaleBldGUID
@@ -59,9 +65,16 @@ FROM
             -- inner join (
             --     SELECT VersionGUID, ProjGUID,ParentProjGUID,projname,ROW_NUMBER() OVER ( PARTITION BY ProjGUID ORDER BY CreateDate DESC ) rowno 
             --      FROM  [172.16.4.129].MyCost_Erp352.dbo.md_Project where IsActive = 1 ) proj on proj.projguid = gb.projguid and proj.rowno = 1 --项目必须要有激活版，否则排除掉
-            -- inner join [172.16.4.129].MyCost_Erp352.dbo.md_ProductBuild pdb on pdb.VersionGUID = proj.VersionGUID and pdb.ProjGUID = proj.ProjGUID and pdb.rowno=1 --项目必须要有激活版，否则排除掉     
+            -- inner join [172.16.4.129].MyCost_Erp352.dbo.md_ProductBuild pdb on pdb.VersionGUID = proj.VersionGUID and pdb.ProjGUID = proj.ProjGUID --and pdb.rowno=1 项目必须要有激活版，否则排除掉   
+            left join (
+                 select ProductBldGUID, 
+                    sum(isnull(BldArea,0)) as zcbldarea -- 房间自持建筑面积
+                 from [172.16.4.129].MyCost_Erp352.dbo.md_room 
+                 where  IsSale <>'可售'
+                 group by ProductBldGUID
+            )  mdroom on mdroom.ProductBldGUID = sb.SaleBldGUID
         WHERE
-            DATEDIFF(DAY, '2025-05-31', QXDate) = 0
+            DATEDIFF(DAY, '2025-08-11', QXDate) = 0
         GROUP BY
             gb.ProjGUID
     ) ld ON ld.ProjGUID = p.ProjGUID -- -- 截止530 截至5月底已收入结转面积
@@ -88,13 +101,14 @@ FROM
     LEFT JOIN (
         SELECT
             r.projguid,
-            SUM(r.BldArea) AS JzTotalArea
+            SUM(r.BldArea1) AS JzTotalArea
         FROM
-            [172.16.4.129].erp25.dbo.s_trade st
+            [172.16.4.129].erp25.dbo.vs_trade st
             INNER JOIN [172.16.4.129].erp25.dbo.p_room r ON st.roomguid = r.roomguid
         WHERE
-            jzdate IS NOT NULL
-            AND DATEDIFF(DAY, jzdate, '2025-05-31') >= 0
+			st.status ='激活'
+            and r.jzdate IS NOT NULL
+            AND DATEDIFF(DAY, r.jzdate, '2025-08-11') >= 0
         GROUP BY
             r.projguid
     ) jz_530 ON jz_530.projguid = p.projguid -- 最新一版产成品结转

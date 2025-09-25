@@ -1,8 +1,15 @@
- declare @var_date date = '2025-07-29';
+ declare @var_date date = '2025-08-26';
 
 
        select  pj.ProjGUID ,
                  bld.TopProductTypeName,
+                SUM(CASE WHEN r.specialFlag = '否' AND  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL))  
+                       AND   DATEDIFF(yy, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjRmbTotal + ISNULL(specialYj, 0)ELSE 0 END) / 10000.0 AS 本年准产成品认购金额 ,
+                       
+                SUM(CASE WHEN r.specialFlag = '否' AND  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL))  AND   DATEDIFF(yy, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjBldArea ELSE 0 END) AS 本年准产成品认购面积,
+				SUM(CASE WHEN r.specialFlag = '否' AND  (DATEDIFF(YEAR,bld.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,bld.PlanFinishDate,@var_date) = 0 AND bld.FactFinishDate IS NULL))  AND   DATEDIFF(yy, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN 1 ELSE 0 END) AS 本年准产成品认购套数 ,
+
+
                 SUM(CASE WHEN r.specialFlag = '否' AND   DATEDIFF(yy, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjRmbTotal + ISNULL(specialYj, 0)ELSE 0 END) / 10000.0 AS 本年认购金额 ,
 				SUM(CASE WHEN r.specialFlag = '否' AND   DATEDIFF(yy, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN r.CjBldArea ELSE 0 END) AS 本年认购面积 ,
                 SUM(CASE WHEN r.specialFlag = '否' AND   DATEDIFF(yy, @var_date, r.RgQsDate) = 0 AND r.Status IN ('签约', '认购') THEN 1 ELSE 0 END) AS 本年认购套数      
@@ -386,9 +393,9 @@
         SELECT  p.projguid ,
                 bld.TopProductTypeName ,
 
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and DATEDIFF(DAY, ISNULL(qt.认定日期,a.StatisticalDate), @var_date) = 0   THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本日认购金额 ,
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and DATEDIFF(DAY, ISNULL(qt.认定日期,a.StatisticalDate), @var_date) = 0  THEN r.CjBldArea ELSE 0 END) AS 其他业绩本日认购面积 ,
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and DATEDIFF(DAY, ISNULL(qt.认定日期,a.StatisticalDate), @var_date) = 0  THEN 1 ELSE 0 END) AS 其他业绩本日认购套数,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and DATEDIFF(DAY, a.StatisticalDate, @var_date) = 0   THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本日认购金额 ,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and DATEDIFF(DAY, a.StatisticalDate, @var_date) = 0  THEN r.CjBldArea ELSE 0 END) AS 其他业绩本日认购面积 ,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and DATEDIFF(DAY, a.StatisticalDate, @var_date) = 0  THEN 1 ELSE 0 END) AS 其他业绩本日认购套数,
 
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND DATEDIFF(DAY, a.StatisticalDate, @var_date) = 0 THEN a.CCjAmount ELSE 0 END)  AS 其他业绩本日认购金额_物业公司车位代销 ,
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND DATEDIFF(DAY, a.StatisticalDate, @var_date) = 0 THEN a.CCjArea ELSE 0 END) AS 其他业绩本日认购面积_物业公司车位代销 ,
@@ -396,33 +403,33 @@
 
             
 
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  DATEDIFF(MONTH, ISNULL(qt.认定日期,a.StatisticalDate), @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本月认购金额 ,
-				SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  DATEDIFF(MONTH, ISNULL(qt.认定日期,a.StatisticalDate), @var_date) = 0 THEN r.CjBldArea ELSE 0 END) AS 其他业绩本月认购面积 ,
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  DATEDIFF(MONTH, ISNULL(qt.认定日期,a.StatisticalDate), @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩本月认购套数 ,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  DATEDIFF(MONTH, a.StatisticalDate, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本月认购金额 ,
+				SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  DATEDIFF(MONTH, a.StatisticalDate, @var_date) = 0 THEN r.CjBldArea ELSE 0 END) AS 其他业绩本月认购面积 ,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  DATEDIFF(MONTH, a.StatisticalDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩本月认购套数 ,
 
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND DATEDIFF(MONTH, a.StatisticalDate, @var_date) = 0 THEN a.CCjAmount ELSE 0 END)  AS 其他业绩本月认购金额_物业公司车位代销 ,
 				SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND DATEDIFF(MONTH, a.StatisticalDate, @var_date) = 0 THEN a.CCjArea ELSE 0 END) AS 其他业绩本月认购面积_物业公司车位代销 ,
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND DATEDIFF(MONTH, a.StatisticalDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩本月认购套数_物业公司车位代销 ,
 
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  YEAR(ISNULL(qt.认定日期,a.StatisticalDate)) = YEAR(@var_date) THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本年认购金额 ,
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  YEAR(ISNULL(qt.认定日期,a.StatisticalDate)) = YEAR(@var_date) THEN r.CjBldArea ELSE 0 END) AS 其他业绩本年认购面积 ,
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  YEAR(ISNULL(qt.认定日期,a.StatisticalDate)) = YEAR(@var_date) THEN 1 ELSE 0 END) AS 其他业绩本年认购套数 ,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  YEAR(a.StatisticalDate) = YEAR(@var_date) THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本年认购金额 ,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  YEAR(a.StatisticalDate) = YEAR(@var_date) THEN r.CjBldArea ELSE 0 END) AS 其他业绩本年认购面积 ,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  YEAR(a.StatisticalDate) = YEAR(@var_date) THEN 1 ELSE 0 END) AS 其他业绩本年认购套数 ,
 
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND YEAR(a.StatisticalDate) = YEAR(@var_date) THEN a.CCjAmount ELSE 0 END)  AS 其他业绩本年认购金额_物业公司车位代销 ,
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND YEAR(a.StatisticalDate) = YEAR(@var_date) THEN a.CCjArea ELSE 0 END) AS 其他业绩本年认购面积_物业公司车位代销 ,
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND YEAR(a.StatisticalDate) = YEAR(@var_date) THEN 1 ELSE 0 END) AS 其他业绩本年认购套数_物业公司车位代销 ,
 
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND   YEAR(ISNULL(qt.认定日期,a.StatisticalDate)) = YEAR(@var_date) THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本年签约金额 ,
-				SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND   YEAR(ISNULL(qt.认定日期,a.StatisticalDate)) = YEAR(@var_date) THEN r.CjBldArea ELSE 0 END) AS 其他业绩本年签约面积 ,
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND   YEAR(ISNULL(qt.认定日期,a.StatisticalDate)) = YEAR(@var_date) THEN 1 ELSE 0 END) AS 其他业绩本年签约套数 ,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND   YEAR(r.QsDate) = YEAR(@var_date) THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本年签约金额 ,
+				SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND   YEAR(r.QsDate) = YEAR(@var_date) THEN r.CjBldArea ELSE 0 END) AS 其他业绩本年签约面积 ,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND   YEAR(r.QsDate) = YEAR(@var_date) THEN 1 ELSE 0 END) AS 其他业绩本年签约套数 ,
 
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND   YEAR(a.StatisticalDate) = YEAR(@var_date) THEN a.CCjAmount ELSE 0 END)  AS 其他业绩本年签约金额_物业公司车位代销 ,
 				SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND   YEAR(a.StatisticalDate) = YEAR(@var_date) THEN a.CCjArea ELSE 0 END) AS 其他业绩本年签约面积_物业公司车位代销 ,
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND   YEAR(a.StatisticalDate) = YEAR(@var_date) THEN 1 ELSE 0 END) AS 其他业绩本年签约套数_物业公司车位代销 ,
 
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND   DATEDIFF(MONTH, ISNULL(qt.认定日期,a.StatisticalDate), @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本月签约金额 ,
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND   DATEDIFF(MONTH, ISNULL(qt.认定日期,a.StatisticalDate), @var_date) = 0 THEN r.CjBldArea ELSE 0 END) AS 其他业绩本月签约面积,
-                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND   DATEDIFF(MONTH, ISNULL(qt.认定日期,a.StatisticalDate), @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩本月签约套数,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND   DATEDIFF(MONTH, a.StatisticalDate, @var_date) = 0 THEN r.CjRmbTotal ELSE 0 END) / 10000.0 AS 其他业绩本月签约金额 ,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND   DATEDIFF(MONTH, a.StatisticalDate, @var_date) = 0 THEN r.CjBldArea ELSE 0 END) AS 其他业绩本月签约面积,
+                SUM(CASE WHEN a.TsyjType<> '物业公司车位代销' and  r.Status = '签约' AND   DATEDIFF(MONTH, a.StatisticalDate, @var_date) = 0 THEN 1 ELSE 0 END) AS 其他业绩本月签约套数,
 
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND   DATEDIFF(MONTH, a.StatisticalDate, @var_date) = 0 THEN a.CCjAmount ELSE 0 END) AS 其他业绩本月签约金额_物业公司车位代销 ,
                 SUM(CASE WHEN a.TsyjType ='物业公司车位代销' AND   DATEDIFF(MONTH, a.StatisticalDate, @var_date) = 0 THEN a.CCjArea ELSE 0 END) AS 其他业绩本月签约面积_物业公司车位代销,
@@ -645,17 +652,30 @@
                 isnull(qt.其他业绩本年签约金额_物业公司车位代销,0) as 其他业绩本年签约金额_物业公司车位代销,
                 isnull(qt.其他业绩本年签约套数_物业公司车位代销,0) as 其他业绩本年签约套数_物业公司车位代销,
                 isnull(qt.其他业绩本年签约面积_物业公司车位代销,0) as 其他业绩本年签约面积_物业公司车位代销,
+
+
+                isnull(qt.其他业绩本年签约金额,0) as 其他业绩本年签约金额,
+                isnull(qt.其他业绩本年签约套数,0) as 其他业绩本年签约套数,
+                isnull(qt.其他业绩本年签约面积,0) as 其他业绩本年签约面积,
+                
+				isnull(qt.其他业绩本年认购金额,0) as 其他业绩本年认购金额,
+                isnull(qt.其他业绩本年认购套数,0) as 其他业绩本年认购套数,
+                isnull(qt.其他业绩本年认购面积,0) as 其他业绩本年认购面积,
+                isnull(rs.本年准产成品认购金额,0) as 本年准产成品认购金额,
      
-        ISNULL(rs.本年认购金额, 0) + ISNULL(rg.本年认购金额, 0) + ISNULL(qt.其他业绩本年认购金额, 0) + ISNULL(rw.非项目本年实际认购金额, 0) AS 本年认购金额 ,
-        ISNULL(rs.本年认购金额, 0)  as 其中正常操盘_本年认购金额,
-        ISNULL(rg.本年认购金额, 0)  as 特殊合作业绩_本年认购金额,
-        ISNULL(qt.其他业绩本年认购金额, 0)  as 其他业绩填报_本年认购金额,
-        ISNULL(rw.非项目本年实际认购金额, 0) as 非项目_本年认购金额,
-				-- ISNULL(rs.本年认购套数, 0) + ISNULL(rg.本年认购套数, 0) + ISNULL(qt.其他业绩本年认购套数, 0) AS 本年认购套数 ,
-        ISNULL(rs.本年认购面积, 0) + ISNULL(rg.本年认购面积, 0) + ISNULL(qt.其他业绩本年认购面积, 0) AS 本年认购面积,
-        ISNULL(rs.本年认购面积, 0) as 其中正常操盘_本年认购面积,
-        ISNULL(rg.本年认购面积, 0) as 特殊合作业绩_本年认购面积,
-        ISNULL(qt.其他业绩本年认购面积, 0) AS 其他业绩填报_本年认购面积 
+                ISNULL(rs.本年认购金额, 0) + ISNULL(rg.本年认购金额, 0) + ISNULL(qt.其他业绩本年认购金额, 0) + ISNULL(rw.非项目本年实际认购金额, 0) AS 本年认购金额 ,
+                ISNULL(rs.本年认购金额, 0)  as 其中正常操盘_本年认购金额,
+                ISNULL(rg.本年认购金额, 0)  as 特殊合作业绩_本年认购金额,
+                ISNULL(qt.其他业绩本年认购金额, 0)  as 其他业绩填报_本年认购金额,
+                ISNULL(rw.非项目本年实际认购金额, 0) as 非项目_本年认购金额,
+                        -- ISNULL(rs.本年认购套数, 0) + ISNULL(rg.本年认购套数, 0) + ISNULL(qt.其他业绩本年认购套数, 0) AS 本年认购套数 ,
+                ISNULL(rs.本年认购面积, 0) + ISNULL(rg.本年认购面积, 0) + ISNULL(qt.其他业绩本年认购面积, 0) AS 本年认购面积,
+                ISNULL(rs.本年认购面积, 0) as 其中正常操盘_本年认购面积,
+                ISNULL(rg.本年认购面积, 0) as 特殊合作业绩_本年认购面积,
+                ISNULL(qt.其他业绩本年认购面积, 0) AS 其他业绩填报_本年认购面积,
+
+                ISNULL(qt.其他业绩本年签约金额,0) + ISNULL(qt.其他业绩本年签约金额_物业公司车位代销,0) -ISNULL(rw.非项目本年实际签约金额,0) AS 其他业绩本年签约金额 ,
+                ISNULL(qt.其他业绩本年签约套数,0) + ISNULL(qt.其他业绩本年签约套数_物业公司车位代销,0)  AS 其他业绩本年签约套数 
 		FROM    data_wide_dws_mdm_Project p
 				INNER JOIN #TopProduct pt ON pt.ParentProjGUID = p.ProjGUID
 				LEFT JOIN data_tb_hnyx_jdfxtb rw ON rw.projguid = p.ProjGUID AND   rw.业态 = pt.TopProductTypeName
@@ -664,7 +684,7 @@
 				LEFT JOIN #rg rg ON rg.ProjGUID = p.ProjGUID AND   pt.TopProductTypeName = rg.TopProductTypeName
 				LEFT JOIN #qtqy qt ON qt.projguid = p.projguid AND pt.TopProductTypeName = qt.TopProductTypeName
 		WHERE   Level = 2 AND   p.buguid = '70DD6DF4-47F7-46AF-B470-BC18EE57D8FF'   -- and tb.投管编码 = '1703' --  
-          and tb.投管编码 ='2954' 
+          and tb.投管编码 ='2926'  
 
 --删除临时表
 drop Table #rsale,#qtqy,#qtyj ,#rg ,#TopProduct
@@ -679,6 +699,11 @@ drop Table #rsale,#qtqy,#qtyj ,#rg ,#TopProduct
                 SUM(ISNULL(Sale.CNetAmount, 0) + ISNULL(Sale.SpecialCNetAmount, 0)) / 10000 AS 本年签约金额全口径 ,
                 SUM(ISNULL(Sale.CNetArea, 0) + ISNULL(Sale.SpecialCNetArea, 0)) AS 本年签约面积全口径 ,
                 SUM(ISNULL(Sale.CNetCount, 0) + ISNULL(Sale.SpecialCNetCount, 0)) AS 本年签约套数全口径 
+
+                SUM(CASE WHEN  (DATEDIFF(YEAR,pb.FactFinishDate,@var_date) = 0 OR (DATEDIFF(YEAR,pb.PlanFinishDate,@var_date) = 0 AND pb.FactFinishDate IS NULL))  
+                     THEN ISNULL(Sale.CNetAmount, 0) + ISNULL(Sale.SpecialCNetAmount, 0)
+                         ELSE 0
+                    END) / 10000 本年准产成品签约金额全口径 ,
                
        --  INTO    #projsale
         FROM    dbo.data_wide_dws_s_SalesPerf Sale

@@ -1,6 +1,6 @@
 USE [MyCost_Erp352]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_cb_rptBudgetYgAlterInfo]    Script Date: 2025/5/19 15:07:35 ******/
+/****** Object:  StoredProcedure [dbo].[usp_cb_rptBudgetYgAlterInfo]    Script Date: 2025/8/6 14:47:15 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -9,7 +9,7 @@ GO
  * 合约规划及预留金一览表
  * 主要功能:查合约规划及预留金一览表
  --南京市江北广西埂大街北G14、G15、G17、G18-一期
- * exec usp_cb_rptBudgetYgAlterInfo '8B13BC92-7000-EF11-B3A4-F40270D39969','2025-01-01','2025-05-13'
+ * exec usp_cb_rptBudgetYgAlterInfo '4975B69C-9953-4DD0-A65E-9A36DB8C66DF','2025-01-01','2025-05-13'
  E33F4636-3875-4EE8-B4C3-04DF4CF90119
  */
  -- 参考合约规划明细界面的存储过程 [usp_cb_GetBudgetInfoMain]
@@ -19,7 +19,7 @@ GO
 
 ALTER   proc [dbo].[usp_cb_rptBudgetYgAlterInfo]
 (
-    @projguid varchar(max), -- 项目分期GUID
+    @buguid varchar(max), -- 项目分期GUID
     @gdSDate datetime, -- 归档开始时间
     @gdEDate datetime, -- 归档截止时间
     @HtType varchar(200) =null  -- 合同类别
@@ -67,7 +67,7 @@ begin
             where  bgxs='总价包干' 
         ) zjcon on zjcon.ContractGUID=a.RefGUID
 	WHERE a.IsApprove=1 AND	 c.IfDdhs=1
-	AND p.ProjGUID in (  SELECT [Value] FROM dbo.fn_Split1(@projguid, ',') )
+	AND p.buguid in (  SELECT [Value] FROM dbo.fn_Split1(@buguid, ',') )
 	GROUP BY  c.ContractGUID,c.ContractName,c.bgxs, b.ExecutingBudgetGUID,c.HtClass ,c.SignDate,c.JsState,
     case  when  zjcon.是否首次总价合同=1 then  '首次签约为总价包干'
             when  zjcon.是否已转总价合同=1 then '首次签约为单价合同已转总'
@@ -85,7 +85,7 @@ begin
 	INNER JOIN dbo.cb_Budget d ON d.BudgetGUID = c.BudgetGUID 
 	INNER JOIN dbo.p_Project p ON c.ProjectCode=p.ProjCode
 	WHERE c.IsApprove=1  	
-	AND p.ProjGUID  in (  SELECT [Value] FROM dbo.fn_Split1(@projguid, ',') )
+	AND p.buguid  in (  SELECT [Value] FROM dbo.fn_Split1(@buguid, ',') )
 	GROUP BY d.ExecutingBudgetGUID
 
 
@@ -99,7 +99,7 @@ begin
 	INNER JOIN dbo.cb_Budget d ON d.BudgetGUID = c.BudgetGUID 
 	INNER JOIN dbo.p_Project p ON c.ProjectCode=p.ProjCode
 	WHERE c.IsApprove=1  AND b.IsFromXyl=1
-	AND p.ProjGUID in (  SELECT [Value] FROM dbo.fn_Split1(@projguid, ',') )
+	AND p.buguid in (  SELECT [Value] FROM dbo.fn_Split1(@buguid, ',') )
 	GROUP BY d.ExecutingBudgetGUID
 
 
@@ -113,7 +113,7 @@ begin
 		,ROW_NUMBER() OVER (PARTITION BY a.ExecutingBudgetGUID ORDER BY a.createdate desc) rowno
 		FROM dbo.cb_BudgetCgPlanAmount a
 		INNER JOIN  dbo.cb_Budget_Executing b ON b.ExecutingBudgetGUID = a.ExecutingBudgetGUID
-		WHERE b.ProjectGUID in (  SELECT [Value] FROM dbo.fn_Split1(@projguid, ',') )
+		WHERE b.buguid in (  SELECT [Value] FROM dbo.fn_Split1(@buguid, ',') )
 	)  aa WHERE aa.rowno=1
 
 
@@ -141,7 +141,7 @@ begin
 			INNER JOIN dbo.cb_Budget d ON d.BudgetGUID = c.BudgetGUID 
 			INNER JOIN dbo.p_Project p ON c.ProjectCode=p.ProjCode
 			WHERE a.ApproveState IN ('审核中','已审核')
-			AND p.ProjGUID in (  SELECT [Value] FROM dbo.fn_Split1(@projguid, ',') )
+			AND p.buguid in (  SELECT [Value] FROM dbo.fn_Split1(@buguid, ',') )
 			GROUP BY d.ExecutingBudgetGUID,a.PreContractGUID,a.SignDate
 		) aa 
 	)aaa WHERE aaa.rowno=1
@@ -157,7 +157,7 @@ begin
 	LEFT JOIN  dbo.cb_HTAlter c ON c.HTAlterGUID=f.RefGUID AND c.isUseYgAmount=1
 	WHERE  f.IsApprove = 1 
 	AND ISNULL(f.IsFromXyl,0)=0
-	AND p.ProjGUID in (  SELECT [Value] FROM dbo.fn_Split1(@projguid, ',') )
+	AND p.buguid in (  SELECT [Value] FROM dbo.fn_Split1(@buguid, ',') )
 	GROUP  BY b.ExecutingBudgetGUID
 
 	--预留金额
@@ -167,7 +167,7 @@ begin
 	INTO #ylj
 	FROM cb_YgAlter2Budget a
 	INNER JOIN dbo.cb_Budget b ON b.BudgetGUID = a.BudgetGUID
-	where b.ProjectGUID in (  SELECT [Value] FROM dbo.fn_Split1(@projguid, ',') )
+	where b.buguid in (  SELECT [Value] FROM dbo.fn_Split1(@buguid, ',') )
 	GROUP  BY b.ExecutingBudgetGUID
 
 
@@ -182,9 +182,9 @@ begin
 		,ROW_NUMBER() OVER(PARTITION BY a.ExecutingBudgetGUID ORDER BY a.UpdateDate DESC) AS rowno 
 		FROM  cb_BudgetAmountVer a
 		LEFT JOIN cb_Budget_Executing b ON a.ExecutingBudgetGUID=b.ExecutingBudgetGUID
-		WHERE b.ProjectGUID in (  SELECT [Value] FROM dbo.fn_Split1(@projguid, ',') ) 
+		WHERE b.buguid in (  SELECT [Value] FROM dbo.fn_Split1(@buguid, ',') ) 
 	) aa on aa.rowno=2 AND ex.ExecutingBudgetGUID=aa.ExecutingBudgetGUID
-	WHERE ex.ProjectGUID in (  SELECT [Value] FROM dbo.fn_Split1(@projguid, ',') )
+	WHERE ex.buguid in (  SELECT [Value] FROM dbo.fn_Split1(@buguid, ',') )
 
 
 	
@@ -202,7 +202,7 @@ begin
 		  AND g.AlterType='附属合同'
 		  AND ct.ZzgHTBalanceGUID IS NULL
 		  AND g.AlterAmount<0
-		  AND p.ProjGUID in (  SELECT [Value] FROM dbo.fn_Split1(@projguid, ',') )
+		  AND p.buguid in (  SELECT [Value] FROM dbo.fn_Split1(@buguid, ',') )
 	GROUP BY	b.ExecutingBudgetGUID
 
 
@@ -214,7 +214,7 @@ begin
 	INNER JOIN dbo.cb_HTAlter b ON a.ContractGUID=b.RefGUID
 	INNER JOIN  dbo.cb_BudgetUse bu ON bu.RefGUID=b.HTAlterGUID 
 	INNER JOIN dbo.p_Project p ON p.ProjCode=bu.ProjectCode
-	WHERE  p.ProjGUID in (  SELECT [Value] FROM dbo.fn_Split1(@projguid, ',') ) and   b.AlterType='附属合同' AND a.ZzgHTBalanceGUID IS NOT NULL 
+	WHERE  p.buguid in (  SELECT [Value] FROM dbo.fn_Split1(@buguid, ',') ) and   b.AlterType='附属合同' AND a.ZzgHTBalanceGUID IS NOT NULL 
 
 	--获取合同最新的暂转固合约规划金额 
 	SELECT d.ExecutingBudgetGUID,ISNULL(SUM(c.ZzgAmount),0) AS ZzgAmount
@@ -228,11 +228,16 @@ begin
 		,ROW_NUMBER() OVER(PARTITION BY ContractGUID ORDER BY ApproveDate desc) rowno 
 		FROM #ZZGBG
 	) aa  ON c.RefGUID=aa.HTAlterGUID AND  aa.rowno=1
-	WHERE p.ProjGUID in (  SELECT [Value] FROM dbo.fn_Split1(@projguid, ',') )
+	WHERE p.buguid in (  SELECT [Value] FROM dbo.fn_Split1(@buguid, ',') )
 	GROUP BY d.ExecutingBudgetGUID
 
     -- 合约规划调整明细
-    SELECT  a.BudgetBillGUID,
+    SELECT 
+            bl.subject, -- 申请主题
+	        bl.applydate, -- 申请日期
+			u.username, -- 申请人
+			bl.approvelevel, --分级审批类型
+            a.BudgetBillGUID,
             a.BudgetBillDetailGUID ,
             wf.InitiateDatetime ,
             wf.FinishDatetime ,
@@ -260,6 +265,17 @@ begin
             AdjustReason.合约规划变动原因_销售转经营调整金额,
             AdjustReason.合约规划变动原因_新增整改及提升调整金额,
             AdjustReason.合约规划变动原因_其它调整金额, 
+
+            -- 新增字段
+            --AdjustReason.合约规划变动原因_合约规划拆分不准或错误,
+            AdjustReason.合约规划变动原因_成本预估不足,
+            AdjustReason.合约规划变动原因_政府要求或政策原因,
+            AdjustReason.合约规划变动原因_促销售焕新或提升,
+            AdjustReason.合约规划变动原因_保交付或提升客户满意度整改及提升,
+            AdjustReason.合约规划变动原因_质量缺陷,
+            AdjustReason.合约规划变动原因_不可抗力抢险等,
+            AdjustReason.合约规划变动原因_联动资源原因,
+
             
             AdjustReason.预留金变动原因_材料调差调整金额,  
             AdjustReason.预留金变动原因_合同范围调整调整金额,    
@@ -267,7 +283,9 @@ begin
             AdjustReason.预留金变动原因_签证变更调整金额,    
             AdjustReason.预留金变动原因_退场调整金额,  
             AdjustReason.预留金变动原因_暂转固调整金额,    
-            AdjustReason.预留金变动原因_争议或索赔调整金额,    
+            AdjustReason.预留金变动原因_争议或索赔调整金额,  
+            -- 新增字段
+            AdjustReason.预留金变动原因_调整暂定价,
             AdjustReason.预留金变动原因_其它调整金额            
                 -- STUFF((
                 --     SELECT ',' + ReasonName + '(' + CAST(AdjustAmount AS VARCHAR(20)) + ')'
@@ -276,19 +294,29 @@ begin
                 --     FOR XML PATH('')
                 -- ), 1, 1, '') AS details -- 调整原因
     into #BudgetBillDetail
-    FROM    dbo.cb_BudgetBillDetail A
+    FROM  dbo.cb_BudgetBillDetail a
+    inner join  cb_BudgetBill bl on a.budgetbillguid =bl.budgetbillguid
+    left join myuser u on bl.userguid =u.userguid
     left join myWorkflowProcessEntity wf on wf.BusinessGUID = a.BudgetBillGUID
-    LEFT JOIN dbo.cb_Budget_Working B ON A.WorkingBudgetGUID = B.WorkingBudgetGUID
-    inner JOIN (
+    LEFT JOIN dbo.cb_Budget_Working b ON a.WorkingBudgetGUID = b.WorkingBudgetGUID
+    left JOIN (
         select  
              BudgetBillGUID,
              WorkingBudgetGUID,
-            sum(case when  ReasonName ='标段划分调整' and  type <> 4 then  AdjustAmount else 0  end ) as  合约规划变动原因_标段划分调整调整金额,
-            sum(case when  ReasonName ='规划方案调整' and  type <> 4 then  AdjustAmount else 0 end ) as  合约规划变动原因_规划方案调整调整金额,
-            sum(case when  ReasonName ='合同范围调整' and  type <> 4 then  AdjustAmount else 0 end ) as  合约规划变动原因_合同范围调整调整金额,
-            sum(case when  ReasonName ='合约规划拆分不准' and  type <> 4 then  AdjustAmount else 0 end)  as  合约规划变动原因_合约规划拆分不准调整金额,
-            sum(case when  ReasonName ='销售转经营' and  type <> 4 then  AdjustAmount else 0  end ) as  合约规划变动原因_销售转经营调整金额,
+            -- sum(case when  ReasonName ='合约规划拆分不准或错误' and  type <> 4 then  AdjustAmount else 0  end ) as  合约规划变动原因_合约规划拆分不准或错误, --合约规划拆分不准或错误
+            sum(case when  ReasonName ='成本预估不足' and  type <> 4 then  AdjustAmount else 0  end ) as   合约规划变动原因_成本预估不足, --成本预估不足
+            sum(case when  ReasonName in ('合约规划拆分不准','合约规划拆分不准或错误') and  type <> 4 then  AdjustAmount else 0 end)  as  合约规划变动原因_合约规划拆分不准调整金额,
             sum(case when  ReasonName ='新增整改及提升' and  type <> 4 then  AdjustAmount else 0 end )  as  合约规划变动原因_新增整改及提升调整金额,
+            sum(case when  ReasonName ='合同范围调整' and  type <> 4 then  AdjustAmount else 0 end ) as  合约规划变动原因_合同范围调整调整金额,
+            sum(case when  ReasonName ='规划方案调整' and  type <> 4 then  AdjustAmount else 0 end ) as  合约规划变动原因_规划方案调整调整金额,
+            sum(case when  ReasonName ='政府要求或政策原因' and  type <> 4 then  AdjustAmount else 0 end ) as  合约规划变动原因_政府要求或政策原因,--政府要求或政策原因
+            sum(case when  ReasonName ='销售转经营' and  type <> 4 then  AdjustAmount else 0 end ) as  合约规划变动原因_销售转经营调整金额,--销售转经营
+            sum(case when  ReasonName ='促销售（焕新或提升）' and  type <> 4 then  AdjustAmount else 0 end ) as  合约规划变动原因_促销售焕新或提升,--促销售（焕新或提升）
+            sum(case when  ReasonName ='保交付或提升客户满意度（整改及提升）' and  type <> 4 then  AdjustAmount else 0 end ) as  合约规划变动原因_保交付或提升客户满意度整改及提升,--保交付或提升客户满意度（整改及提升）
+            sum(case when  ReasonName ='标段划分调整' and  type <> 4 then  AdjustAmount else 0  end ) as  合约规划变动原因_标段划分调整调整金额,
+            sum(case when  ReasonName ='质量缺陷' and  type <> 4 then  AdjustAmount else 0  end ) as  合约规划变动原因_质量缺陷,-- 质量缺陷
+            sum(case when  ReasonName ='不可抗力（抢险等）' and  type <> 4 then  AdjustAmount else 0  end ) as  合约规划变动原因_不可抗力抢险等, --不可抗力（抢险等）
+            sum(case when  ReasonName ='联动资源原因' and  type <> 4 then  AdjustAmount else 0  end ) as  合约规划变动原因_联动资源原因,--联动资源原因
             sum(case when  ReasonName ='其它' and  type <> 4 then  AdjustAmount else 0 end ) as  合约规划变动原因_其它调整金额,
 
             sum(case when  ReasonName ='材料调差' and  type = 4 then  AdjustAmount else 0  end ) as  预留金变动原因_材料调差调整金额,  
@@ -298,6 +326,7 @@ begin
             sum(case when  ReasonName ='退场' and  type = 4 then  AdjustAmount else  0 end ) as  预留金变动原因_退场调整金额,  
             sum(case when  ReasonName ='暂转固' and  type = 4 then  AdjustAmount else 0 end ) as  预留金变动原因_暂转固调整金额,    
             sum(case when  ReasonName ='争议或索赔' and  type = 4 then  AdjustAmount else 0 end)  as  预留金变动原因_争议或索赔调整金额,    
+            sum(case when  ReasonName ='调整暂定价' and  type = 4 then  AdjustAmount else 0 end)  as  预留金变动原因_调整暂定价,    
             sum(case when  ReasonName ='其它' and  type = 4 then  AdjustAmount else 0 end )  as  预留金变动原因_其它调整金额
         from cb_BudgetBill2AdjustReason
         group by BudgetBillGUID,WorkingBudgetGUID
@@ -311,9 +340,11 @@ begin
                         INNER JOIN cb_Contract c ON c.ContractGUID=a.RefGUID
                         INNER JOIN dbo.p_Project p ON a.ProjectCode=p.ProjCode
                         WHERE a.IsApprove=1
-                        AND p.ProjGUID in (  SELECT [Value] FROM dbo.fn_Split1(@projguid, ',') )
+                        AND p.buguid in (  SELECT [Value] FROM dbo.fn_Split1(@buguid, ',') )
                         GROUP BY  c.ContractGUID,c.ContractName, b.ExecutingBudgetGUID
      ) con ON con.ExecutingBudgetGUID = A.WorkingBudgetGUID
+     where bl.approvestate in  ('审核中','已审核') 
+     and  isnull( wf.InitiateDatetime,bl.applydate )  BETWEEN @gdSDate and @gdEDate
 
     -- 查询结果
     SELECT 
@@ -356,8 +387,15 @@ begin
         -- bugetbill.sumPlanAmountBeforeAdjust AS '调整前规划金额',
         -- bugetbill.sumPlanAmountAfterAdjust AS '调整后规划金额',
         -- bugetbill.yljDiffBudgetAmount AS '预留金变动金额',
-        case  when  bugetbill.ModifyType <> 4  then PlanAmountBeforeAdjust else  0 end as '调整前规划金额',
-        case  when  bugetbill.ModifyType <> 4  then PlanAmountAfterAdjust else  0 end as '调整后规划金额',
+        bugetbill.subject as 申请主题,
+        bugetbill.applydate as 申请日期,
+        bugetbill.username as  申请人,
+        bugetbill.approvelevel as 分级审批类型,
+
+        -- case  when  bugetbill.ModifyType <> 4  then PlanAmountBeforeAdjust else  0 end as '调整前规划金额',
+        -- case  when  bugetbill.ModifyType <> 4  then PlanAmountAfterAdjust else  0 end as '调整后规划金额',
+         PlanAmountBeforeAdjust as '调整前规划金额',
+         PlanAmountAfterAdjust  as '调整后规划金额',
         case  when  bugetbill.ModifyType = 4  then DiffBudgetAmount else  0 end '预留金变动金额',
 
         ISNULL(yfs.ylj_yfs,0)  AS '已发生预留金',
@@ -374,13 +412,24 @@ begin
             case  when  bugetbill.ModifyType = 4  then PlanAmountAfterAdjust else  0 end  / 
             CASE WHEN ht.ExecutingBudgetGUID IS NOT NULL THEN ISNULL(yfs.YfsCost,0) +ISNULL(ylj.YgYeAmount,0) ELSE a.BudgetAmount  END
         end  AS '调整后待发生预留金比例', -- 取该合约规划本次调整后的待发生预留金额占合同动态(最新合约规划金额)的比例
-        合约规划变动原因_标段划分调整调整金额 AS '合约规划变动原因_标段划分调整',
-        合约规划变动原因_规划方案调整调整金额 AS '合约规划变动原因_规划方案调整',
-        合约规划变动原因_新增整改及提升调整金额 AS '合约规划变动原因_新增整改及提升',
-        合约规划变动原因_合约规划拆分不准调整金额 AS '合约规划变动原因_合约规划拆分不准',
-        合约规划变动原因_销售转经营调整金额 AS '合约规划变动原因_销售转经营',
-        合约规划变动原因_合同范围调整调整金额 AS '合约规划变动原因_合同范围调整',
-        合约规划变动原因_其它调整金额 AS '合约规划变动原因_其它',
+
+
+        -- 合约规划变动原因_合约规划拆分不准或错误 as '合约规划变动原因_合约规划拆分不准或错误', --合约规划拆分不准或错误
+        合约规划变动原因_成本预估不足 as '合约规划变动原因_成本预估不足', --成本预估不足
+        合约规划变动原因_合约规划拆分不准调整金额 as '合约规划变动原因_合约规划拆分不准',
+        合约规划变动原因_新增整改及提升调整金额 as '合约规划变动原因_新增整改及提升',
+        合约规划变动原因_合同范围调整调整金额 as '合约规划变动原因_合同范围调整' ,
+        合约规划变动原因_规划方案调整调整金额 as '合约规划变动原因_规划方案调整',
+        合约规划变动原因_政府要求或政策原因 as '合约规划变动原因_政府要求或政策原因',--政府要求或政策原因
+        合约规划变动原因_销售转经营调整金额 as '合约规划变动原因_销售转经营' ,--销售转经营
+        合约规划变动原因_促销售焕新或提升 as '合约规划变动原因_促销售焕新或提升' ,--促销售（焕新或提升）
+        合约规划变动原因_保交付或提升客户满意度整改及提升 as '合约规划变动原因_保交付或提升客户满意度整改及提升',--保交付或提升客户满意度（整改及提升）
+        合约规划变动原因_标段划分调整调整金额 as  '合约规划变动原因_标段划分调整',
+        合约规划变动原因_质量缺陷 as '合约规划变动原因_质量缺陷',-- 质量缺陷
+        合约规划变动原因_不可抗力抢险等 as '合约规划变动原因_不可抗力抢险等' , --不可抗力（抢险等）
+        合约规划变动原因_联动资源原因 as  '合约规划变动原因_联动资源原因',--联动资源原因
+        合约规划变动原因_其它调整金额 as '合约规划变动原因_其它',
+
 
         预留金变动原因_暂转固调整金额 AS '预留金变动原因_暂转固',
         预留金变动原因_阶段结算调整金额 AS '预留金变动原因_阶段结算',
@@ -389,6 +438,7 @@ begin
         预留金变动原因_材料调差调整金额 AS '预留金变动原因_材料调差',
         预留金变动原因_争议或索赔调整金额 AS '预留金变动原因_争议或索赔',
         预留金变动原因_退场调整金额 AS '预留金变动原因_退场',
+        预留金变动原因_调整暂定价 AS '预留金变动原因_调整暂定价', -- 调整暂定价
         预留金变动原因_其它调整金额 AS '预留金变动原因_其它'
     FROM p_project proj
     INNER JOIN mybusinessunit bu ON proj.buguid = bu.buguid 
@@ -438,8 +488,8 @@ begin
     --      group by WorkingBudgetGUID
     -- ) bugetbill  on bugetbill.WorkingBudgetGUID =a.WorkingBudgetGUID
     WHERE proj.level =3 
-         and  proj.projguid  in (  SELECT [Value] FROM dbo.fn_Split1(@projguid, ',')  ) 
-         -- and  bugetbill.FinishDatetime BETWEEN @gdSDate and @gdEDate
+         and  proj.buguid  in (  SELECT [Value] FROM dbo.fn_Split1(@buguid, ',')  ) 
+         and  isnull(bugetbill.InitiateDatetime,bugetbill.applydate) BETWEEN @gdSDate and @gdEDate
          -- and  b.HtTypeName  in ( @HtType ) 
     order by  bu.buname,proj.projname,c.BudgetName
 

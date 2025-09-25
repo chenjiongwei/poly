@@ -194,6 +194,7 @@ EXEC usp_nmap_F_平台公司存量项目未开发土地V2 '2025-07-07','erp25.db
 	left join (
        select  distinct * from  nmap_F_平台公司存量项目未开发土地V2
 		   where  FILLHISTORYGUID = @FILLHISTORYGUIDLAST and isnull(项目名称,'') <> ''
+       and 1=2
 	) d on a.[项目名称] = d.[项目名称] and  a.项目代码 =  d.项目代码
 
 

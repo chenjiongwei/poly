@@ -1,10 +1,11 @@
 USE [MyCost_Erp352]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_cb_CostStructureReport_Clean]    Script Date: 2025/6/9 19:06:05 ******/
+/****** Object:  StoredProcedure [dbo].[usp_cb_CostStructureReport_Clean]    Script Date: 2025/8/4 11:19:55 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
+
 -- =============================================
 -- Author:      chenjw
 -- Create date: 2025-04-27
@@ -119,7 +120,33 @@ BEGIN
         待签约_待发生预留金 DECIMAL(18,2),
         非现金 DECIMAL(18,2),
         已发生预留金_已结算 DECIMAL(18,2),
-        已发生预留金_未结算 DECIMAL(18,2)
+        已发生预留金_未结算 DECIMAL(18,2),
+
+        --新增字段
+        本年新签合同份数 DECIMAL(18,2),
+        本年新签合同金额 DECIMAL(18,2),
+		本年招标结余金额 DECIMAL(18,2),
+		本年单价包干合同金额 DECIMAL(18,2),
+		签证变更金额 DECIMAL(18,2),
+		进度款支付金额 DECIMAL(18,2),
+		本年实付金额 DECIMAL(18,2),
+		停工缓建标识 varchar(10),
+		停工缓建合约规划数量 DECIMAL(18,2),
+		停工缓建合约规划金额 DECIMAL(18,2),
+
+		本月完成合同结算份数 DECIMAL(18,2),
+        本月完成合同结算金额 DECIMAL(18,2),
+        本月完成合同结算送审金额 DECIMAL(18,2),
+        本月完成合同结算一审金额 DECIMAL(18,2),
+        本月完成合同结算一核核减率 DECIMAL(18,2),
+        本月完成合同结算二审金额 DECIMAL(18,2),
+        本月完成合同结算二核核减率 DECIMAL(18,2),
+        本月完成合同结算审批时长 DECIMAL(18,2),
+        在途合同结算二审审核中份数 DECIMAL(18,2),
+		本年新签合同份数_全量 DECIMAL(18,2),
+		本年新签合同金额_全量 DECIMAL(18,2),
+		本月完成合同结算需二审的一审金额 DECIMAL(18,2),
+		本年完成合同结算金额 DECIMAL(18,2) 
     );
 
     -- 调用报表生成存储过程，将结果插入临时表
@@ -221,5 +248,3 @@ END;
 -- 	[非现金] [decimal](18, 2) NULL
 -- ) ON [PRIMARY]
 -- GO
-
-

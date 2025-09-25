@@ -1,12 +1,14 @@
 USE [MyCost_Erp352]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_rpt_cb_CostStructureReport_Detail]    Script Date: 2025/7/7 15:30:23 ******/
+/****** Object:  StoredProcedure [dbo].[usp_rpt_cb_CostStructureReport_Detail]    Script Date: 2025/9/8 18:28:43 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
 -- 各分期成本结构穿透明细表
 -- exec usp_rpt_cb_CostStructureReport_Detail '264ABDB2-FCA3-E711-80BA-E61F13C57837'
+-- 修改：chenjw 2025-09-08 增加“合同大类”和“合同类别”字段
+
 ALTER proc [dbo].[usp_rpt_cb_CostStructureReport_Detail]
 (
    -- @var_buguid varchar(max) ,  -- 公司guid
@@ -14,11 +16,14 @@ ALTER proc [dbo].[usp_rpt_cb_CostStructureReport_Detail]
 )
 as
 begin
-    	--已签约的合同
+    --已签约的合同
 	SELECT 
         c.ContractGUID
         ,c.ContractCode
         ,c.ContractName
+        --,httype.HtTypeGUID
+        --,httype.HtTypeName
+        ,isnull(lib.BudgetName, hyb.ContractName) as BudgetLibraryName
         ,case when zjcon.是否已转总价合同 =1 then '总价包干' else   c.bgxs end  as  bgxs -- 计价方式
         ,b.ExecutingBudgetGUID
         ,c.HtClass 
@@ -33,8 +38,17 @@ begin
 	INTO  #HT
 	FROM  dbo.cb_BudgetUse a WITH(NOLOCK)
 	INNER JOIN dbo.cb_Budget b WITH(NOLOCK) ON b.BudgetGUID = a.BudgetGUID 
+    INNER JOIN cb_Budget_Executing e  WITH(NOLOCK) ON e.ExecutingBudgetGUID=b.ExecutingBudgetGUID
 	INNER JOIN cb_Contract c WITH(NOLOCK) ON c.ContractGUID=a.RefGUID
+    -- inner join cb_httype  httype on httype.HtTypeCode =c.HtTypeCode  and  httype.buguid =c.buguid
 	INNER JOIN dbo.p_Project p WITH(NOLOCK) ON a.ProjectCode=p.ProjCode
+    LEFT JOIN dbo.cb_BudgetLibrary lib WITH(NOLOCK) ON c.BudgetLibraryGUID = lib.BudgetLibraryGUID
+    outer apply (
+       select  top 1 hyb.ContractName 
+       from  cb_ProjHyb hyb WITH(NOLOCK) 
+       where hyb.ContractBaseGUID =c.BudgetLibraryGUID   and  hyb.projguid =p.projguid
+       order by  hyb.ContractName
+    ) hyb
     left  join (
             select  ContractGUID,
             case when  bgxs='总价包干'  and  isnull(fscon.补充合同数,0)= isnull(fscon.未关联暂转固单据且未施工图结算的补充合同数,0) then 1 else 0 end as 是否首次总价合同,
@@ -59,8 +73,8 @@ begin
 	WHERE a.IsApprove= 1  -- 审核中或已审核
     AND	 c.IfDdhs=1  -- 是否单独核算    
     AND ( p.ProjGUID in ( SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ',') ) or @var_projguid is null )
-    -- AND p.buguid in ( SELECT [Value] FROM dbo.fn_Split1(@var_buguid, ',') ) 
-	GROUP BY  c.ContractGUID,c.ContractCode,c.ContractName,c.bgxs, b.ExecutingBudgetGUID,c.HtClass ,c.JsState,zjcon.是否首次总价合同,zjcon.是否已转总价合同
+    --AND p.buguid in ( SELECT [Value] FROM dbo.fn_Split1(@var_buguid, ',') ) 
+	GROUP BY  c.ContractGUID,c.ContractCode,c.ContractName,isnull(lib.BudgetName, hyb.ContractName),c.bgxs, b.ExecutingBudgetGUID,c.HtClass ,c.JsState,zjcon.是否首次总价合同,zjcon.是否已转总价合同
 
 	--负数补协 负数补协(不含暂转固）
 	SELECT 
@@ -187,12 +201,16 @@ begin
             a.WorkingBudgetGUID,
             ht.ExecutingBudgetGUID,
             ht.ContractGUID,
+            ht.BudgetLibraryName as [合同类别],
             ht.ContractName as [合同名称],
+            -- ht.HtTypeName as [合同类别],
+            -- ht.HtTypeGUID as [合同类别GUID],
+            b.HtTypeName AS  [合同大类], -- BigHTTypename
             ht.bgxs as [计价方式],
             case when isnull(ht.是否首次总价合同,0)=1 then '是' else '否' end as [是否首次总价合同],
             case when isnull(ht.是否已转总价合同,0)=1 then '是' else '否' end as [是否已转总价合同],
             ht.JsState as [结算状态],
-            CASE WHEN ht.ExecutingBudgetGUID IS  NULL THEN  a.BudgetAmount  END   AS  [未签合同金额],  -- 未签合同金额
+            CASE WHEN ht.ExecutingBudgetGUID IS  NULL THEN  ex.BudgetAmount  END   AS  [未签合同金额],  -- 未签合同金额
             ISNULL(ht.HtCfAmount,0) AS  [合同首次签约金额], -- 合同首次签约金额 已签合同金额
             -- 暂转固金额= 合同有效签约金额 + 补充协议的有效签约金额
             case when  zzg.ZzgAmount is not null  then  ISNULL(ht.HtCfAmount,0)  + isnull(zzg.ZzgAmount,0) else 0 end as [暂转固金额],
@@ -215,7 +233,7 @@ begin
         FROM dbo.cb_Budget_Working a WITH(NOLOCK)
         inner join dbo.p_project p WITH(NOLOCK) on p.ProjGUID=a.ProjectGUID
         inner join mybusinessunit bu WITH(NOLOCK) on bu.buguid=p.buguid
-        LEFT JOIN dbo.cb_Budget_Executing ex WITH(NOLOCK) ON ex.ExecutingBudgetGUID=a.WorkingBudgetGUID
+        inner JOIN dbo.cb_Budget_Executing ex WITH(NOLOCK) ON ex.ExecutingBudgetGUID=a.WorkingBudgetGUID
         LEFT JOIN dbo.cb_HtType b WITH(NOLOCK) ON a.BigHTTypeGUID = b.HtTypeGUID
         LEFT JOIN #HT ht WITH(NOLOCK) ON ht.ExecutingBudgetGUID = a.WorkingBudgetGUID
         LEFT JOIN #ZZG zzg WITH(NOLOCK) ON zzg.ExecutingBudgetGUID = a.WorkingBudgetGUID

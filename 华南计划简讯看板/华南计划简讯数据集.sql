@@ -25,7 +25,8 @@ FROM    dbo.mdm_SaleBuild ms
         LEFT JOIN mdm_project p1 ON p.parentprojguid = p1.projguid
         LEFT JOIN MyCost_Erp352.dbo.p_HkbBiddingBuilding2BuildingWork b ON ms.GCBldGUID = b.BuildingGUID
         LEFT JOIN MyCost_Erp352.dbo.jd_PlanTaskExecuteObjectForReport c ON b.budguid = c.ztguid
-WHERE   p.developmentcompanyguid = 'AADC0FA7-9546-49C9-B64B-825056C828ED';
+WHERE   p.developmentcompanyguid = 'AADC0FA7-9546-49C9-B64B-825056C828ED' 
+and  isnull(c.是否停工,'') not in ('停工','缓建')
 
 ----竣备
 --SELECT DISTINCT buname,
@@ -140,8 +141,7 @@ SELECT  buname 公司名称 ,
         SUM(CASE WHEN ProductType not in ('地下室/车库','公建配套','其他') AND   DATEDIFF(mm, 集中交付计划完成时间, GETDATE()) = 0 THEN zjm ELSE 0 END) / 10000 '24年7月计划交付' ,
         SUM(CASE WHEN ProductType not in ('地下室/车库','公建配套','其他') AND   DATEDIFF(mm, 集中交付计划完成时间, GETDATE()) = 0 AND 集中交付实际完成时间 IS NOT NULL THEN zjm ELSE 0 END) / 10000 '24年7月已交付' ,
         -- SUM(CASE WHEN ProductType not in ('地下室/车库','公建配套','其他') AND   DATEDIFF(mm, 集中交付计划完成时间, GETDATE()) = 0 AND 集中交付实际完成时间 IS NULL THEN zjm ELSE 0 END) / 10000 '24年7月逾期未交付' ,
-        SUM(CASE WHEN ProductType not in ('地下室/车库','公建配套','其他') AND   DATEDIFF(mm, 集中交付计划完成时间, GETDATE()) = 0 AND 集中交付实际完成时间 IS NULL  and  datediff(day,集中交付计划完成时间,isnull(集中交付实际完成时间,getdate()) ) > 0 
-                 THEN case when b.GCBldGUID is not null then 0 else zjm end ELSE 0 END) / 10000 '24年7月逾期未交付' ,
+        SUM(CASE WHEN ProductType not in ('地下室/车库','公建配套','其他') AND   DATEDIFF(mm, 集中交付计划完成时间, GETDATE()) = 0 AND 集中交付实际完成时间 IS NULL  and  datediff(day,集中交付计划完成时间,isnull(集中交付实际完成时间,getdate()) ) > 0 THEN case when b.GCBldGUID is not null then 0 else zjm end ELSE 0 END) / 10000 '24年7月逾期未交付' ,
         CASE WHEN SUM(CASE WHEN ProductType  not in ('地下室/车库','公建配套','其他')  AND DATEDIFF(mm, 集中交付计划完成时间, GETDATE()) = 0 THEN zjm ELSE 0 END) > 0 THEN
                  SUM(CASE WHEN ProductType not in ('地下室/车库','公建配套','其他') AND DATEDIFF(mm, 集中交付计划完成时间, GETDATE()) = 0 AND 集中交付实际完成时间 IS NOT NULL THEN zjm ELSE 0 END)
                  / SUM(CASE WHEN ProductType not in ('地下室/车库','公建配套','其他') AND DATEDIFF(mm, 集中交付计划完成时间, GETDATE()) = 0 THEN zjm ELSE 0 END)

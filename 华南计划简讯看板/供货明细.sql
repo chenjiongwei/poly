@@ -40,7 +40,8 @@ SELECT  DISTINCT buname ,
 INTO    #gh
 FROM    #ms a
 where  ProductType IN ('住宅', '商业')
-and  DATEDIFF(yy, 达到预售形象计划完成时间, GETDATE()) >= 0 and  DATEDIFF(mm, 达到预售形象计划完成时间, GETDATE()) >= 0
+and  DATEDIFF(yy, 达到预售形象计划完成时间, GETDATE()) = 0 and  DATEDIFF(mm, 达到预售形象计划完成时间, GETDATE()) >= 0
+and  isnull(a.是否停工,'') not in ('停工','缓建')
 
 --排序
 SELECT  CASE WHEN t.序号 <= 10 THEN '是' ELSE '否' END AS 短讯是否显示 ,

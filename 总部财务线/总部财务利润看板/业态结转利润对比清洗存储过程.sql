@@ -1,6 +1,6 @@
 USE [HighData_prod]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_s_业态结转利润对比表_盈利规划单方锁定版调整]    Script Date: 2025/7/2 16:11:08 ******/
+/****** Object:  StoredProcedure [dbo].[usp_s_业态结转利润对比表_盈利规划单方锁定版调整]    Script Date: 2025/8/21 11:30:22 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -568,7 +568,7 @@ GROUP BY
 
     -- 执行存储过程
     insert into #ylghjzlr
-    exec [172.16.4.141].erp25.dbo.usp_s_m00201当年签约结转数据_盈利规划单方锁定版调整 @buguid ,@Thisyear_start,'2025-06-30'
+    exec [172.16.4.141].erp25.dbo.usp_s_m00201当年签约结转数据_盈利规划单方锁定版调整 @buguid ,@Thisyear_start,@lastmonth_end
     -- 本月结转数据
     insert into #ylghjzlrby
     exec [172.16.4.141].erp25.dbo.usp_s_m00201当年签约结转数据_盈利规划单方锁定版调整 @buguid ,@lastmonth_start,@lastmonth_end

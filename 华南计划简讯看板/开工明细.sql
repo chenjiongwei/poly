@@ -42,7 +42,8 @@ SELECT  DISTINCT buname ,
                  + 实际开工计划完成时间 + '，已逾期超' + CONVERT(VARCHAR(2), DATEDIFF(mm, 实际开工计划完成时间, GETDATE())) + '个月' + ';' 合并
 INTO    #wg
 FROM    #ms a
-WHERE  DATEDIFF(yy, 实际开工计划完成时间, GETDATE()) >= 0 and  DATEDIFF(mm, 实际开工计划完成时间, GETDATE()) >= 0
+WHERE  DATEDIFF(yy, 实际开工计划完成时间, GETDATE()) = 0 and  DATEDIFF(mm, 实际开工计划完成时间, GETDATE()) >= 0
+and  isnull(a.是否停工,'') not in ('停工','缓建')
 
 --排序
 SELECT  CASE WHEN t.序号 <= 10 THEN '是' ELSE '否' END AS 短讯是否显示 ,
@@ -52,3 +53,5 @@ FROM(SELECT ROW_NUMBER() OVER (ORDER BY 月 desc) AS 序号, * FROM   #wg) t;
 --删除临时表
 DROP TABLE #ms ,
            #wg;
+
+
