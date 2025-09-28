@@ -125,15 +125,65 @@ order  by  cte.grpcname
 
 
 
-select * from dbo.s_集团止巨亏智能数据提取
-where ( @ProjGUID IS NULL or projGUID  IN (
-                SELECT [Value]
-                FROM dbo.fn_Split1(@ProjGUID, ',') ) )
-    and datediff(day,清洗时间,getdate()) =0
-     AND (
-            @ProjGUID IS NULL
-            OR 项目GUID IN (
-                SELECT [Value]
-                FROM dbo.fn_Split1(@ProjGUID, ',')
-            )
-        )
+
+-- Dss系统报表工作量评估
+-- 修复递归全路径分组名称不全问题，需从根节点递归到叶子节点，路径拼接顺序应为“根 > ... > 当前”
+WITH GroupCTE AS (
+    SELECT 
+        grpguid, 
+        CAST(grpcname AS nvarchar(MAX)) AS grpcname, 
+        parentid
+    FROM 
+        rptgroup
+    WHERE 
+        linkproduct  in ( '0501','0303') 
+        AND (parentid IS NULL OR parentid = '')
+    UNION ALL
+    SELECT 
+        g.grpguid, 
+        CAST(cte.grpcname + N' > ' + g.grpcname AS nvarchar(MAX)) AS grpcname, 
+        g.parentid
+    FROM 
+        rptgroup g
+        INNER JOIN GroupCTE cte ON g.parentid = cte.grpguid
+    WHERE 
+        g.linkproduct  in ( '0501','0303') 
+)
+SELECT 
+    cte.grpcname AS 全路径分组名称,
+   -- a.id , 
+    a.rptid as 报表名称,
+    a.rptcname as 报表中文名,
+    rptename as 报表英文名,
+    rpt.exptNum AS 导数次数
+FROM 
+    rptdetail a
+    INNER JOIN (
+        -- 取每个分组的全路径（最长路径），即分组名最长的那条
+        SELECT 
+            grpguid, 
+            grpcname
+        FROM (
+            SELECT 
+                grpguid, 
+                grpcname,
+                ROW_NUMBER() OVER (PARTITION BY grpguid ORDER BY LEN(grpcname) DESC) AS rn
+            FROM 
+                GroupCTE
+        ) t
+        WHERE 
+            rn = 1
+    ) cte ON a.grpguid = cte.grpguid
+    LEFT JOIN (
+        SELECT  
+            RptID,
+            COUNT(1) AS exptNum 
+        FROM  
+            [dbo].[rptOperLog] 
+        WHERE 
+            ExecState = '成功' 
+            AND DATEDIFF(YEAR, BeginExecDate, GETDATE()) = 0
+        GROUP BY  
+            RptID
+    ) rpt ON a.rptid = rpt.rptid
+order  by  cte.grpcname  

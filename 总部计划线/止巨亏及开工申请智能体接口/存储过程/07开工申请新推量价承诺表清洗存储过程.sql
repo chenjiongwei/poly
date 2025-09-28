@@ -1,6 +1,6 @@
 USE [HighData_prod]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_s_集团开工申请本次新推承诺表智能体数据提取]    Script Date: 2025/9/18 12:59:18 ******/
+/****** Object:  StoredProcedure [dbo].[usp_s_集团开工申请本次新推承诺表智能体数据提取]    Script Date: 2025/9/25 14:46:11 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -14,6 +14,7 @@ GO
 ALTER   PROC [dbo].[usp_s_集团开工申请本次新推承诺表智能体数据提取]
 AS
 BEGIN
+
     /**************************************************************
     步骤1：提取承诺表主数据，生成临时表#Commitment
     ***************************************************************/
@@ -102,6 +103,68 @@ BEGIN
     FROM data_wide_dws_qt_M002项目业态级毛利净利表 
     WHERE versionType IN ('累计版', '本年版');
 
+
+    /***********************************************************************
+    步骤4补充：计算本次开工可回收地价
+    说明：
+        1. 统计每个项目的总地价（单位：万元），来源于地价信息表。
+        2. 统计每个项目已开工的建筑面积、总建筑面积，并计算已开工比例（开工面积/总建筑面积）。
+        3. 统计本批次实际开工的楼栋面积（本批开工面积）。
+        4. 计算未开工楼栋地价 = 总地价 * (1 - 已开工比例)。
+        5. 计算本次开工比例 = 本批开工面积 / 开工面积（如开工面积为0则为0）。
+        6. 计算本次开工可收回地价 = 总地价 * 本次开工比例。
+    ***********************************************************************/
+    SELECT
+        dj.ProjGUID,                                            -- 项目GUID
+        bckg.本次新推量价承诺ID,                                  -- 本次新推量价承诺ID
+        dj.总地价,                                              -- 项目总地价（万元）
+        kc.已开工比例,                                          -- 项目已开工比例
+        ISNULL(dj.总地价, 0) * (1.0 - ISNULL(kc.已开工比例, 0)) AS [未开工楼栋地价], -- 未开工楼栋对应的地价
+        -- CASE 
+        --     WHEN ISNULL(kc.开工面积, 0) = 0 THEN 0
+        --     ELSE ISNULL(bckg.本批开工面积, 0) / ISNULL(kc.开工面积, 0)
+        -- END AS [本次开工比例],                                    -- 本次开工占已开工面积的比例
+        CASE 
+            WHEN ISNULL(kc.开工面积, 0) = 0 THEN 0
+            ELSE ISNULL(bckg.本批开工面积, 0) / ISNULL(kc.开工面积, 0)
+        END AS [本次开工可收回地价]                               -- 本次开工可回收地价
+    into #kcdj
+    FROM  (
+        -- 统计本批次实际开工的楼栋面积（本批开工面积）
+        SELECT
+            ld.本次新推量价承诺ID,
+            ld.项目GUID,
+            SUM(ISNULL(bld.BuildArea, 0)) AS 本批开工面积
+        FROM #ld ld
+        INNER JOIN data_wide_dws_mdm_Building bld
+            ON bld.BuildingGUID = ld.产品楼栋GUID
+            AND bld.BldType = '产品楼栋'
+        GROUP BY ld.本次新推量价承诺ID,ld.项目GUID
+    ) bckg 
+    inner join  (
+        -- 统计每个项目的总地价（单位：万元）
+        SELECT
+            ProjGUID,
+            SUM(ISNULL(总地价_万元, 0)) AS 总地价
+        FROM data_wide_dws_s_tdxxgl
+        GROUP BY ProjGUID
+    ) dj ON dj.ProjGUID = bckg.项目GUID
+    LEFT JOIN (
+        -- 统计每个项目的开工面积、总建筑面积及已开工比例
+        SELECT
+            ParentProjGUID AS ProjGUID,
+            SUM(CASE WHEN SgzFactDate IS NOT NULL THEN BuildArea ELSE 0 END) AS 开工面积,      -- 已开工面积
+            SUM(ISNULL(BuildArea, 0)) AS 总建筑面积,                                         -- 总建筑面积
+            CASE 
+                WHEN SUM(ISNULL(BuildArea, 0)) = 0 THEN 0
+                ELSE SUM(CASE WHEN SgzFactDate IS NOT NULL THEN BuildArea ELSE 0 END) * 1.0 / SUM(ISNULL(BuildArea, 0))
+            END AS 已开工比例                                                                -- 已开工比例
+        FROM data_wide_dws_mdm_Building
+        WHERE BldType = '工程楼栋'
+        GROUP BY ParentProjGUID
+    ) kc ON dj.ProjGUID = kc.ProjGUID
+
+
     /**************************************************************
     步骤5：楼栋维度动态数据统计，生成#xtld临时表
     ***************************************************************/
@@ -124,11 +187,13 @@ BEGIN
         lddb.zksmj / 10000.0 AS [可售面积],          -- 楼栋总可售面积（单位：万㎡）
         -- 开工货值，实际开工节点的实际完成时间不为空的未售货值含税（单位：亿元）
         CASE 
-            WHEN lddb.SJzskgdate IS NOT NULL THEN lddb.syhz 
+            WHEN lddb.SJzskgdate IS NOT NULL THEN lddb.zhz --lddb.syhz 
             ELSE 0  
         END / 100000000.0 AS [开工货值],
         lddb.SJzskgdate  as [实际正式开工日期],
         lddb.SjDdysxxDate as [实际达预售形象日期],
+        lddb.YJzskgdate as [计划正式开工日期],
+        lddb.YjDdysxxDate as [计划达预售形象日期],
         sk.售罄日期,
         -- -- 供货周期=楼栋实际达预售形象汇报完成时间-楼栋实际开工汇报完成时间（月）
         -- DATEDIFF(MONTH, lddb.SJzskgdate, lddb.SjDdysxxDate) AS [供货周期],
@@ -374,16 +439,17 @@ BEGIN
         cmt.[本批开工后的一年内除地价外直投及费用],
         cmt.[本批开工后的一年内贡献现金流],
         cmt.[未开工楼栋地价],
-        cmt.[本次开工可收回地价],
+        cmt.[本次开工可收回地价]*100 as [本次开工可收回地价],
         cmt.[回收股东占压资金],
-        cmt.[本批开工的销售均价],
+        cmt.[本批开工的销售均价]  ,
         cmt.[本批开工的可售单方成本],
         cmt.[本批开工的税后净利润],
-        cmt.[本批开工的销净率],
+        cmt.[本批开工的销净率]* 100 AS [本批开工的销净率],
         GETDATE() AS [清洗日期]
     FROM #Commitment cmt
     -- 动态值
     UNION ALL
+    
     SELECT
         cmt.[本次新推量价承诺ID],
         cmt.[投管代码],
@@ -398,7 +464,10 @@ BEGIN
         xt.可售面积 AS [本批开工可售面积],
         xt.开工货值 AS [本批开工货值],
         xt.供货周期 AS [供货周期], 
-        xt.去化周期 AS [去化周期],  
+        case when datediff(day,getdate(),isnull(xt.售罄日期,'1900-01-01')) >= 0 then
+           datediff(day,xt.首开日期,isnull(xt.售罄日期,'1900-01-01')) / 30.0 
+          when datediff(day,getdate(),isnull(xt.售罄日期,'1900-01-01')) <0 then
+            datediff(day,xt.首开日期,getdate()) / 30.0 end  AS [去化周期],  
         xt.累计签约回笼 AS [本批开工后的项目累计签约回笼],
         xt.累计除地价外直投及费用 AS [本批开工后的项目累计除地价外直投及费用],
         xt.累计贡献现金流 AS [本批开工后的项目累计贡献现金流],
@@ -406,25 +475,29 @@ BEGIN
         xt.一年内回笼金额 AS [本批开工后的一年内实现回笼],
         xt.一年内除地价外直投及费用 AS [本批开工后的一年内除地价外直投及费用],
         xt.一年内贡献现金流 AS [本批开工后的一年内贡献现金流],
-        NULL AS [未开工楼栋地价], --本批次级自己算
-        NULL AS [本次开工可收回地价], --本批次级自己算
+        kcdj.[未开工楼栋地价] AS [未开工楼栋地价], --
+        kcdj.[本次开工可收回地价] *100 AS [本次开工可收回地价], --本批次级自己算*100
         NULL AS [回收股东占压资金], --本批次级自己算
         case when  isnull(已售面积,0) =0  then  0  else isnull(含税签约金额,0) *10000.0 / isnull(已售面积,0) end  AS [本批开工的销售均价], -- 含税签约金额/ 已售面积
         case when  isnull(已售面积,0) =0  then  0  else isnull(xt.累计除地价外直投及费用,0) *10000.0 / isnull(已售面积,0) end AS [本批开工的可售单方成本], -- M=单方（含税费）*明细表F
         isnull(xt.不含税签约金额,0) - isnull(xt.累计除地价外直投及费用,0) AS [本批开工的税后净利润],
         case when isnull(xt.不含税签约金额,0) =0 then  0 
-          else   ( isnull(xt.不含税签约金额,0) - isnull(xt.累计除地价外直投及费用,0) )  / isnull(xt.不含税签约金额,0) end  AS [本批开工的销净率],
+          else   ( isnull(xt.不含税签约金额,0) - isnull(xt.累计除地价外直投及费用,0) )  / isnull(xt.不含税签约金额,0) end *100  AS [本批开工的销净率],
         GETDATE() AS [清洗日期]
     FROM #Commitment cmt
+    LEFT JOIN #kcdj kcdj on cmt.项目GUID = kcdj.ProjGUID and cmt.本次新推量价承诺ID = kcdj.本次新推量价承诺ID
     LEFT JOIN (
         SELECT
             本次新推量价承诺ID,
             max(实际达预售形象日期) as 实际达预售形象日期,
+            max([计划达预售形象日期]) as [计划达预售形象日期],
             min(实际正式开工日期) as 实际正式开工日期,
-            case when   max(实际达预售形象日期) is not null then  datediff(month, min(实际正式开工日期), max(实际达预售形象日期) ) end  as 供货周期, -- 供货周期=楼栋最晚实际达预售形象汇报完成时间-楼栋最早实际开工汇报完成时间
+            min([计划正式开工日期]) as [计划正式开工日期],
+            case when   max(isnull(实际达预售形象日期,计划达预售形象日期)) is not null 
+               then  datediff(month, min(isnull(实际正式开工日期,计划正式开工日期)), max(isnull(实际达预售形象日期,计划达预售形象日期)) ) end  as 供货周期, -- 供货周期=楼栋最晚实际达预售形象汇报完成时间-楼栋最早实际开工汇报完成时间
             min(首开日期) as 首开日期,
             max(售罄日期) as 售罄日期,
-            case when  max(售罄日期) is not NULL then  datediff(month, min(首开日期), max(售罄日期)) end as  去化周期, -- 取楼栋下最后一个房间的签约时间 - 取楼栋下第一个房间的认购时间
+           -- case when  max(售罄日期) is not NULL then  datediff(month, min(首开日期), max(售罄日期)) end as  去化周期, -- 取楼栋下最后一个房间的签约时间 - 取楼栋下第一个房间的认购时间
             SUM(ISNULL(可售面积, 0)) AS 可售面积,
             SUM(ISNULL(开工货值, 0)) AS 开工货值,
             SUM(ISNULL(累计签约回笼, 0)) AS 累计签约回笼,
@@ -477,6 +550,6 @@ BEGIN
     /**************************************************************
     步骤10：删除临时表，释放资源
     ***************************************************************/
-    DROP TABLE #Commitment, #xtxmld, #M002, #xtld
+    DROP TABLE #Commitment, #xtxmld, #M002, #xtld,#kcdj
 
 END

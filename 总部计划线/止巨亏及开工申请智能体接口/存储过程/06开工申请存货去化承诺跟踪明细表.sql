@@ -1,12 +1,18 @@
+USE [HighData_prod]
+GO
+/****** Object:  StoredProcedure [dbo].[usp_s_集团开工申请存货去化承诺跟踪明细表智能体数据提取]    Script Date: 2025/9/25 14:52:41 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
 -- ============================================
 -- 存储过程名称：usp_s_集团开工申请存货去化承诺跟踪明细表智能体数据提取
 -- 创建人: chenjw 2025-09-02
 -- 作用：清洗并提取集团开工申请存货去化承诺跟踪明细表数据，供智能体使用
 -- ============================================
-CREATE OR ALTER PROC [dbo].[usp_s_集团开工申请存货去化承诺跟踪明细表智能体数据提取]
+ALTER   PROC [dbo].[usp_s_集团开工申请存货去化承诺跟踪明细表智能体数据提取]
 AS
 BEGIN
-    
 
     /***********************************************************************
     步骤1：查询承诺值数据，存入临时表#Commitment
@@ -246,42 +252,3 @@ BEGIN
     DROP TABLE #Commitment, #cmtld
 
 END
-
-
-
-
-SELECT
-    [buguid],
-    [projguid],
-    [清洗日期],
-    isnull(lczy.[全投资IRR-动态版], cf.[全投资IRR_动态版] ) as  [全投资IRR_动态版],
-    [全投资IRR_立项版],
-    CASE 
-        WHEN [全投资IRR_立项版] IS NOT NULL 
-             AND isnull(lczy.[全投资IRR-动态版], cf.[全投资IRR_动态版] ) IS NOT NULL
-        THEN  isnull(lczy.[全投资IRR-动态版], cf.[全投资IRR_动态版] ) - ISNULL([全投资IRR_立项版], 0)
-    END AS [全投资IRR偏差],
-    CONVERT(VARCHAR(10), [现金流回正时间_立项版], 121) AS [现金流回正时间_立项版],
-    CONVERT(VARCHAR(10),  isnull(lczy.[现金流回正时间-动态版], cf.[现金流回正时间_动态版] ), 121) AS [现金流回正时间_动态版],
-    [现金流回正时长_立项版],
-    isnull(lczy.[现金流回正时长-动态版], cf.[现金流回正时长_动态版] ) as [现金流回正时长_动态版],
-    CASE 
-        WHEN [现金流回正时长_立项版] IS NOT NULL 
-             AND isnull(lczy.[现金流回正时长-动态版], cf.[现金流回正时长_动态版] )  IS NOT NULL
-        THEN  isnull(lczy.[现金流回正时长-动态版], cf.[现金流回正时长_动态版] )  -ISNULL([现金流回正时长_立项版], 0) 
-    END AS [现金流回正时长偏差],
-    [截止目前经营性现金流余额],
-    [股东投资峰值_立项版],
-    [股东投资峰值_动态版],
-    CASE 
-        WHEN [股东投资峰值_立项版] IS NOT NULL 
-             AND [股东投资峰值_动态版] IS NOT NULL
-        THEN  ISNULL([股东投资峰值_动态版], 0) -ISNULL([股东投资峰值_立项版], 0) 
-    END AS [股东投资峰值偏差],
-    [机会成本损失],
-    [机会成本损失对应单方成本]
-FROM
-    zb_jyjhtjkb_CashFlow cf
-    left join  data_tb_ylss_lczy lczy on cf.projguid =lczy.项目GUID
-WHERE
-    DATEDIFF(DAY, [清洗日期], ${qxDate} ) = 0

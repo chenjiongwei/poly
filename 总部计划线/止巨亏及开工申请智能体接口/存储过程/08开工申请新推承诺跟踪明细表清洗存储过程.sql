@@ -151,15 +151,20 @@ BEGIN
         lddb.zksmj / 10000.0 AS [可售面积],          -- 楼栋总可售面积（单位：万㎡）
         -- 开工货值，实际开工节点的实际完成时间不为空的未售货值含税（单位：亿元）
         CASE 
-            WHEN lddb.SJzskgdate IS NOT NULL THEN lddb.syhz 
+            WHEN lddb.SJzskgdate IS NOT NULL THEN lddb.zhz --lddb.syhz 
             ELSE 0  
         END / 100000000.0 AS [开工货值],
         -- 供货周期=楼栋实际达预售形象汇报完成时间-楼栋实际开工汇报完成时间（月）
-        DATEDIFF(MONTH, lddb.SJzskgdate, lddb.SjDdysxxDate) AS [供货周期],
+        DATEDIFF(MONTH, isnull(lddb.SJzskgdate, lddb.YJzskgdate), isnull(lddb.SjDdysxxDate, lddb.YjDdysxxDate)) AS [供货周期],
         -- 去化周期=楼栋下最后一个房间的签约时间-第一个房间的认购时间（月）
-        CASE 
-            WHEN sk.售罄日期 IS NOT NULL THEN DATEDIFF(MONTH, sk.首开日期, sk.售罄日期)
-        END AS [去化周期],
+        -- CASE WHEN    sk.售罄日期 IS NOT NULL 
+        --     THEN DATEDIFF(MONTH, sk.首开日期, sk.售罄日期)
+        -- END AS [去化周期],
+        case when datediff(day,getdate(),isnull(sk.售罄日期,'1900-01-01')) >= 0 then
+           datediff(day,sk.首开日期,isnull(sk.售罄日期,'1900-01-01')) / 30.0 
+          when datediff(day,getdate(),isnull(sk.售罄日期,'1900-01-01')) <0 then
+            datediff(day,sk.首开日期,getdate()) / 30.0 end  AS [去化周期],  
+
         hk.累计回笼金额 / 100000000.0 AS [累计签约回笼], -- 累计签约回笼（单位：亿元）
         --- 取M002表楼栋对应业态组合键(产品类型+产品名称+商品类型+装修标准)的“盈利规划营业成本单方”+“”+“盈利规划股权溢价单方”+“盈利规划营销费用单方”+“盈利规划综合管理费单方协议口径”+“盈利规划税金及附加单方”*一年内楼栋的销售面积
         case when bd.TopProductTypeName ='地下室/车库' then 

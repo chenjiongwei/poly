@@ -1,14 +1,21 @@
+USE [HighData_prod]
+GO
+/****** Object:  StoredProcedure [dbo].[usp_s_集团开工申请存货去化承诺表智能体数据提取]    Script Date: 2025/9/25 14:54:14 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
 -- 开工申请存货去化承诺清洗存储过程
 -- ============================================
 -- 存储过程名称：usp_s_集团开工申请存货去化承诺表智能体数据提取
 -- 创建人: chenjw 2025-09-02
 -- 作用：清洗并提取集团开工申请存货去化承诺表数据，供智能体使用
 -- ============================================
-CREATE OR ALTER   PROC [dbo].[usp_s_集团开工申请存货去化承诺表智能体数据提取]
+ALTER     PROC [dbo].[usp_s_集团开工申请存货去化承诺表智能体数据提取]
 AS
 BEGIN
     -- 执行明细表存储过程
-    -- exec usp_s_集团开工申请存货去化承诺跟踪明细表智能体数据提取;
+    exec usp_s_集团开工申请存货去化承诺跟踪明细表智能体数据提取;
 
          -- M002表的成本单方数据
         SELECT 
@@ -140,7 +147,7 @@ BEGIN
         cmt.[已开工未售部分的销售均价],
         cmt.[已开工未售部分的去化周期],
         cmt.[已开工未售部分的税后净利润],
-        cmt.[已开工未售部分的销净率],
+        cmt.[已开工未售部分的销净率] *100  as [已开工未售部分的销净率],
         GETDATE() AS [清洗日期]
     FROM #Commitment cmt 
     inner join  data_wide_dws_mdm_Project p on p.projguid = cmt.项目GUID
@@ -164,16 +171,16 @@ BEGIN
         (isnull(sale.承诺后累计含税签约金额,0)- isnull(sale.承诺日累计签约金额,0) ) *10000.0 / (isnull(sale.承诺后累计含税签约面积,0)- isnull(sale.承诺日累计签约面积,0) ) end as 已开工未售部分的销售均价,
         -- 取当期日期-承诺日，直至当前日期=售罄日（本承诺内所有组团）
         CASE 
-            WHEN DATEDIFF(DAY, GETDATE(), dt.lastQyDate) >= 0 
+            WHEN DATEDIFF(DAY, GETDATE(), isnull(dt.lastQyDate,'1900-01-01') ) >= 0 
                 THEN DATEDIFF(DAY, cmt.[承诺时间], GETDATE()) / 30.0 
-			WHEN DATEDIFF(DAY, GETDATE(), dt.lastQyDate)< 0 and  dt.lastQyDate is not null 
-			    THEN  DATEDIFF(DAY, cmt.[承诺时间],dt.lastQyDate) / 30.0 
-         END   AS [已开工未售部分的去化周期],
+			WHEN DATEDIFF(DAY, GETDATE(), isnull(dt.lastQyDate,'1900-01-01') )< 0 -- and  dt.lastQyDate is not null 
+			    THEN  DATEDIFF(DAY, cmt.[承诺时间],GETDATE()) / 30.0 
+         END    AS [已开工未售部分的去化周期],
         -- 动态值：取“存货去化承诺跟踪明细表的（本承诺内所有组团），X=P2列-单方（含税费）*M2列
         sale.已开工未售部分的税后净利润 AS [已开工未售部分的税后净利润],
         -- 动态值：取”存货去化承诺跟踪明细表的 X列/ （本承诺内所有组团的不含税签约金额）
         case when  isnull(sale.承诺后累计不含税签约金额,0) = 0  then  0  else
-          isnull(sale.已开工未售部分的税后净利润,0) / isnull(sale.承诺后累计不含税签约金额,0) end AS [已开工未售部分的销净率],
+          isnull(sale.已开工未售部分的税后净利润,0) / isnull(sale.承诺后累计不含税签约金额,0) end *100 AS [已开工未售部分的销净率],
         GETDATE() AS [清洗日期]
     FROM #Commitment cmt
     inner join  data_wide_dws_mdm_Project p on p.projguid = cmt.项目GUID

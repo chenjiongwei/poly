@@ -1,3 +1,50 @@
+USE [HighData_prod]
+GO
+/****** Object:  StoredProcedure [dbo].[usp_s_集团开工申请楼栋明细表智能体数据提取]    Script Date: 2025/9/25 15:17:47 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+-- 集团开工申请楼栋明细表智能体数据提取表结构
+-- 用于存储各公司、项目、楼栋的开工、销售、成本、利润等明细数据，便于智能体分析与决策
+
+-- CREATE TABLE s_集团开工申请楼栋明细表智能体数据提取
+-- (
+--     公司名称                  VARCHAR(200),         -- 公司名称
+--     公司GUID                  UNIQUEIDENTIFIER,     -- 公司唯一标识
+--     项目名称                  VARCHAR(200),         -- 项目名称
+--     项目GUID                  UNIQUEIDENTIFIER,     -- 项目唯一标识
+--     业态                      VARCHAR(200),         -- 业态类型（如住宅、商业等）
+--     状态                      VARCHAR(200),         -- 楼栋状态（如已售罄、在售等）
+--     产品楼栋                  VARCHAR(200),         -- 产品楼栋名称
+--     产品楼栋GUID              UNIQUEIDENTIFIER,     -- 产品楼栋唯一标识
+--     赛道标签                  VARCHAR(200),         -- 赛道标签（如高端、刚需等）
+--     实际售罄时间              DATETIME,             -- 实际售罄时间
+--     历史供货周期              DECIMAL(38,10),       -- 历史供货周期（单位：月/天，具体业务定义）
+--     总可售面积                DECIMAL(38,10),       -- 楼栋总可售面积（平方米）
+--     总货值                    DECIMAL(38,10),       -- 楼栋总货值（万元/元，具体业务定义）
+--     已开工未售部分的货值_含税  DECIMAL(38,10),       -- 已开工未售部分的货值（含税）
+--     已开工未售部分的货值_不含税 DECIMAL(38,10),      -- 已开工未售部分的货值（不含税）
+--     已开工未售部分的面积      DECIMAL(38,10),       -- 已开工未售部分的面积
+--     已开工未售部分的销售均价  DECIMAL(38,10),       -- 已开工未售部分的销售均价
+--     已售部分的含税货值        DECIMAL(38,10),       -- 已售部分的货值（含税）
+--     已售部分的销售均价        DECIMAL(38,10),       -- 已售部分的销售均价
+--     已售面积                  DECIMAL(38,10),       -- 已售面积
+--     已推面积                  DECIMAL(38,10),       -- 已推面积
+--     已售部分的推货去化率      DECIMAL(18,6),        -- 已售部分的推货去化率（已售面积/已推面积）
+--     累计不含税签约金额        DECIMAL(38,10),       -- 累计不含税签约金额
+--     业态所有支出的单方_含税费 DECIMAL(38,10),       -- 业态所有支出的单方（含税费）
+--     不含税成本                DECIMAL(38,10),       -- 不含税成本
+--     税后净利润                DECIMAL(38,10),       -- 税后净利润
+--     销净率                    DECIMAL(18,6),        -- 销净率（已售面积/总可售面积）
+--     清洗日期                  DATETIME              -- 数据清洗日期
+-- )
+
+-- -- 创建主键索引（产品楼栋GUID作为主键，因为它是楼栋的唯一标识）
+-- CREATE INDEX IX_公司项目楼栋 ON s_集团开工申请楼栋明细表智能体数据提取 (公司GUID, 项目GUID, 产品楼栋GUID)
+-- CREATE INDEX IX_清洗日期 ON s_集团开工申请楼栋明细表智能体数据提取 (清洗日期)
+
 -- -- 1.1 集团止巨亏智能数据提取清洗
 -- exec usp_s_集团止巨亏智能数据提取
 -- -- 1.3 集团开工申请楼栋明细表智能体数据提取清洗
@@ -5,10 +52,9 @@
 
 -- ============================================
 -- 存储过程：usp_s_集团开工申请楼栋明细表智能体数据提取
--- 作用：提取开工申请楼栋明细表的基础数据
--- 修改：2025-08-28 增加推广名称、产品类型、产品名称字段
+-- 作用：提取开工申请楼栋明细表的基础数据，当前仅做字段结构占位，后续可完善字段取值逻辑
 -- ============================================
-CREATE OR ALTER PROC [dbo].[usp_s_集团开工申请楼栋明细表智能体数据提取]
+ALTER   PROC [dbo].[usp_s_集团开工申请楼栋明细表智能体数据提取]
 AS
 BEGIN
     
@@ -75,10 +121,14 @@ BEGIN
         F056.已售货值 AS 已售部分的含税货值,               -- 已售部分的货值（含税）
         --  NULL AS 已售部分的销售均价,               -- 已售部分的销售均价
         F056.已售面积 AS 已售面积,                         -- 已售面积
-        case when  F056.是否停工 NOT IN ('停工', '缓建') AND F056.预售办理完成日期 IS NOT NULL then F056.待售面积 end  AS 已推面积,                         -- 已推面积
+        case when  F056.是否停工 NOT IN ('停工', '缓建') AND F056.预售办理完成日期 IS NOT NULL then F056.总可售面积 end  AS 已推面积,                         -- 已推面积
         -- NULL AS 已售部分的推货去化率,             -- 已售部分的推货去化率（已售面积/已推面积）
         F056.已售货值不含税 AS 累计不含税签约金额,             -- 累计不含税签约金额
         F056.已售净利润签约 as 已售净利润签约
+        -- NULL AS 业态所有支出的单方_含税费,         -- 业态所有支出的单方（含税费）
+        -- NULL AS 不含税成本,                       -- 不含税成本
+        -- NULL AS 税后净利润,                       -- 税后净利润
+        -- NULL AS 销净率                            -- 销净率（已售面积/总可售面积）
     INTO #ld
     FROM data_wide_dws_qt_F05601 F056
     INNER JOIN data_wide_dws_mdm_Project p 
@@ -279,7 +329,7 @@ BEGIN
         CASE 
             WHEN ISNULL(ld.已推面积, 0) = 0 THEN 0
             ELSE ISNULL(ld.已售面积, 0) / ISNULL(ld.已推面积, 0)
-        END AS 已售部分的推货去化率,  -- 已售面积/已推面积
+        END *100 AS 已售部分的推货去化率,  -- 已售面积/已推面积
 
         ld.累计不含税签约金额,        -- 累计不含税签约金额
 
@@ -309,7 +359,7 @@ BEGIN
         CASE 
             WHEN ISNULL(累计不含税签约金额, 0) = 0 THEN 0
             ELSE ISNULL(ld.已售净利润签约, 0) / ISNULL(ld.累计不含税签约金额, 0)
-        END AS 销净率,    -- 销净率
+        END *100 AS 销净率,    -- 销净率
 
         GETDATE() AS 清洗日期           -- 当前系统时间作为清洗日期
     FROM #ld ld
@@ -358,3 +408,158 @@ BEGIN
     DROP TABLE #ld,#m002
 END
 
+
+-- CREATE TABLE [dbo].[data_wide_dws_qt_F05601](
+-- 	[MdcDataGUID] [uniqueidentifier] NOT NULL,
+-- 	[VersionNumber] [timestamp] NOT NULL,
+-- 	[GCBldGUID] [uniqueidentifier] NULL,
+-- 	[OrgGuid] [uniqueidentifier] NULL,
+-- 	[SaleBldGUID] [uniqueidentifier] NULL,
+-- 	[VersionGuid] [uniqueidentifier] NULL,
+-- 	[ztguid] [uniqueidentifier] NULL,
+-- 	[本年签约金额] [money] NULL,
+-- 	[本年签约均价] [money] NULL,
+-- 	[本年签约面积] [money] NULL,
+-- 	[本年签约套数] [money] NULL,
+-- 	[本年预计签约金额] [money] NULL,
+-- 	[本年预计签约面积] [money] NULL,
+-- 	[本月签约金额] [money] NULL,
+-- 	[本月签约均价] [money] NULL,
+-- 	[本月签约面积] [money] NULL,
+-- 	[产品类型] [varchar](200) NULL,
+-- 	[产品楼栋名称] [varchar](50) NULL,
+-- 	[产品名称] [varchar](200) NULL,
+-- 	[产值未付] [money] NULL,
+-- 	[持有面积] [money] NULL,
+-- 	[持有套数] [money] NULL,
+-- 	[除地价外直投单方] [money] NULL,
+-- 	[除地价外直投分摊金额] [money] NULL,
+-- 	[达到预售形象的条件] [varchar](100) NULL,
+-- 	[达到预售形象计划日期] [datetime] NULL,
+-- 	[达到预售形象完成日期] [datetime] NULL,
+-- 	[待发生产值] [decimal](38, 10) NULL,
+-- 	[待售货值] [money] NULL,
+-- 	[待售面积] [decimal](36, 8) NULL,
+-- 	[待售套数] [money] NULL,
+-- 	[地上层数] [int] NULL,
+-- 	[地上建面] [money] NULL,
+-- 	[地上可售面积] [decimal](38, 10) NULL,
+-- 	[地上可售面积地上自持面积] [decimal](38, 10) NULL,
+-- 	[地上自持面积] [decimal](38, 10) NULL,
+-- 	[地下层数] [int] NULL,
+-- 	[地下建面] [money] NULL,
+-- 	[定位单价] [money] NULL,
+-- 	[定位货值] [money] NULL,
+-- 	[定位均价] [money] NULL,
+-- 	[动态总货值] [money] NULL,
+-- 	[分期名称] [varchar](50) NULL,
+-- 	[工程楼栋名称] [varchar](40) NULL,
+-- 	[股权溢价单方] [money] NULL,
+-- 	[合同约定应付金额] [money] NULL,
+-- 	[货量铺排均价计算方式] [varchar](200) NULL,
+-- 	[货值铺排均价不含税] [money] NULL,
+-- 	[获取时间] [datetime] NULL,
+-- 	[集中交付计划日期] [date] NULL,
+-- 	[集中交付完成日期] [date] NULL,
+-- 	[计容面积] [decimal](38, 10) NULL,
+-- 	[近六月签约金额不含税] [money] NULL,
+-- 	[近六月签约金额均价不含税] [money] NULL,
+-- 	[近六月签约面积] [money] NULL,
+-- 	[近三月签约金额不含税] [money] NULL,
+-- 	[近三月签约金额均价不含税] [money] NULL,
+-- 	[近三月签约面积] [money] NULL,
+-- 	[经营成本单方] [money] NULL,
+-- 	[竣工备案计划日期] [datetime] NULL,
+-- 	[竣工备案完成日期] [datetime] NULL,
+-- 	[开发间接费单方] [money] NULL,
+-- 	[可售面积] [decimal](38, 10) NULL,
+-- 	[累计本年回笼金额] [decimal](38, 10) NULL,
+-- 	[累计本月回笼金额] [decimal](38, 10) NULL,
+-- 	[累计回笼金额] [decimal](38, 10) NULL,
+-- 	[累计支付金额] [money] NULL,
+-- 	[立项单价] [money] NULL,
+-- 	[立项货值] [money] NULL,
+-- 	[立项均价] [money] NULL,
+-- 	[明源系统代码] [varchar](100) NULL,
+-- 	[年初可售货值] [money] NULL,
+-- 	[年初可售面积] [money] NULL,
+-- 	[平台公司] [varchar](200) NULL,
+-- 	[签约金额2024年] [money] NULL,
+-- 	[签约均价2024年] [money] NULL,
+-- 	[签约面积2024年] [money] NULL,
+-- 	[签约套数2024年] [money] NULL,
+-- 	[赛道图标签] [varchar](100) NULL,
+-- 	[商品类型] [varchar](200) NULL,
+-- 	[实际开工计划日期] [datetime] NULL,
+-- 	[实际开工完成日期] [datetime] NULL,
+-- 	[是否持有] [varchar](10) NULL,
+-- 	[是否合作项目] [varchar](100) NULL,
+-- 	[是否可售] [varchar](10) NULL,
+-- 	[是否停工] [varchar](50) NULL,
+-- 	[首开30天签约金额] [money] NULL,
+-- 	[首开30天签约面积] [money] NULL,
+-- 	[首开30天签约套数] [int] NULL,
+-- 	[首开30天认购金额] [money] NULL,
+-- 	[首开30天认购面积] [money] NULL,
+-- 	[首开30天认购套数] [int] NULL,
+-- 	[首开楼栋标签] [varchar](10) NULL,
+-- 	[首推时间] [datetime] NULL,
+-- 	[税金及附加单方] [money] NULL,
+-- 	[土地分摊金额] [money] NULL,
+-- 	[土地款单方] [money] NULL,
+-- 	[未售对应总成本] [money] NULL,
+-- 	[未售货值不含税] [money] NULL,
+-- 	[未售净利润签约] [money] NULL,
+-- 	[项目代码] [varchar](100) NULL,
+-- 	[项目名称] [varchar](50) NULL,
+-- 	[项目首推时间] [datetime] NULL,
+-- 	[项目推广名] [varchar](50) NULL,
+-- 	[项目未售税前利润签约] [money] NULL,
+-- 	[项目已售税前利润签约] [money] NULL,
+-- 	[项目整盘利润] [money] NULL,
+-- 	[业态组合键] [varchar](200) NULL,
+-- 	[已发生财务费用费用摊分金额] [money] NULL,
+-- 	[已发生管理费用摊分金额] [money] NULL,
+-- 	[已发生税金分摊] [money] NULL,
+-- 	[已发生营销费用摊分金额] [money] NULL,
+-- 	[已结转成本] [money] NULL,
+-- 	[已结转面积] [money] NULL,
+-- 	[已结转收入] [money] NULL,
+-- 	[已结转套数] [money] NULL,
+-- 	[已售对应总成本] [money] NULL,
+-- 	[已售货值] [money] NULL,
+-- 	[已售货值不含税] [money] NULL,
+-- 	[已售净利润签约] [money] NULL,
+-- 	[已售均价] [money] NULL,
+-- 	[已售均价不含税] [money] NULL,
+-- 	[已售面积] [decimal](36, 8) NULL,
+-- 	[已售套数] [int] NULL,
+-- 	[已完成产值] [money] NULL,
+-- 	[应付未付] [money] NULL,
+-- 	[营销费用单方] [money] NULL,
+-- 	[营业成本单方] [money] NULL,
+-- 	[用地面积] [decimal](38, 10) NULL,
+-- 	[预测单价] [money] NULL,
+-- 	[预售办理计划日期] [datetime] NULL,
+-- 	[预售办理完成日期] [datetime] NULL,
+-- 	[占压资金] [decimal](38, 10) NULL,
+-- 	[整盘均价] [money] NULL,
+-- 	[正式开工实际完成时间] [datetime] NULL,
+-- 	[正式开工预计完成时间] [datetime] NULL,
+-- 	[装修标准] [varchar](200) NULL,
+-- 	[资本化利息单方] [money] NULL,
+-- 	[自持可售面积] [decimal](38, 10) NULL,
+-- 	[自持面积] [decimal](38, 10) NULL,
+-- 	[综合管理费单方] [money] NULL,
+-- 	[总产值] [decimal](38, 10) NULL,
+-- 	[总成本不含税单方] [money] NULL,
+-- 	[总地价] [money] NULL,
+-- 	[总建面] [decimal](36, 8) NULL,
+-- 	[总可售面积] [decimal](36, 8) NULL,
+-- 	[总可售套数] [money] NULL,
+-- PRIMARY KEY CLUSTERED 
+-- (
+-- 	[MdcDataGUID] ASC
+-- )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+-- ) ON [PRIMARY]
+-- GO

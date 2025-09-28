@@ -666,7 +666,7 @@ Begin
                 月份                AS [月份],
                 年月                as [年月],
                 SUM(ISNULL([本月销售面积（签约）], 0)) AS [本月销售面积（签约）],
-                SUM(ISNULL([本月销售金额（签约）], 0)) / 10000.0 AS [本月销售金额（签约）], -- 万元
+                SUM(ISNULL([本月销售金额（签约）], 0)) AS [本月销售金额（签约）], -- 万元
                 CASE
                         WHEN SUM(ISNULL([本月销售面积（签约）], 0)) = 0 THEN 0
                         ELSE SUM(ISNULL([本月销售金额（签约）], 0)) / SUM(ISNULL([本月销售面积（签约）], 0))
@@ -677,7 +677,7 @@ Begin
                 SELECT
                         sf.ParentProjName         AS [项目名称],
                         sf.ParentProjGUID         AS [项目GUID],
-                        sf.ProjName             AS [分期名称],
+                         sf.ParentProjName +'-'+ sf.ProjName   AS [分期名称],
                         sf.ProjGUID               AS [分期GUID],
                         sf.BldName                AS [产品楼栋名称],
                         sf.BldGUID                AS [产品楼栋GUID],
