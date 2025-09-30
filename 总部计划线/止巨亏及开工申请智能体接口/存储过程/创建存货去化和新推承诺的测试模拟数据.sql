@@ -89,7 +89,8 @@ insert into [本次新推承诺明细表] ([本次新推量价承诺明细ID],�
     --INTO #cmtld
     FROM 本次新推承诺表 a
     CROSS APPLY dbo.fn_Split1(a.本批开工的产品楼栋编码, ';')
-    WHERE ISNULL(a.本批开工的产品楼栋编码, '') <> ''
+    WHERE ISNULL(a.本批开工的产品楼栋编码, '') <> '' and a.项目GUID ='EE075160-2116-EE11-B3A3-F40270D39969'
+	and isnull(value,'')<>''
 
 
 

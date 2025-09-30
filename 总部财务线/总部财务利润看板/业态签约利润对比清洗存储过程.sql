@@ -1,6 +1,6 @@
 USE [HighData_prod]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_s_业态签约利润对比表_盈利规划单方锁定版调整]    Script Date: 2025/8/21 11:32:02 ******/
+/****** Object:  StoredProcedure [dbo].[usp_s_业态签约利润对比表_盈利规划单方锁定版调整]    Script Date: 2025/9/29 16:21:29 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -582,16 +582,19 @@ GROUP BY
 
     INSERT INTO #ylgh25
     -- 执行查询25年签约利润
-    EXEC [172.16.4.141].erp25.dbo.[usp_s_M002项目业态级毛利净利表_盈利规划单方锁定版调整] @buguid,@Thisyear_start,@lastmonth_end;;
+    -- EXEC [172.16.4.141].erp25.dbo.[usp_s_M002项目业态级毛利净利表_盈利规划单方锁定版调整] @buguid,@Thisyear_start,@lastmonth_end;
+    EXEC [172.16.4.141].erp25.dbo.[usp_s_M002项目业态级毛利净利表_盈利规划单方锁定版调整] @buguid,@Thisyear_start,'2025-09-28';
 
     INSERT INTO #ylgh_thismonth
     -- 执行查询本月实际签约利润
-    EXEC [172.16.4.141].erp25.dbo.[usp_s_M002项目业态级毛利净利表_盈利规划单方锁定版调整] @buguid,@lastmonth_start,@lastmonth_end;;
+    -- EXEC [172.16.4.141].erp25.dbo.[usp_s_M002项目业态级毛利净利表_盈利规划单方锁定版调整] @buguid,@lastmonth_start,@lastmonth_end;
+    EXEC [172.16.4.141].erp25.dbo.[usp_s_M002项目业态级毛利净利表_盈利规划单方锁定版调整] @buguid,'2025-09-01','2025-09-28';
 
     -- 执行查询上月实际签约利润
     INSERT INTO #ylgh_lastmonth
     -- 执行查询上月实际签约利润
-    EXEC [172.16.4.141].erp25.dbo.[usp_s_M002项目业态级毛利净利表_盈利规划单方锁定版调整] @buguid,@lastlastmonth_start,@lastlastmonth_end;
+    --EXEC [172.16.4.141].erp25.dbo.[usp_s_M002项目业态级毛利净利表_盈利规划单方锁定版调整] @buguid,@lastlastmonth_start,@lastlastmonth_end;
+    EXEC [172.16.4.141].erp25.dbo.[usp_s_M002项目业态级毛利净利表_盈利规划单方锁定版调整] @buguid,'2025-08-01','2025-08-31';
 
     -- INSERT INTO #ylgh_lastlastmonth
     -- -- 执行查询上月实际签约利润

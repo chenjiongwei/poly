@@ -102,7 +102,7 @@ FROM
             SELECT 
                 grpguid, 
                 grpcname,
-                ROW_NUMBER() OVER (PARTITION BY grpguid ORDER BY LEN(grpcname) DESC) AS rn
+                 OVER (PARTITION BY grpguid ORDER BY LEN(grpcname) DESC) AS rn
             FROM 
                 GroupCTE
         ) t
@@ -167,7 +167,7 @@ FROM
             SELECT 
                 grpguid, 
                 grpcname,
-                ROW_NUMBER() OVER (PARTITION BY grpguid ORDER BY LEN(grpcname) DESC) AS rn
+                 OVER (PARTITION BY grpguid ORDER BY LEN(grpcname) DESC) AS rn
             FROM 
                 GroupCTE
         ) t

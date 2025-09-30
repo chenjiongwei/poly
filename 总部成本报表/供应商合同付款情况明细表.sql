@@ -223,8 +223,7 @@ WITH #con AS (
             ContractName,
             HtAmount
         FROM #con
-    ) con
-        ON con.ProviderGUID = pov.ProviderGUID AND rownum = 1
+    ) con ON con.ProviderGUID = pov.ProviderGUID AND rownum = 1
     WHERE pov.IsJfProvider = 0
       AND NOT EXISTS (
           -- 若该供应商已存在发票信息，则不再取合同
