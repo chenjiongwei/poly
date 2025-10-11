@@ -4,6 +4,7 @@ SELECT
     mpp.SpreadName            AS 项目推广名,
     mpp.ProjGUID              AS 项目GUID,
     mpp.ProjCode              AS 项目代码,
+    flg.投管代码               as 投管代码,
     mp.ProjGUID               AS 分期GUID,
     mp.ProjName               AS 分期名称,
     ISNULL(gc.BldName, gc.BldCode) AS 工程楼栋名称,
@@ -21,6 +22,7 @@ FROM
     LEFT JOIN mdm_SaleBuild sb   ON sb.GCBldGUID = gc.GCBldGUID
     LEFT JOIN mdm_Product pdt  ON pdt.ProductGUID = sb.ProductGUID 
         AND pdt.ProjGUID = mp.ProjGUID
+    left join erp25.dbo.vmdm_projectFlagnew flg on flg.projguid = mpp.projguid
     left join  [172.16.4.161].[HighData_prod].dbo.data_wide_dws_mdm_Building b on b.BuildingGUID = sb.SaleBldGUID and  b.BldType ='产品楼栋'
     LEFT JOIN mdm_BuildTag tag 
         ON tag.SaleBldGUID = sb.SaleBldGUID 
@@ -32,5 +34,3 @@ ORDER BY
     mpp.DevelopmentCompanyGUID,
     mpp.ProjCode,
     gc.GCBldGUID
--- 处置前五类	
--- 处置后去向

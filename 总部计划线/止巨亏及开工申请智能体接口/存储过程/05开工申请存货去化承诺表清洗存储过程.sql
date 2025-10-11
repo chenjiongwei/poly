@@ -168,7 +168,8 @@ BEGIN
             END AS [已开工未售部分的售罄时间], -- 年月
         -- 动态值：取“存货去化承诺跟踪明细表的（N2列-N1列）/(M2列-M1列)
        case when (isnull(sale.承诺后累计含税签约面积,0)- isnull(sale.承诺日累计签约面积,0) ) =0  then  0  else 
-        (isnull(sale.承诺后累计含税签约金额,0)- isnull(sale.承诺日累计签约金额,0) ) *10000.0 / (isnull(sale.承诺后累计含税签约面积,0)- isnull(sale.承诺日累计签约面积,0) ) end as 已开工未售部分的销售均价,
+        (isnull(sale.承诺后累计含税签约金额,0)- isnull(sale.承诺日累计签约金额,0) ) *10000.0 
+        / (isnull(sale.承诺后累计含税签约面积,0)- isnull(sale.承诺日累计签约面积,0) ) end as 已开工未售部分的销售均价,
         -- 取当期日期-承诺日，直至当前日期=售罄日（本承诺内所有组团）
         CASE 
             WHEN DATEDIFF(DAY, GETDATE(), isnull(dt.lastQyDate,'1900-01-01') ) >= 0 
@@ -214,8 +215,7 @@ BEGIN
                     AND bld.ProductTypeName = ljm002.产品名称
                     AND bld.CommodityType = ljm002.商品类型
                     AND bld.ZxBz = ljm002.装修标准
-                WHERE bld.BldType = '产品楼栋'
-                
+                WHERE bld.BldType = '产品楼栋'         
             ) df on df.BuildingGUID = xm.已开工未售部分的的产品楼栋编码 and df.ParentProjGUID = xm.项目GUID
           WHERE DATEDIFF(DAY, 清洗日期, GETDATE()) = 0
           GROUP BY 项目GUID, 存货去化承诺ID

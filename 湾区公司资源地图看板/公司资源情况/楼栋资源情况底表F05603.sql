@@ -1,219 +1,7 @@
---  从F05603表中获取数据，并添加字段
-USE [ERP25]
-GO
-/****** Object:  StoredProcedure [dbo].[usp_s_F056各项目产品楼栋表系统取数原始表单_测试版]    Script Date: 2025/9/29 19:31:33 ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-
-ALTER PROC [dbo].[usp_s_F056各项目产品楼栋表系统取数原始表单_测试版]
-(
-    @var_buguid VARCHAR(MAX),
-    @Date DATETIME = NULL,
-    @VersionGUID VARCHAR(40) = '',
-    @IsNew INT = 0
-)
-AS
-/***********************************************                            
-*函数功能:F056各项目产品楼栋表系统取数原始表单                      
-*输入参数:                            
-    @var_buguid，界面选择的平台公司GUID                                          
-     exec [usp_s_F056各项目产品楼栋表系统取数原始表单_测试版] '5A4B2DEF-E803-49F8-9FE2-308735E7233D'
-Create by yp
-
-modified by lintx 20240813
-增加首开指标：首开标识、首开30天内签约/认购面积、套数、金额
-
-modified by lintx 20250327
-增加经营成本单方
-
-modified by lintx 20250402
-1、新增指标:
-产值信息：已完成产值金额，合同约定应付金额，累计支付金额，产值未付，应付未付
-持有信息：持有套数	持有面积
-占压投资：土地分摊金额	除地价外直投分摊金额	已发生营销费用摊分金额	已发生管理费用摊分金额	已发生财务费用费用摊分金额	已发生税金分摊
-结转信息：已结转套数	已结转面积	已结转收入	已结转成本
-
-modify by tangqn01 20250722
-1、增加跨分期合同的分摊逻辑
-
-modify by tangqn01 20250807
-1、增加回笼字段，累计回笼、当年回笼、当月回笼
-2、增加指标字段，建筑面积（已有）、用地面积、可售面积、计容面积、自持面积、（自持+可售）面积、地上可售面积、地上自持面积、地上可售面积+地上自持面积
-***********************************************/
 BEGIN
-    --首先判断是否存在版本，如果是实时查询就是默认值，如果点击拍照版本，就不是默认值
-    IF @VersionGUID = '默认值'
-       OR @VersionGUID = '00000000-0000-0000-0000-000000000000'
-    BEGIN
-        SET @VersionGUID = NULL;
-    END;
-
-    --判断查询日期，是否存在拍照数据，如果存在，则获取拍照版本表中的版本数据，不存在则实收获取
-    IF (ISNULL(@VersionGUID, '') <> '' AND @IsNew = 0)
-    BEGIN
-        SELECT OrgGuid,
-               VersionGuid,
-               平台公司,
-               项目名称,
-               项目推广名,
-               明源系统代码,
-               项目代码,
-               获取时间,
-               总地价,
-               是否合作项目,
-               分期名称,
-               产品楼栋名称,
-               SaleBldGUID,
-               GCBldGUID,
-               工程楼栋名称,
-               产品类型,
-               产品名称,
-               商品类型,
-               是否可售,
-               是否持有,
-               装修标准,
-               地上层数,
-               地下层数,
-               达到预售形象的条件,
-               实际开工计划日期,
-               实际开工完成日期,
-               达到预售形象计划日期,
-               达到预售形象完成日期,
-               预售办理计划日期,
-               预售办理完成日期,
-               竣工备案计划日期,
-               竣工备案完成日期,
-               集中交付计划日期,
-               集中交付完成日期,
-               立项均价,
-               立项货值,
-               定位均价,
-               定位货值,
-               总建面,
-               地上建面,
-               地下建面,
-               总可售面积,
-               动态总货值,
-               整盘均价,
-               已售面积,
-               已售货值,
-               已售均价,
-               待售面积,
-               待售货值,
-               预测单价,
-               年初可售面积,
-               年初可售货值,
-               本年签约面积,
-               本年签约金额,
-               本年签约均价,
-               本月签约面积,
-               本月签约金额,
-               本月签约均价,
-               本年预计签约面积,
-               本年预计签约金额,
-               正式开工实际完成时间,
-               正式开工预计完成时间,
-               待售套数,
-               总可售套数,
-               首推时间,
-               --新增字段
-               业态组合键,
-               营业成本单方,
-               土地款单方,
-               除地价外直投单方,
-               资本化利息单方,
-               开发间接费单方,
-               营销费用单方,
-               综合管理费单方,
-               税金及附加单方,
-               股权溢价单方,
-               总成本不含税单方,
-               已售对应总成本,
-               已售货值不含税,
-               已售净利润签约,
-               未售对应总成本,
-               近三月签约金额均价不含税,
-               近六月签约金额均价不含税,
-               立项单价,
-               定位单价,
-               已售均价不含税,
-               货量铺排均价计算方式,
-               未售货值不含税,
-               未售净利润签约,
-               项目已售税前利润签约,
-               项目未售税前利润签约,
-               项目整盘利润,
-               货值铺排均价不含税,
-               --20240524新增字段
-               已售套数,
-               近三月签约金额不含税,
-               近三月签约面积,
-               近六月签约金额不含税,
-               近六月签约面积,
-			   ztguid,
-			   是否停工,
-               --20240813新增指标 
-               项目首推时间,
-               首开楼栋标签,
-               首开30天签约套数,
-               首开30天签约面积,
-               首开30天签约金额,
-               首开30天认购套数,
-               首开30天认购面积,
-               首开30天认购金额, 
-               --20250402新增指标
-			   总产值,
-               已完成产值,
-			   待发生产值,
-               合同约定应付金额,
-               累计支付金额,
-               产值未付,
-               应付未付,
-               持有套数,
-               持有面积,
-               土地分摊金额,
-               除地价外直投分摊金额,
-               已发生营销费用摊分金额,
-               已发生管理费用摊分金额,
-               已发生财务费用费用摊分金额,
-               已发生税金分摊,
-               已结转套数,
-               已结转面积,
-               已结转收入,
-               已结转成本,
-               签约套数2024年,	
-               签约面积2024年,	
-               签约金额2024年,	
-               签约均价2024年,
-               经营成本单方,
-               赛道图标签,
-			   占压资金,
-			   --20250807新增指标
-               累计回笼金额,
-               累计本年回笼金额,
-               累计本月回笼金额,
-               用地面积,
-               可售面积,
-               计容面积,
-               自持面积,
-               自持可售面积,
-               地上可售面积,
-               地上自持面积,
-               地上可售面积地上自持面积
-        FROM [dss].dbo.nmap_s_F05603各项目产品楼栋表系统取数原始表单
-        WHERE VersionGuid = @VersionGUID
-              AND OrgGuid IN (
-                                 SELECT Value FROM dbo.fn_Split2(@var_buguid, ',')
-                             );
-    END;
-    --实收获取报表的数据逻辑
-    ELSE
-    BEGIN
 		--declare @VersionGUID VARCHAR(40)
-        SET @VersionGUID = NEWID();
-       -- DECLARE @var_buguid VARCHAR(MAX) = '5A4B2DEF-E803-49F8-9FE2-308735E7233D';
+        --SET @VersionGUID = NEWID();
+       DECLARE @var_buguid VARCHAR(MAX) = 'C69E89BB-A2DB-E511-80B8-E41F13C51836';
 
         SELECT p.*
         INTO #p
@@ -243,8 +31,9 @@ BEGIN
         SELECT r.BldGUID,
                MIN(o.QSDate) st
         INTO #st
-        FROM dbo.s_Order o
-        LEFT JOIN p_room r ON o.RoomGUID = r.RoomGUID
+        FROM dbo.s_Order o with(nolock)
+        inner JOIN p_room r with(nolock) ON o.RoomGUID = r.RoomGUID
+        inner join #p0 p on p.projguid = o.projguid
         WHERE o.Status = '激活'
               OR o.CloseReason = '转签约'
         GROUP BY r.BldGUID;
@@ -1144,44 +933,58 @@ BEGIN
         ) t
         where t.rn = 1
 
-        --取执行版目标成本 除地价外直投（不含非现金）
+        -- 取执行版目标成本 除地价外直投（不含非现金）
         SELECT 
-        * 
+            * 
         INTO #hygh_new
         FROM (
-        SELECT  
-            ex.buguid,  
-            ex.projguid,  
-            ex.targetcost,  
-            ex.dtcostNotFxj,  
-            ex.targetstage2projectguid,  
-            trg2p.TargetStageVersion,  
-            trg2p.approvedate,  
-            -- 按审核日期倒序排序  
-            ROW_NUMBER() OVER (PARTITION BY ex.projguid ORDER BY trg2p.approvedate DESC) AS rn    
-        FROM (  
-            -- 汇总执行版目标成本  
-            SELECT    
-                cost.buguid,  
-                trg2cost.ProjGUID,  
-                trg2cost.targetstage2projectguid,  
-                SUM(cost.targetcost) AS targetcost,  
-                sum( ISNULL(cost.YfsCost, 0) + ISNULL(cost.DfsCost, 0) - ISNULL(cost.FxjCost, 0) ) AS  dtcostNotFxj --'动态成本_含税_不含非现金'  
-            FROM MyCost_Erp352.dbo.cb_cost cost WITH(NOLOCK)  
-            LEFT JOIN MyCost_Erp352.dbo.cb_TargetStage2Cost trg2cost WITH(NOLOCK)  
-                ON trg2cost.costguid = cost.costguid   
-                AND trg2cost.ProjCode = cost.ProjectCode  
-            WHERE cost.costcode NOT LIKE '5001.01.%'   
-                AND cost.costcode NOT LIKE '5001.09.%'  
-                AND cost.costcode NOT LIKE '5001.10.%'   
-                AND cost.costcode NOT LIKE '5001.11%'   
-                AND cost.ifendcost = 1  
-            GROUP BY cost.buguid, trg2cost.projguid, trg2cost.targetstage2projectguid  
-        ) ex  
-        INNER JOIN MyCost_Erp352.dbo.cb_TargetCostRevise_KH trg2p  WITH(NOLOCK) ON trg2p.projguid = ex.projguid         
-        WHERE 1=1
-        AND ex.buguid in (SELECT value FROM fn_Split2(@var_buguid, ','))
-        ) t where t.rn = 1;
+            SELECT  
+                ex.buguid,  
+                ex.projguid,  
+                ex.targetcost,  
+                ex.dtcostNotFxj,  
+                ex.targetstage2projectguid,  
+                trg2p.TargetStageVersion,  
+                trg2p.approvedate,  
+                -- 按审核日期倒序排序  
+                ROW_NUMBER() OVER (
+                    PARTITION BY ex.projguid 
+                    ORDER BY trg2p.approvedate DESC
+                ) AS rn    
+            FROM (  
+                -- 汇总执行版目标成本  
+                SELECT    
+                    cost.buguid,  
+                    trg2cost.ProjGUID,  
+                    trg2cost.targetstage2projectguid,  
+                    SUM(cost.targetcost) AS targetcost,  
+                    SUM(
+                        ISNULL(cost.YfsCost, 0) 
+                        + ISNULL(cost.DfsCost, 0) 
+                        - ISNULL(cost.FxjCost, 0)
+                    ) AS dtcostNotFxj -- '动态成本_含税_不含非现金'  
+                FROM MyCost_Erp352.dbo.cb_cost cost WITH(NOLOCK)  
+                LEFT JOIN MyCost_Erp352.dbo.cb_TargetStage2Cost trg2cost WITH(NOLOCK)  
+                    ON trg2cost.costguid = cost.costguid   
+                    AND trg2cost.ProjCode = cost.ProjectCode  
+                WHERE 
+                    cost.costcode NOT LIKE '5001.01.%'   
+                    AND cost.costcode NOT LIKE '5001.09.%'  
+                    AND cost.costcode NOT LIKE '5001.10.%'   
+                    AND cost.costcode NOT LIKE '5001.11%'   
+                    AND cost.ifendcost = 1  
+                GROUP BY 
+                    cost.buguid, 
+                    trg2cost.projguid, 
+                    trg2cost.targetstage2projectguid  
+            ) ex  
+            INNER JOIN MyCost_Erp352.dbo.cb_TargetCostRevise_KH trg2p WITH(NOLOCK) 
+                ON trg2p.projguid = ex.projguid   
+            INNER JOIN #p0 p ON p.projguid = ex.projguid       
+            WHERE 1 = 1 
+            -- AND ex.buguid in (SELECT value FROM fn_Split2(@var_buguid, ','))
+        ) t 
+        WHERE t.rn = 1;
 
         --新增合同按分期分摊比例
         select 
@@ -1224,7 +1027,7 @@ BEGIN
             group by c.ContractGUID,p.ProjGUID,AllItem
         ) t ;
 	
-	    create index idx_htrate on #htrate(ContractGUID,ProjGUID);
+	    -- create index idx_htrate on #htrate(ContractGUID,ProjGUID);
 
         --合约规划    
         --3、 合约规划:除地价外直投 合同大类：
@@ -1667,7 +1470,7 @@ BEGIN
         inner join #ms ms with(nolock) on ms.SaleBldGUID = a.ProductBuildGUID 
         --group BY ms.TopProjGuid,ms.salebldguid,a.PhyAddress
 
-		create index idx_mj on #mj(salebldguid);
+		-- create index idx_mj on #mj(salebldguid);
 
         --获取表七的三费+税金情况
         SELECT 
@@ -1716,8 +1519,8 @@ BEGIN
         into #CarryOverMbb
         from (
                 select a.projguid,d.BldGUID,ROW_NUMBER() over(PARTITION BY a.projguid ,d.BldGUID ORDER by a.ApproveDate desc) as RowNum,a.CarryOverMainGUID 
-                from [172.16.4.131].[TaskCenterData].dbo.cb_CarryOverMain a with(nolock)
-                left join [172.16.4.131].[TaskCenterData].dbo.cb_CarryOverMainBldDtl d with(nolock) ON  d.Subject = 4 and d.CarryOverMainGUID = a.CarryOverMainGUID
+                from [172.16.4.132].[TaskCenterData].dbo.cb_CarryOverMain a with(nolock)
+                left join [172.16.4.132].[TaskCenterData].dbo.cb_CarryOverMainBldDtl d with(nolock) ON  d.Subject = 4 and d.CarryOverMainGUID = a.CarryOverMainGUID
                 WHERE a.ApproverState = '已审核'
         ) t where t.RowNum = 1;
  
@@ -1727,10 +1530,10 @@ BEGIN
         from  erp25.dbo.mdm_SaleBuild ld with(nolock)
         inner join erp25.dbo.mdm_GCBuild gc with(nolock) on gc.GCBldGUID = ld.GCBldGUID
         left join #CarryOverMbb bb with(nolock) on bb.projguid = gc.projguid and bb.BldGUID = ld.SaleBldGUID
-        left join [172.16.4.131].[TaskCenterData].dbo.cb_CarryOverMainSetBldDtl b with(nolock) ON  ld.SaleBldGUID = b.BldGUID AND  b.Subject = 4
-        left join [172.16.4.131].[TaskCenterData].dbo.cb_CarryOverMainSet c with(nolock) on b.CarryOverMainSetGUID = c.CarryOverMainSetGUID
-        left join [172.16.4.131].[TaskCenterData].dbo.cb_CarryOverMainBldDtl d with(nolock) ON  ld.SaleBldGUID = d.BldGUID AND d.Subject = 4 and d.CarryOverMainGUID = bb.CarryOverMainGUID
-        left join [172.16.4.131].[TaskCenterData].dbo.cb_CarryOverMain e with(nolock) on d.CarryOverMainGUID = e.CarryOverMainGUID
+        left join [172.16.4.132].[TaskCenterData].dbo.cb_CarryOverMainSetBldDtl b with(nolock) ON  ld.SaleBldGUID = b.BldGUID AND  b.Subject = 4
+        left join [172.16.4.132].[TaskCenterData].dbo.cb_CarryOverMainSet c with(nolock) on b.CarryOverMainSetGUID = c.CarryOverMainSetGUID
+        left join [172.16.4.132].[TaskCenterData].dbo.cb_CarryOverMainBldDtl d with(nolock) ON  ld.SaleBldGUID = d.BldGUID AND d.Subject = 4 and d.CarryOverMainGUID = bb.CarryOverMainGUID
+        left join [172.16.4.132].[TaskCenterData].dbo.cb_CarryOverMain e with(nolock) on d.CarryOverMainGUID = e.CarryOverMainGUID
         -- where gc.ProjGUID = '116A20D9-2A43-E811-80BA-E61F13C57837'
 		group by ld.SaleBldGUID
 
@@ -1741,21 +1544,22 @@ BEGIN
 
         --增加回笼字段，累计回笼、当年回笼、当月回笼
         SELECT 
-            bd.BldGUID,
-            sum(r.累计回笼金额) as 累计回笼金额,
-            sum(r.累计本年回笼金额) as 累计本年回笼金额,
-            sum(r.累计本月回笼金额) as 累计本月回笼金额
+            r1.BldGUID,
+            SUM(r.累计回笼金额) AS 累计回笼金额,
+            SUM(r.累计本年回笼金额) AS 累计本年回笼金额,
+            SUM(r.累计本月回笼金额) AS 累计本月回笼金额
         INTO #ljhl
-        FROM dbo.s_gsfkylbmxb r
-        INNER JOIN dbo.p_room r1 ON r1.RoomGUID = r.RoomGUID
-        LEFT JOIN dbo.p_Building bd ON bd.BldGUID = r1.BldGUID
-        WHERE DATEDIFF(DAY, qxDate, getdate()) = 0
-        GROUP BY bd.BldGUID
+        FROM dbo.s_gsfkylbmxb r WITH(NOLOCK)
+        INNER JOIN dbo.p_room r1 WITH(NOLOCK) ON r1.RoomGUID = r.RoomGUID
+        INNER JOIN #p0 p ON p.projguid = r1.projguid
+        WHERE DATEDIFF(DAY, qxDate, getdate()) = 0 
+        GROUP BY r1.BldGUID
 
 
         SELECT dv.DevelopmentCompanyGUID OrgGUID,
-            @VersionGUID VersionGUID,
+           -- @VersionGUID VersionGUID,
             dv.DevelopmentCompanyName 平台公司,
+            p.ProjGUID as 项目GUID,
             p.ProjName 项目名称,
             p.SpreadName 项目推广名,
             CONVERT(VARCHAR(100), p.ProjCode) 明源系统代码,
@@ -1768,7 +1572,7 @@ BEGIN
                     '否'
                 ELSE '是'
             END 是否合作项目,
-            ms.fq 分期名称,
+            ms.fq 分期名称, 
             ms.BldCode 产品楼栋名称,
             ms.SaleBldGUID,
             ms.GCBldGUID,
@@ -1945,5 +1749,4 @@ BEGIN
 				   #proj_rate,#proj_st,#qy_st,#rg_st,#t,#ts_st,#vrt,#gcbld_rate,#tj_Rate,#cpbld_rate,
                    #vor,#htnotfee,#fqcz,#ldcz,#htrate,#zy,#ljhl,#zs_area,#mj,#sftax,#xsjz,#jzcb,#CarryOverMbb,
                    #Budget,#yfs,#yjl,#hy,#hygh,#hygh_new;
-    END;
-END
+    END
