@@ -11,11 +11,11 @@ GO
 -- 创建人: chenjw 2025-09-02
 -- 作用：清洗并提取集团开工申请存货去化承诺表数据，供智能体使用
 -- ============================================
-ALTER     PROC [dbo].[usp_s_集团开工申请存货去化承诺表智能体数据提取]
+ALTER   PROC [dbo].[usp_s_集团开工申请存货去化承诺表智能体数据提取]
 AS
 BEGIN
     -- 执行明细表存储过程
-    exec usp_s_集团开工申请存货去化承诺跟踪明细表智能体数据提取;
+    -- exec usp_s_集团开工申请存货去化承诺跟踪明细表智能体数据提取;
 
          -- M002表的成本单方数据
         SELECT 
@@ -172,9 +172,10 @@ BEGIN
         / (isnull(sale.承诺后累计含税签约面积,0)- isnull(sale.承诺日累计签约面积,0) ) end as 已开工未售部分的销售均价,
         -- 取当期日期-承诺日，直至当前日期=售罄日（本承诺内所有组团）
         CASE 
-            WHEN DATEDIFF(DAY, GETDATE(), isnull(dt.lastQyDate,'1900-01-01') ) >= 0 
-                THEN DATEDIFF(DAY, cmt.[承诺时间], GETDATE()) / 30.0 
-			WHEN DATEDIFF(DAY, GETDATE(), isnull(dt.lastQyDate,'1900-01-01') )< 0 -- and  dt.lastQyDate is not null 
+            WHEN dt.lastQyDate is  null and  isnull(sale.近六个月去化面积,0) <>0
+                THEN DATEDIFF(DAY, cmt.[承诺时间], GETDATE()) / 30.0 + 
+                  (ISNULL(sale.剩余可售面积, 0)  / ( sale.近六个月去化面积 / 6.0 ) )
+			WHEN DATEDIFF(DAY, GETDATE(), isnull(dt.lastQyDate,'1900-01-01') )< 0 and  dt.lastQyDate is not null 
 			    THEN  DATEDIFF(DAY, cmt.[承诺时间],GETDATE()) / 30.0 
          END    AS [已开工未售部分的去化周期],
         -- 动态值：取“存货去化承诺跟踪明细表的（本承诺内所有组团），X=P2列-单方（含税费）*M2列
@@ -189,6 +190,8 @@ BEGIN
           SELECT 
               项目GUID,
               存货去化承诺ID,
+              sum(isnull(xm.近六个月去化面积,0)) as 近六个月去化面积,
+              sum(isnull(xm.剩余可售面积,0)) as 剩余可售面积,
               SUM(ISNULL(承诺日累计签约面积, 0))        AS 承诺日累计签约面积,
               SUM(ISNULL(承诺日累计签约金额, 0))        AS 承诺日累计签约金额,
               SUM(ISNULL(承诺后累计含税签约面积, 0))    AS 承诺后累计含税签约面积,

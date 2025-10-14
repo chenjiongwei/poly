@@ -78,6 +78,9 @@ create table 本次新推承诺明细表(
     -- 承诺日本批开工的税后净利润  decimal(38,10),
     -- 承诺日本批开工的销净  decimal(38,10)
 )
+
+TRUNCATE Table 本次新推承诺明细表
+
 -- 初始化数据
 insert into [本次新推承诺明细表] ([本次新推量价承诺明细ID],本次新推量价承诺ID,项目GUID,[承诺时间],[产品楼栋GUID])
     SELECT
@@ -89,7 +92,7 @@ insert into [本次新推承诺明细表] ([本次新推量价承诺明细ID],�
     --INTO #cmtld
     FROM 本次新推承诺表 a
     CROSS APPLY dbo.fn_Split1(a.本批开工的产品楼栋编码, ';')
-    WHERE ISNULL(a.本批开工的产品楼栋编码, '') <> '' and a.项目GUID ='EE075160-2116-EE11-B3A3-F40270D39969'
+    WHERE ISNULL(a.本批开工的产品楼栋编码, '') <> '' -- and a.项目GUID ='EE075160-2116-EE11-B3A3-F40270D39969'
 	and isnull(value,'')<>''
 
 
@@ -199,3 +202,19 @@ left join (
 		group by  sale.ParentProjGUID,
             sale.BldGUID,sale.bldcode,sale.BldName
 ) b on a.产品楼栋GUID =b.BldGUID
+
+
+-- 长春景阳和煦这个项目这三个商业楼栋 
+-- 34238d9d-d0c1-43ba-b5e5-e0bac0a4dd28   S2-mpbcy-1
+-- bbe2fea8-6b99-4f36-83c0-cbb0fbf6e052   S1-mpbcy-1
+-- eef1f1b4-75a9-4ce2-a158-89b932508ff4   S3-mpbcy-2
+
+
+-- ；34238d9d-d0c1-43ba-b5e5-e0bac0a4dd28；bbe2fea8-6b99-4f36-83c0-cbb0fbf6e052；eef1f1b4-75a9-4ce2-a158-89b932508ff4
+-- ；S2-mpbcy-1；S1-mpbcy-1；S3-mpbcy-2
+
+update  a set  a.本批开工的产品楼栋GUID='3b5fe483-5956-42ed-9e11-2679ec395270；dff36c5f-bdfc-407d-ba9c-42d0b5bcbb23；4d0e3bb4-0afc-427c-9ff3-f19f597d9acf；71a51205-e4bc-49c9-bc9f-85935c7994f1；583e35a6-6385-441c-b2be-5c262833e3ad；856ad3b5-3205-4d03-b1ab-7b0c83a3b6e8；7da3b4e5-6bff-4a32-8fbb-0f97b334665c；7d5a4e54-0de4-4685-bb8d-40e7c6e367a7；34238d9d-d0c1-43ba-b5e5-e0bac0a4dd28；bbe2fea8-6b99-4f36-83c0-cbb0fbf6e052；eef1f1b4-75a9-4ce2-a158-89b932508ff4',
+               a.本批开工的产品楼栋编码='3b5fe483-5956-42ed-9e11-2679ec395270；dff36c5f-bdfc-407d-ba9c-42d0b5bcbb23；4d0e3bb4-0afc-427c-9ff3-f19f597d9acf；71a51205-e4bc-49c9-bc9f-85935c7994f1；583e35a6-6385-441c-b2be-5c262833e3ad；856ad3b5-3205-4d03-b1ab-7b0c83a3b6e8；7da3b4e5-6bff-4a32-8fbb-0f97b334665c；7d5a4e54-0de4-4685-bb8d-40e7c6e367a7；34238d9d-d0c1-43ba-b5e5-e0bac0a4dd28；bbe2fea8-6b99-4f36-83c0-cbb0fbf6e052；eef1f1b4-75a9-4ce2-a158-89b932508ff4',
+			   a.本批开工的产品楼栋名称='6#7#12#13#1#2#3#5；S2-mpbcy-1；S1-mpbcy-1；S3-mpbcy-2'
+from  本次新推承诺表 a
+where  a.项目GUID ='07093FFF-4E7E-EF11-B3A5-F40270D39969'

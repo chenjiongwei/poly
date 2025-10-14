@@ -89,6 +89,8 @@ BEGIN
         [承诺日],
         [售罄日],
         [存货去化周期],
+        [近六个月去化面积],
+        [剩余可售面积],
         [承诺日累计签约面积],
         [承诺日累计签约金额],
         [承诺日累计签约面积_动态版],
@@ -117,12 +119,17 @@ BEGIN
         CASE  
             WHEN qh.lastQyDate IS NOT NULL THEN CONVERT(VARCHAR(7), qh.lastQyDate, 121) 
         END                AS [售罄日],                -- 售罄日
+        
+        -- 口径调整：当前日期-承诺日+当前剩余或预计去化周期（楼栋对应剩余货量面积/近半年月均去化面积）
         CASE 
-            WHEN DATEDIFF(DAY, GETDATE(), qh.lastQyDate) >= 0 
-                THEN DATEDIFF(DAY, ch.[承诺时间], GETDATE()) / 30.0 
+            WHEN  qh.lastQyDate is null and  isnull(sf.近六个月去化面积,0) <>0
+                THEN DATEDIFF(DAY, ch.[承诺时间], GETDATE()) / 30.0 + 
+                   ( (ISNULL(zksmj, 0) - ISNULL(ysmj, 0) ) / ( sf.近六个月去化面积 / 6.0 ) )
 			when DATEDIFF(DAY, GETDATE(), qh.lastQyDate)<0 and  qh.lastQyDate is not null 
 			    then  DATEDIFF(DAY, ch.[承诺时间],qh.lastQyDate) / 30.0 
-        END             AS [存货去化周期],          -- 存货去化周期，后续可补充
+        END             AS [存货去化周期],         
+        sf.近六个月去化面积,
+        (ISNULL(zksmj, 0) - ISNULL(ysmj, 0) ) as 剩余可售面积,
         ch.承诺日累计签约面积               AS [承诺日累计签约面积],    -- 承诺日累计签约面积，后续可补充
         ch.承诺日累计签约金额               AS [承诺日累计签约金额],    -- 承诺日累计签约金额，后续可补充
         sf.承诺日累计签约面积_动态版               AS [承诺日累计签约面积_动态版], -- 动态版签约面积，后续可补充
@@ -171,7 +178,13 @@ BEGIN
             ) / 100000000.0 AS 承诺后累计不含税签约金额,
             SUM(
                      ISNULL(Sale.CNetArea, 0) + ISNULL(Sale.SpecialCNetArea, 0) 
-            ) / 10000.0 AS 承诺后累计含税签约面积
+            ) / 10000.0 AS 承诺后累计含税签约面积,
+            -- 月均去化面积
+            SUM( case when StatisticalDate between DATEADD(MONTH, -6, GETDATE()) and GETDATE() then 
+                     ISNULL(Sale.CNetArea, 0) + ISNULL(Sale.SpecialCNetArea, 0) 
+                     else 0 
+                 end
+            )  AS 近六个月去化面积
         FROM data_wide_dws_s_SalesPerf Sale
         INNER JOIN #cmtld chld 
             ON Sale.bldguid = chld.产品楼栋GUID and sale.ParentProjGUID =chld.项目GUID
