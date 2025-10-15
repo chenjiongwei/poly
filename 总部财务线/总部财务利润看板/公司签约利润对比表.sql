@@ -1,6 +1,7 @@
 
 -- 项目层级签约利润对比
 -- 插入项目临时表
+-- 插入项目临时表
 SELECT 
     --a.清洗时间,
     --a.清洗版本,
@@ -8,16 +9,16 @@ SELECT
     a.公司,
     a.投管代码,
     a.项目GUID,
-    a.项目,
-    a.推广名,
-    a.获取日期,
-    a.我方股比,
-    a.是否并表,
-    a.合作方,
-    a.是否风险合作方,
-    a.地上总可售面积,
-    a.项目地价
-INTO #proj 
+    max(a.项目) as 项目,
+    max(a.推广名) as 推广名 ,
+    max(a.获取日期) as 获取日期 ,
+    max(a.我方股比) as 我方股比,
+    max(a.是否并表) as 是否并表,
+    max(a.合作方) as 合作方,
+    max(a.是否风险合作方) as 是否风险合作方,
+    max(a.地上总可售面积) as 地上总可售面积,
+    max(a.项目地价) as 项目地价
+INTO #proj
 FROM 业态签约利润对比表 a
 inner join data_wide_dws_mdm_Project b on a.项目GUID = b.ProjGUID
 inner join data_wide_dws_s_Dimension_Organization c on b.buguid = c.OrgGUID
@@ -29,16 +30,16 @@ GROUP BY
     c.DevelopmentCompanyGUID,
     a.公司,
     a.投管代码,
-    a.项目GUID,
-    a.项目,
-    a.推广名,
-    a.获取日期,
-    a.我方股比,
-    a.是否并表,
-    a.合作方,
-    a.是否风险合作方,
-    a.地上总可售面积,
-    a.项目地价
+    a.项目GUID
+    --a.项目,
+    --a.推广名
+   ---- a.获取日期,
+   -- a.我方股比,
+   ---- a.是否并表,
+   ---- a.合作方,
+   -- a.是否风险合作方,
+   -- a.地上总可售面积,
+   -- a.项目地价
 
 -- 签约利润
 SELECT 

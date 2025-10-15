@@ -1,6 +1,6 @@
 USE [HighData_prod]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_s_业态签约利润对比表_盈利规划单方锁定版调整]    Script Date: 2025/10/11 16:50:11 ******/
+/****** Object:  StoredProcedure [dbo].[usp_s_业态签约利润对比表_盈利规划单方锁定版调整]    Script Date: 2025/10/15 10:44:57 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -601,6 +601,46 @@ GROUP BY
     -- EXEC [172.16.4.141].erp25.dbo.[usp_s_M002项目业态级毛利净利表_盈利规划单方锁定版调整] @buguid
 
 
+    -- 补充预算表里缺失的项目及业态信息
+    select 
+        isnull(base.公司,yh25.平台公司) as  公司,
+        isnull(base.项目GUID,yh25.ProjGUID) as  项目GUID,
+        isnull(base.投管代码,yh25.投管代码) as  投管代码,
+        isnull(base.项目,yh25.项目名) as  项目,
+        isnull(base.推广名,yh25.推广名) as  推广名,
+        isnull(base.获取日期,flg.获取时间) as  获取日期,
+        isnull(base.我方股比,flg.项目股权比例) as  我方股比,
+        isnull(base.是否并表,flg.是否纳入动态利润分析) as  是否并表,
+        isnull(base.合作方,flg.合作方名称) as  合作方,
+        base.是否风险合作方,
+        isnull(base.地上总可售面积,proj.UpSaleArea) as  地上总可售面积,
+        isnull(base.项目地价,proj.TotalLandPrice) as  项目地价,
+        isnull(base.盈利规划上线方式,flg.盈利规划上线方式) as  盈利规划上线方式,
+        isnull(base.产品类型,yh25.产品类型) as  产品类型,
+        isnull(base.产品名称,yh25.产品名称) as  产品名称,
+        isnull(base.装修标准,yh25.装修标准) as  装修标准,
+        isnull(base.商品类型,yh25.商品类型) as  商品类型,
+        isnull(base.明源匹配主键,yh25.明源匹配主键) as  明源匹配主键,
+        isnull(base.业态组合键,yh25.业态组合键) as  业态组合键,
+
+        base.签约_25年预算,
+        base.签约不含税_25年预算,
+        base.净利润_25年预算,
+        base.报表利润_25年预算, --预留字段
+        base.净利率_25年预算, -- 净利润/签约金额不含税
+        base.签约个数_25年预算,
+        base.签约面积_25年预算,
+        base.签约均价_25年预算, -- 车位按照套数计算
+        base.营业成本单方_25年预算,
+        base.营销费用单方_25年预算,
+        base.管理费用单方_25年预算,
+        base.税金单方_25年预算 
+    into #ylghbase_new
+    from  #ylgh25  yh25
+    left join #ylghbase base  On base.项目GUID = yh25.ProjGUID and convert(varchar(2000),base.明源匹配主键) = yh25.明源匹配主键
+    left JOIN [172.16.4.141].erp25.dbo.vmdm_projectFlagnew flg ON yh25.ProjGUID = flg.ProjGUID
+    left  join data_wide_dws_mdm_Project  proj on yh25.ProjGUID = proj.ProjGUID
+
     -- 删除当天的数据避免数据重复
     delete from 业态签约利润对比表 where datediff(day,清洗时间,getdate()) = 0
        -- 定义清洗版本
@@ -848,7 +888,7 @@ GROUP BY
         -- 年初营销费用,
         -- 本次税金,
         -- 年初税金      
-    FROM #ylghbase a             -- 业态签约利润基础数据临时表
+    FROM #ylghbase_new a             -- 业态签约利润基础数据临时表
     LEFT JOIN #lxindx b          -- 立项指标数据临时表
         ON a.项目GUID = b.ProjGUID           -- 通过项目GUID关联
         AND a.产品类型 = b.ProductType       -- 通过产品类型关联
@@ -861,7 +901,9 @@ GROUP BY
     left join #ylgh_thismonth e on a.项目GUID = e.ProjGUID and convert(varchar(2000),a.明源匹配主键) = e.明源匹配主键
     left join #ylgh_lastmonth f on a.项目GUID = f.ProjGUID and convert(varchar(2000),a.明源匹配主键) = f.明源匹配主键
     -- left join #ylgh_lastlastmonth g on a.项目GUID = g.ProjGUID and convert(varchar(2000),a.明源匹配主键) = g.明源匹配主键
-
+    
+    -- 删除临时表
+    drop Table #ylghbase_new,#ylghbase
 end 
 
 

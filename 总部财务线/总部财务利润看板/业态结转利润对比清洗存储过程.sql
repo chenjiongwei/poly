@@ -1,6 +1,6 @@
 USE [HighData_prod]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_s_业态结转利润对比表_盈利规划单方锁定版调整]    Script Date: 2025/10/11 16:48:26 ******/
+/****** Object:  StoredProcedure [dbo].[usp_s_业态结转利润对比表_盈利规划单方锁定版调整]    Script Date: 2025/10/15 11:45:27 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -574,6 +574,70 @@ GROUP BY
     insert into #ylghjzlrby
     exec [172.16.4.141].erp25.dbo.usp_s_m00201当年签约结转数据_盈利规划单方锁定版调整 @buguid ,@lastmonth_start,@lastmonth_end
    -- exec [172.16.4.141].erp25.dbo.usp_s_m00201当年签约结转数据_盈利规划单方锁定版调整 @buguid ,'2025-09-01','2025-09-28'
+
+
+
+-- 补充预算表里缺失的项目及业态信息  
+    select 
+        isnull(base.公司,yh25.平台公司) as  公司,
+        isnull(base.项目GUID,yh25.ProjGUID) as  项目GUID,
+        isnull(base.投管代码,yh25.投管代码) as  投管代码,
+        isnull(base.项目,yh25.项目名) as  项目,
+        isnull(base.推广名,yh25.推广名) as  推广名,
+        isnull(base.获取日期,flg.获取时间) as  获取日期,
+        isnull(base.我方股比,flg.项目股权比例) as  我方股比,
+        isnull(base.是否并表,flg.是否纳入动态利润分析) as  是否并表,
+        isnull(base.合作方,flg.合作方名称) as  合作方,
+        base.是否风险合作方,
+        isnull(base.地上总可售面积,proj.UpSaleArea) as  地上总可售面积,
+        isnull(base.项目地价,proj.TotalLandPrice) as  项目地价,
+        isnull(base.盈利规划上线方式,flg.盈利规划上线方式) as  盈利规划上线方式,
+        isnull(base.产品类型,yh25.产品类型) as  产品类型,
+        isnull(base.产品名称,yh25.产品名称) as  产品名称,
+        isnull(base.装修标准,yh25.装修标准) as  装修标准,
+        isnull(base.商品类型,yh25.商品类型) as  商品类型,
+        isnull(base.明源匹配主键,yh25.明源匹配主键) as  明源匹配主键,
+        isnull(base.业态组合键,yh25.业态组合键) as  业态组合键,
+
+        -- 预算数据
+        base.本年结转签约均价_预算, -- 车位按照套数计算
+        base.营业成本单方_预算,
+        base.营销费用单方_预算,
+        base.管理费用单方_预算,
+        base.税金单方_预算,
+
+        -- 本年结转
+        base.本年结转签约面积_预算,
+        base.本年结转签约个数_预算,
+        base.本年结转签约_预算,
+        base.本年结转签约不含税_预算,
+        base.本年结转毛利_预算,
+        base.本年结转税前利润_预算,
+        base.本年结转净利润_预算,
+        base.本年结转净利率_预算,
+        -- 第二年结转
+        base.第二年结转签约面积_预算,
+        base.第二年结转签约个数_预算,
+        base.第二年结转签约_预算,
+        base.第二年结转签约不含税_预算,
+        base.第二年结转毛利_预算,
+        base.第二年结转税前利润_预算,
+        base.第二年结转净利润_预算,
+        base.第二年结转净利率_预算,
+        -- 第三年结转   
+        base.第三年结转签约面积_预算,
+        base.第三年结转签约个数_预算,
+        base.第三年结转签约_预算,
+        base.第三年结转签约不含税_预算,
+        base.第三年结转毛利_预算,
+        base.第三年结转税前利润_预算,
+        base.第三年结转净利润_预算,
+        base.第三年结转净利率_预算
+    into #ylghbase_new
+    from  #ylghjzlr  yh25
+    left join #ylghbase base  On base.项目GUID = yh25.ProjGUID and convert(varchar(2000),base.明源匹配主键) = yh25.明源匹配主键
+    left JOIN [172.16.4.141].erp25.dbo.vmdm_projectFlagnew flg ON yh25.ProjGUID = flg.ProjGUID
+    left  join data_wide_dws_mdm_Project  proj on yh25.ProjGUID = proj.ProjGUID
 
     -- 删除当天的数据避免数据重复   
     delete from 业态结转利润对比表 where datediff(day,清洗时间,getdate()) = 0
