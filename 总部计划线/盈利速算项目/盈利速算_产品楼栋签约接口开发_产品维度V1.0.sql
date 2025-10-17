@@ -6,7 +6,7 @@ GO
  示例：exec usp_ylgh_ProjProductContractInfo '18409189-6E34-EF11-B3A4-F40270D39969','2025-09'
  -- 18409189-6E34-EF11-B3A4-F40270D39969 -- 合肥龙川瑧悦
 **********************************************************************/
-create  or  ALTER   PROC [dbo].[usp_ylgh_ProjProductContractInfo]
+Create or  ALTER  PROC [dbo].[usp_ylgh_ProjProductContractInfo]
 (
     @var_projguid VARCHAR(MAX),  -- 项目GUID，多个项目用逗号分隔
     @var_tqrq varchar(7)  -- 统计截止月份，格式如YYYY-MM
@@ -49,9 +49,9 @@ BEGIN
     -- 3. 按产品维度进行汇总查询
     SELECT 
         项目名称,
-        项目GUID,
+        LOWER(项目GUID) AS 项目GUID,
         分期名称,
-        分期GUID,
+        LOWER(分期GUID) AS 分期GUID,
         产品类型,
         产品名称,
         经营属性,
@@ -72,9 +72,9 @@ BEGIN
     -- WHERE 年份 < YEAR(@var_tqrq) OR (年份 = YEAR(@var_tqrq) AND 月份 <= MONTH(@var_tqrq))
     GROUP BY 
         项目名称,
-        项目GUID,
+        LOWER(项目GUID) ,
         分期名称,
-        分期GUID,
+        LOWER(分期GUID) ,
         产品类型,
         产品名称,
         经营属性,

@@ -14,7 +14,7 @@ GO
 ALTER   PROC [dbo].[usp_s_集团开工申请本次新推承诺表智能体数据提取]
 AS
 BEGIN
-
+    SET NOCOUNT ON;  -- 禁止显示受影响的行数信息
     /**************************************************************
     步骤1：提取承诺表主数据，生成临时表#Commitment
     ***************************************************************/
@@ -202,7 +202,7 @@ BEGIN
             WHEN sk.售罄日期 IS NOT NULL THEN DATEDIFF(MONTH, sk.首开日期, sk.售罄日期)
         END AS [去化周期],
         hk.累计回笼金额 / 100000000.0 AS [累计签约回笼], -- 累计签约回笼（单位：亿元）
-        -- 累计除地价外直投及费用（区分车位/非车位，面积/套数）
+        -- -- 累计除地价外直投及费用（区分车位/非车位，面积/套数）
         CASE 
             WHEN bd.TopProductTypeName = '地下室/车库' THEN 
                 (ISNULL(ljm002.盈利规划营业成本单方,0) 
@@ -217,55 +217,55 @@ BEGIN
                 + ISNULL(ljm002.盈利规划综合管理费单方协议口径,0)
                 + ISNULL(ljm002.盈利规划税金及附加单方,0)) * ISNULL(sf.已售面积,0)
         END / 100000000.0 AS [累计除地价外直投及费用], -- 预留，后续补充
-        -- 累计贡献现金流 = 累计签约回笼 - 累计除地价外直投及费用
-        ISNULL(hk.累计回笼金额,0) / 100000000.0 -
-        CASE 
-            WHEN bd.TopProductTypeName = '地下室/车库' THEN 
-                (ISNULL(ljm002.盈利规划营业成本单方,0) 
-                + ISNULL(ljm002.盈利规划股权溢价单方,0)
-                + ISNULL(ljm002.盈利规划营销费用单方,0)
-                + ISNULL(ljm002.盈利规划综合管理费单方协议口径,0)
-                + ISNULL(ljm002.盈利规划税金及附加单方,0)) * ISNULL(sf.已售套数,0)
-            ELSE
-                (ISNULL(ljm002.盈利规划营业成本单方,0) 
-                + ISNULL(ljm002.盈利规划股权溢价单方,0)
-                + ISNULL(ljm002.盈利规划营销费用单方,0)
-                + ISNULL(ljm002.盈利规划综合管理费单方协议口径,0)
-                + ISNULL(ljm002.盈利规划税金及附加单方,0)) * ISNULL(sf.已售面积,0)
-        END / 100000000.0 AS [累计贡献现金流], -- 累计签约回笼（亿）X1 - 累计除地价外直投及费用（亿）Y1
+        -- -- 累计贡献现金流 = 累计签约回笼 - 累计除地价外直投及费用
+        -- ISNULL(hk.累计回笼金额,0) / 100000000.0 -
+        -- CASE 
+        --     WHEN bd.TopProductTypeName = '地下室/车库' THEN 
+        --         (ISNULL(ljm002.盈利规划营业成本单方,0) 
+        --         + ISNULL(ljm002.盈利规划股权溢价单方,0)
+        --         + ISNULL(ljm002.盈利规划营销费用单方,0)
+        --         + ISNULL(ljm002.盈利规划综合管理费单方协议口径,0)
+        --         + ISNULL(ljm002.盈利规划税金及附加单方,0)) * ISNULL(sf.已售套数,0)
+        --     ELSE
+        --         (ISNULL(ljm002.盈利规划营业成本单方,0) 
+        --         + ISNULL(ljm002.盈利规划股权溢价单方,0)
+        --         + ISNULL(ljm002.盈利规划营销费用单方,0)
+        --         + ISNULL(ljm002.盈利规划综合管理费单方协议口径,0)
+        --         + ISNULL(ljm002.盈利规划税金及附加单方,0)) * ISNULL(sf.已售面积,0)
+        -- END / 100000000.0 AS [累计贡献现金流], -- 累计签约回笼（亿）X1 - 累计除地价外直投及费用（亿）Y1
         sf.一年内签约金额 / 100000000.0 AS [一年内签约金额], -- 一年内签约金额（单位：亿元）
         hk.累计本年回笼金额 / 100000000.0 AS [一年内回笼金额], -- 一年内回笼金额（单位：亿元）
         -- 一年内除地价外直投及费用
-        CASE 
-            WHEN bd.TopProductTypeName = '地下室/车库' THEN 
-                (ISNULL(bnm002.盈利规划营业成本单方,0) 
-                + ISNULL(bnm002.盈利规划股权溢价单方,0)
-                + ISNULL(bnm002.盈利规划营销费用单方,0)
-                + ISNULL(bnm002.盈利规划综合管理费单方协议口径,0)
-                + ISNULL(bnm002.盈利规划税金及附加单方,0)) * ISNULL(sf.一年内签约套数,0)
-            ELSE
-                (ISNULL(bnm002.盈利规划营业成本单方,0) 
-                + ISNULL(bnm002.盈利规划股权溢价单方,0)
-                + ISNULL(bnm002.盈利规划营销费用单方,0)
-                + ISNULL(bnm002.盈利规划综合管理费单方协议口径,0)
-                + ISNULL(bnm002.盈利规划税金及附加单方,0)) * ISNULL(sf.一年内签约面积,0)
-        END / 100000000.0 AS [一年内除地价外直投及费用], -- 预留，后续补充
+        -- CASE 
+        --     WHEN bd.TopProductTypeName = '地下室/车库' THEN 
+        --         (ISNULL(bnm002.盈利规划营业成本单方,0) 
+        --         + ISNULL(bnm002.盈利规划股权溢价单方,0)
+        --         + ISNULL(bnm002.盈利规划营销费用单方,0)
+        --         + ISNULL(bnm002.盈利规划综合管理费单方协议口径,0)
+        --         + ISNULL(bnm002.盈利规划税金及附加单方,0)) * ISNULL(sf.一年内签约套数,0)
+        --     ELSE
+        --         (ISNULL(bnm002.盈利规划营业成本单方,0) 
+        --         + ISNULL(bnm002.盈利规划股权溢价单方,0)
+        --         + ISNULL(bnm002.盈利规划营销费用单方,0)
+        --         + ISNULL(bnm002.盈利规划综合管理费单方协议口径,0)
+        --         + ISNULL(bnm002.盈利规划税金及附加单方,0)) * ISNULL(sf.一年内签约面积,0)
+        -- END / 100000000.0 AS [一年内除地价外直投及费用], -- 预留，后续补充
         -- 一年内贡献现金流 = 一年内回笼金额 - 一年内除地价外直投及费用
-        hk.累计本年回笼金额 / 100000000.0 -
-        CASE 
-            WHEN bd.TopProductTypeName = '地下室/车库' THEN 
-                (ISNULL(bnm002.盈利规划营业成本单方,0) 
-                + ISNULL(bnm002.盈利规划股权溢价单方,0)
-                + ISNULL(bnm002.盈利规划营销费用单方,0)
-                + ISNULL(bnm002.盈利规划综合管理费单方协议口径,0)
-                + ISNULL(bnm002.盈利规划税金及附加单方,0)) * ISNULL(sf.一年内签约套数,0)
-            ELSE
-                (ISNULL(bnm002.盈利规划营业成本单方,0) 
-                + ISNULL(bnm002.盈利规划股权溢价单方,0)
-                + ISNULL(bnm002.盈利规划营销费用单方,0)
-                + ISNULL(bnm002.盈利规划综合管理费单方协议口径,0)
-                + ISNULL(bnm002.盈利规划税金及附加单方,0)) * ISNULL(sf.一年内签约面积,0)
-        END / 100000000.0 AS [一年内贡献现金流], -- 一年内实现回笼（亿）X2 - 一年内除地价外直投及费用（亿）Y2
+        -- hk.累计本年回笼金额 / 100000000.0 -
+        -- CASE 
+        --     WHEN bd.TopProductTypeName = '地下室/车库' THEN 
+        --         (ISNULL(bnm002.盈利规划营业成本单方,0) 
+        --         + ISNULL(bnm002.盈利规划股权溢价单方,0)
+        --         + ISNULL(bnm002.盈利规划营销费用单方,0)
+        --         + ISNULL(bnm002.盈利规划综合管理费单方协议口径,0)
+        --         + ISNULL(bnm002.盈利规划税金及附加单方,0)) * ISNULL(sf.一年内签约套数,0)
+        --     ELSE
+        --         (ISNULL(bnm002.盈利规划营业成本单方,0) 
+        --         + ISNULL(bnm002.盈利规划股权溢价单方,0)
+        --         + ISNULL(bnm002.盈利规划营销费用单方,0)
+        --         + ISNULL(bnm002.盈利规划综合管理费单方协议口径,0)
+        --         + ISNULL(bnm002.盈利规划税金及附加单方,0)) * ISNULL(sf.一年内签约面积,0)
+        -- END / 100000000.0 AS [一年内贡献现金流], -- 一年内实现回笼（亿）X2 - 一年内除地价外直投及费用（亿）Y2
         sf.含税签约金额 / 100000000.0 AS [含税签约金额], -- 含税签约金额（单位：亿元）
         sf.已售面积 / 10000.0 AS [已售面积],             -- 已售面积（单位：万㎡）
         sf.不含税签约金额 / 100000000.0 AS [不含税签约金额] -- 不含税签约金额（单位：亿元）
@@ -313,9 +313,7 @@ BEGIN
             GROUP BY xt.本次新推量价承诺ID, xt.产品楼栋GUID
         ) sale 
         WHERE ISNULL(sale.TotalRoomCount, 0) > 0
-    ) sk
-        ON sk.本次新推量价承诺ID = xt.本次新推量价承诺ID
-        AND sk.产品楼栋GUID = xt.产品楼栋GUID
+    ) sk ON sk.本次新推量价承诺ID = xt.本次新推量价承诺ID AND sk.产品楼栋GUID = xt.产品楼栋GUID
     -- 关联房款一览表，获取累计回笼金额
     LEFT JOIN (
         SELECT  
@@ -329,9 +327,7 @@ BEGIN
         INNER JOIN #xtxmld xt
             ON room.bldguid = xt.产品楼栋GUID
         GROUP BY xt.本次新推量价承诺ID, xt.产品楼栋GUID   
-    ) hk
-        ON hk.本次新推量价承诺ID = xt.本次新推量价承诺ID
-        AND hk.产品楼栋GUID = xt.产品楼栋GUID
+    ) hk ON hk.本次新推量价承诺ID = xt.本次新推量价承诺ID AND hk.产品楼栋GUID = xt.产品楼栋GUID
     -- 关联销售业绩表，获取签约金额、面积等
     LEFT JOIN (
         SELECT 
@@ -354,9 +350,7 @@ BEGIN
         INNER JOIN #xtxmld xt
             ON sf.bldguid = xt.产品楼栋GUID
         GROUP BY xt.本次新推量价承诺ID, xt.产品楼栋GUID
-    ) sf 
-        ON sf.本次新推量价承诺ID = xt.本次新推量价承诺ID 
-        AND sf.产品楼栋GUID = xt.产品楼栋GUID
+    ) sf  ON sf.本次新推量价承诺ID = xt.本次新推量价承诺ID  AND sf.产品楼栋GUID = xt.产品楼栋GUID
     -- 关联M002累计版
     LEFT JOIN #m002 ljm002 
         ON xt.项目GUID = ljm002.projguid 
@@ -365,14 +359,14 @@ BEGIN
         AND bd.ProductTypeName = ljm002.产品名称
         AND bd.CommodityType = ljm002.商品类型
         AND bd.ZxBz = ljm002.装修标准
-    -- 关联M002本年版
-    LEFT JOIN #m002 bnm002 
-        ON xt.项目GUID = bnm002.projguid 
-        AND bnm002.versionType = '本年版'  
-        AND bd.TopProductTypeName = bnm002.产品类型 
-        AND bd.ProductTypeName = bnm002.产品名称
-        AND bd.CommodityType = bnm002.商品类型
-        AND bd.ZxBz = bnm002.装修标准;
+    -- -- 关联M002本年版
+    -- LEFT JOIN #m002 bnm002 
+    --     ON xt.项目GUID = bnm002.projguid 
+    --     AND bnm002.versionType = '本年版'  
+    --     AND bd.TopProductTypeName = bnm002.产品类型 
+    --     AND bd.ProductTypeName = bnm002.产品名称
+    --     AND bd.CommodityType = bnm002.商品类型
+    --     AND bd.ZxBz = bnm002.装修标准;
 
     /**************************************************************
     步骤6：删除当天已存在的数据，避免重复
@@ -469,26 +463,27 @@ BEGIN
           when datediff(day,getdate(),isnull(xt.售罄日期,'1900-01-01')) <0 then
             datediff(day,xt.首开日期,getdate()) / 30.0 end  AS [去化周期],  
         xt.累计签约回笼 AS [本批开工后的项目累计签约回笼],
-        xt.累计除地价外直投及费用 AS [本批开工后的项目累计除地价外直投及费用],
-        xt.累计贡献现金流 AS [本批开工后的项目累计贡献现金流],
+        xtmx.累计除地价外直投及费用 AS [本批开工后的项目累计除地价外直投及费用],
+        xtmx.累计贡献现金流 AS [本批开工后的项目累计贡献现金流],
         xt.一年内签约金额 AS [本批开工后的一年内实现签约],
         xt.一年内回笼金额 AS [本批开工后的一年内实现回笼],
-        xt.一年内除地价外直投及费用 AS [本批开工后的一年内除地价外直投及费用],
-        xt.一年内贡献现金流 AS [本批开工后的一年内贡献现金流],
+        xtmx.一年内除地价外直投及费用 AS [本批开工后的一年内除地价外直投及费用],
+        xtmx.一年内贡献现金流 AS [本批开工后的一年内贡献现金流],
         kcdj.[未开工楼栋地价] AS [未开工楼栋地价], --
         kcdj.[本次开工可收回地价] *100 AS [本次开工可收回地价], --本批次级自己算*100
         NULL AS [回收股东占压资金], --本批次级自己算
         case when  isnull(已售面积,0) =0  then  0  else isnull(含税签约金额,0) *10000.0 / isnull(已售面积,0) end  AS [本批开工的销售均价], -- 含税签约金额/ 已售面积
-        case when  isnull(已售面积,0) =0  then  0  else isnull(xt.累计除地价外直投及费用,0) *10000.0 / isnull(已售面积,0) end AS [本批开工的可售单方成本], -- M=单方（含税费）*明细表F
-        isnull(xt.不含税签约金额,0) - isnull(xt.累计除地价外直投及费用,0) AS [本批开工的税后净利润],
+        case when  isnull(已售面积,0) =0  then  0  else isnull(xt.M002累计除地价外直投及费用,0) *10000.0 / isnull(已售面积,0) end AS [本批开工的可售单方成本], -- M002表的成本
+        isnull(xt.不含税签约金额,0) - isnull(xtmx.累计除地价外直投及费用,0) AS [本批开工的税后净利润],
         case when isnull(xt.不含税签约金额,0) =0 then  0 
-          else   ( isnull(xt.不含税签约金额,0) - isnull(xt.累计除地价外直投及费用,0) )  / isnull(xt.不含税签约金额,0) end *100  AS [本批开工的销净率],
+          else   ( isnull(xt.不含税签约金额,0) - isnull(xtmx.累计除地价外直投及费用,0) )  / isnull(xt.不含税签约金额,0) end *100  AS [本批开工的销净率],
         GETDATE() AS [清洗日期]
     FROM #Commitment cmt
     LEFT JOIN #kcdj kcdj on cmt.项目GUID = kcdj.ProjGUID and cmt.本次新推量价承诺ID = kcdj.本次新推量价承诺ID
     LEFT JOIN (
         SELECT
             本次新推量价承诺ID,
+            项目GUID,
             max(实际达预售形象日期) as 实际达预售形象日期,
             max([计划达预售形象日期]) as [计划达预售形象日期],
             min(实际正式开工日期) as 实际正式开工日期,
@@ -501,18 +496,28 @@ BEGIN
             SUM(ISNULL(可售面积, 0)) AS 可售面积,
             SUM(ISNULL(开工货值, 0)) AS 开工货值,
             SUM(ISNULL(累计签约回笼, 0)) AS 累计签约回笼,
-            SUM(ISNULL(累计除地价外直投及费用, 0)) AS 累计除地价外直投及费用,
-            SUM(ISNULL(累计贡献现金流, 0)) AS 累计贡献现金流,
+            SUM(ISNULL(累计除地价外直投及费用, 0)) AS M002累计除地价外直投及费用,
+            -- SUM(ISNULL(累计贡献现金流, 0)) AS 累计贡献现金流,
             SUM(ISNULL(一年内签约金额, 0)) AS 一年内签约金额,
             SUM(ISNULL(一年内回笼金额, 0)) AS 一年内回笼金额,
-            SUM(ISNULL(一年内除地价外直投及费用, 0)) AS 一年内除地价外直投及费用,
-            SUM(ISNULL(一年内贡献现金流, 0)) AS 一年内贡献现金流,
+            -- SUM(ISNULL(一年内除地价外直投及费用, 0)) AS 一年内除地价外直投及费用,
+            -- SUM(ISNULL(一年内贡献现金流, 0)) AS 一年内贡献现金流,
             SUM(ISNULL(含税签约金额, 0)) AS 含税签约金额,
             SUM(ISNULL(已售面积, 0)) AS 已售面积,
             SUM(ISNULL(不含税签约金额, 0)) AS 不含税签约金额
         FROM #xtld 
-        GROUP BY 本次新推量价承诺ID
-    ) xt ON cmt.本次新推量价承诺ID = xt.本次新推量价承诺ID
+        GROUP BY 本次新推量价承诺ID,项目GUID
+    ) xt ON cmt.本次新推量价承诺ID = xt.本次新推量价承诺ID  and  cmt.项目GUID = xt.项目GUID
+    left join (
+         select  本次新推量价承诺ID,项目GUID,
+            SUM(ISNULL(累计除地价外直投及费用, 0)) AS 累计除地价外直投及费用,
+            SUM(ISNULL(累计贡献现金流, 0)) AS 累计贡献现金流,
+            SUM(ISNULL(一年内除地价外直投及费用, 0)) AS 一年内除地价外直投及费用,
+            SUM(ISNULL(一年内贡献现金流, 0)) AS 一年内贡献现金流
+         from  s_集团开工申请新推量价承诺明细表智能体数据提取
+         where   DATEDIFF(DAY, 清洗日期, GETDATE()) = 0
+         GROUP BY 本次新推量价承诺ID,项目GUID
+    ) xtmx on cmt.本次新推量价承诺ID = xtmx.本次新推量价承诺ID  and  cmt.项目GUID = xtmx.项目GUID
 
     /**************************************************************
     步骤8：清理历史数据，仅保留必要快照
@@ -550,6 +555,6 @@ BEGIN
     /**************************************************************
     步骤10：删除临时表，释放资源
     ***************************************************************/
-    DROP TABLE #Commitment, #xtxmld, #M002, #xtld,#kcdj
+    DROP TABLE #Commitment, #xtxmld, #xtld,#kcdj
 
 END

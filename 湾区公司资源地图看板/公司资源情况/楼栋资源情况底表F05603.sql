@@ -19,7 +19,7 @@ BEGIN
 
     -- 获取湾区公司下的所有项目（Level=2的项目）
     -- 用途：作为后续数据过滤的基础条件
-    SELECT p.*,flg.项目股权比例,flg.城市
+    SELECT p.*,flg.项目股权比例,flg.城市,flg.管理方式
     INTO #p
     FROM mdm_Project p WITH(NOLOCK)
     left join  vmdm_projectFlagnew flg on p.projguid =flg.projguid
@@ -1607,7 +1607,8 @@ BEGIN
            p.ProjGUID AS 项目GUID,
            p.ProjName AS 项目名称,
            p.SpreadName AS 项目推广名,
-           p.项目股权比例 as 股权比例,
+           isnull(p.项目股权比例,0)/100 as 股权比例,
+           p.管理方式 as 管理方式,
            p.城市 as 所属城市,
            CONVERT(VARCHAR(100), p.ProjCode) AS 明源系统代码,
            CONVERT(VARCHAR(100), lb.LbProjectValue) AS 项目代码,
@@ -1731,7 +1732,10 @@ BEGIN
            hz.业态均价 as 业态均价,
            --持有货值:持有面积*平年签约均价或业态均价 
            case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
-                 else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end as 持有货值,
+                 when isnull(hz.业态均价,0) <>0  then   isnull(zs.持有面积,0) * isnull(hz.业态均价,0) 
+                 else  case when ms.ProductType ='地下室/车库' then  isnull(zs.持有套数,0) * isnull(hz.预测单价,0) /10000.0   
+                 else  isnull(zs.持有面积,0) * isnull(hz.预测单价,0)  end  
+           end as 持有货值,
 
            BA.土地款单方 * (mj.自持面积 + mj.可售面积) / 10000.0 AS 土地分摊金额,
            ldcz.累计支付金额 / 10000 AS 除地价外直投分摊金额,
@@ -1769,76 +1773,108 @@ BEGIN
            ISNULL(mj.地上自持面积, 0) AS 地上自持面积,
            ISNULL(mj.地上自持可售面积, 0) AS 地上可售面积地上自持面积,
 
-           -- 反算总货值
-           isnull(hz.动态总货值 / 10000.0, 0 ) + isnull(case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
-                 else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end ,0 ) as 反算总货值_总货值, -- 动态总可售货值+持有货值
-           isnull(hz.总可售面积 / 10000.0,0) + isnull(zs.持有面积,0) as 反算总货值_总面积, --动态总可售面积+持有面积
-           isnull(hz.待售货值 / 10000,0) + isnull(case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
-                 else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end ,0 )   as 反算总货值_剩余货值, -- 待售货值+持有货值
-           isnull(hz.待售面积 / 10000.0,0) + isnull(zs.持有面积,0)  as 反算总货值_剩余面积, -- 待售面积+持有面积
+           -- 反算总货值 本年签约均价>业态均价>预测单价
+           isnull(hz.动态总货值 / 10000.0, 0 ) 
+                 + isnull(case  when isnull(hz.本年签约均价,0) <>0  
+                     and ms.ProductType not in ('公建配套','后勤区','会所','会展','剧院','其他','学校','养老','酒店','体育馆') 
+                     and ms.ProductName not in ('人防车位','人防车库')
+                     and ms.BusinessType not in ('还建房','回迁房','廉租房') 	  
+                     then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
+                  when isnull(hz.业态均价,0) <>0  and  ms.ProductType not in ('公建配套','后勤区','会所','会展','剧院','其他','学校','养老','酒店','体育馆') 
+                     and ms.ProductName not in ('人防车位','人防车库')
+                     and ms.BusinessType not in ('还建房','回迁房','廉租房') 
+                    then isnull(zs.持有面积,0) * isnull(hz.业态均价,0) 
+                  when ms.ProductType not in ('公建配套','后勤区','会所','会展','剧院','其他','学校','养老','酒店','体育馆') 
+                     and ms.ProductName not in ('人防车位','人防车库')
+                     and ms.BusinessType not in ('还建房','回迁房','廉租房') 
+                    then  case when ms.ProductType ='地下室/车库' then  isnull(zs.持有套数,0) * isnull(hz.预测单价,0) /10000.0   
+                    else  isnull(zs.持有面积,0) * isnull(hz.预测单价,0)  end   end ,0 ) as 反算总货值_总货值, -- 动态总可售货值+持有货值
+           isnull(hz.总可售面积 / 10000.0,0) + case  when 
+                     ms.ProductType not in ('公建配套','后勤区','会所','会展','剧院','其他','学校','养老','酒店','体育馆') 
+                     and  ms.ProductName not in ('人防车位','人防车库')
+                     and ms.BusinessType not in ('还建房','回迁房','廉租房') 
+                 then isnull(zs.持有面积,0) else 0 end as 反算总货值_总面积, --动态总可售面积+持有面积
+           isnull(hz.待售货值 / 10000,0) + isnull(case  when isnull(hz.本年签约均价,0) <>0 
+                  and ms.ProductType not in ('公建配套','后勤区','会所','会展','剧院','其他','学校','养老','酒店','体育馆') 
+                     and ms.ProductName not in ('人防车位','人防车库')
+                     and ms.BusinessType not in ('还建房','回迁房','廉租房') 
+                 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
+                 when  isnull(hz.业态均价,0) <>0  and ms.ProductType not in ('公建配套','后勤区','会所','会展','剧院','其他','学校','养老','酒店','体育馆') 
+                     and ms.ProductName not in ('人防车位','人防车库')
+                     and ms.BusinessType not in ('还建房','回迁房','廉租房') 
+                 then isnull(zs.持有面积,0) * isnull(hz.业态均价,0) 
+                 when ms.ProductType not in ('公建配套','后勤区','会所','会展','剧院','其他','学校','养老','酒店','体育馆') 
+                     and ms.ProductName not in ('人防车位','人防车库')
+                     and ms.BusinessType not in ('还建房','回迁房','廉租房') 
+                 then  case when ms.ProductType ='地下室/车库' then  isnull(zs.持有套数,0) * isnull(hz.预测单价,0) /10000.0   
+                 else  isnull(zs.持有面积,0) * isnull(hz.预测单价,0)  end    end ,0 )   as 反算总货值_剩余货值, -- 待售货值+持有货值
+           isnull(hz.待售面积 / 10000.0,0) + 
+                  case when   ms.ProductType not in ('公建配套','后勤区','会所','会展','剧院','其他','学校','养老','酒店','体育馆') 
+                     and ms.ProductName not in ('人防车位','人防车库')
+                     and ms.BusinessType not in ('还建房','回迁房','廉租房') then isnull(zs.持有面积,0)  else 0 end as 反算总货值_剩余面积, -- 待售面积+持有面积
 
            -- 已开工情况
-            case when  hz.SJzskgdate is not null then  
-               isnull(hz.动态总货值 / 10000.0, 0 ) + isnull(case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
-                 else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end ,0 ) else  0 end as 已开工情况_已开工货值, -- 已开工的反算总货值
-            case when  hz.SJzskgdate is not null then 
-                 isnull(hz.总可售面积 / 10000.0,0) + isnull(zs.持有面积,0)  else  0 end  as 已开工情况_已开工面积, -- 已开工的反算总面积
-            case when hz.SJzskgdate is not null then hz.已售货值 / 10000.0 else 0 end as 已开工情况_已开工已售货值,
-            case when hz.SJzskgdate is not null then hz.已售面积 / 10000.0 else 0 end as 已开工情况_已开工已售面积,
-            case when hz.SJzskgdate is not null then isnull(hz.待售货值 / 10000.0,0) + isnull(case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
-                 else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end ,0 ) else 0 end as 已开工情况_已开工未售货值, --已开工的反算剩余货值
-            case when hz.SJzskgdate is not null then isnull(hz.待售面积 / 10000.0,0) + isnull(zs.持有面积,0)  else 0 end as 已开工情况_已开工未售面积, --已开工的反算剩余面积
+       --      case when  hz.SJzskgdate is not null then  
+       --         isnull(hz.动态总货值 / 10000.0, 0 ) + isnull(case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
+       --           else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end ,0 ) else  0 end as 已开工情况_已开工货值, -- 已开工的反算总货值
+       --      case when  hz.SJzskgdate is not null then 
+       --           isnull(hz.总可售面积 / 10000.0,0) + isnull(zs.持有面积,0)  else  0 end  as 已开工情况_已开工面积, -- 已开工的反算总面积
+       --      case when hz.SJzskgdate is not null then hz.已售货值 / 10000.0 else 0 end as 已开工情况_已开工已售货值,
+       --      case when hz.SJzskgdate is not null then hz.已售面积 / 10000.0 else 0 end as 已开工情况_已开工已售面积,
+       --      case when hz.SJzskgdate is not null then isnull(hz.待售货值 / 10000.0,0) + isnull(case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
+       --           else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end ,0 ) else 0 end as 已开工情况_已开工未售货值, --已开工的反算剩余货值
+       --      case when hz.SJzskgdate is not null then isnull(hz.待售面积 / 10000.0,0) + isnull(zs.持有面积,0)  else 0 end as 已开工情况_已开工未售面积, --已开工的反算剩余面积
            
-           -- 存货情况
-           case when hz.SJzskgdate is not null and hz.SjDdysxxDate is not NULL then isnull(hz.待售货值 / 10000.0,0) + isnull(case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
-                 else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end ,0 ) else 0 end as  存货情况_存货货值, -- 达形象形象的反算剩余货值
-           case when hz.SJzskgdate is not null and hz.SjDdysxxDate is not NULL then isnull(hz.待售面积 / 10000.0,0) + isnull(zs.持有面积,0)  else 0 end as 存货情况_存货面积, -- 达形象形象的反算剩余货值
+       --     -- 存货情况
+       --     case when hz.SJzskgdate is not null and hz.SjDdysxxDate is not NULL then isnull(hz.待售货值 / 10000.0,0) + isnull(case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
+       --           else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end ,0 ) else 0 end as  存货情况_存货货值, -- 达形象形象的反算剩余货值
+       --     case when hz.SJzskgdate is not null and hz.SjDdysxxDate is not NULL then isnull(hz.待售面积 / 10000.0,0) + isnull(zs.持有面积,0)  else 0 end as 存货情况_存货面积, -- 达形象形象的反算剩余货值
 
-           -- 自持情况
-           case  when tag.BuildTagValue in ('D1-已开业未融资','D2-已开业已融资','D3-未开业')  then  
-               isnull(hz.待售货值 / 10000,0) + isnull(case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
-                 else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end ,0 )  else 0 end  
-           + case when  tag.BuildTagValue not  in ('D1-已开业未融资','D2-已开业已融资','D3-未开业')  then
-               case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
-                 else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end else 0  end as 自持情况_总自持资产货值, 
-           case when  tag.BuildTagValue in ('D1-已开业未融资','D2-已开业已融资','D3-未开业') then
-              isnull(hz.待售面积 / 10000.0,0) + isnull(zs.持有面积,0) else  0 end
-           + case when  tag.BuildTagValue not in ('D1-已开业未融资','D2-已开业已融资','D3-未开业') then
-               isnull(zs.持有面积,0) else  0 end  as 自持情况_总自持资产面积,-- 赛道图楼栋标签为D1/D2/D3的反算剩余面积，或赛道图楼栋标签不为D1/D2/D3的持有面积
-           case  when tag.BuildTagValue in ('D1-已开业未融资','D2-已开业已融资','D3-未开业')  then  
-               isnull(hz.待售货值 / 10000,0) + isnull(case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
-                 else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end ,0 )  else 0 end as 自持情况_已转经营货值,	-- 赛道图楼栋标签为D1/D2/D3的反算剩余货值
-           case when  tag.BuildTagValue in ('D1-已开业未融资','D2-已开业已融资','D3-未开业') then
-              isnull(hz.待售面积 / 10000.0,0) + isnull(zs.持有面积,0) else  0 end as 自持情况_已转经营面积, -- 赛道图楼栋标签为D1/D2/D3的反算剩余面积
+       --     -- 自持情况
+       --     case  when tag.BuildTagValue in ('D1-已开业未融资','D2-已开业已融资','D3-未开业')  then  
+       --         isnull(hz.待售货值 / 10000,0) + isnull(case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
+       --           else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end ,0 )  else 0 end  
+       --     + case when  tag.BuildTagValue not  in ('D1-已开业未融资','D2-已开业已融资','D3-未开业')  then
+       --         case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
+       --           else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end else 0  end as 自持情况_总自持资产货值, 
+       --     case when  tag.BuildTagValue in ('D1-已开业未融资','D2-已开业已融资','D3-未开业') then
+       --        isnull(hz.待售面积 / 10000.0,0) + isnull(zs.持有面积,0) else  0 end
+       --     + case when  tag.BuildTagValue not in ('D1-已开业未融资','D2-已开业已融资','D3-未开业') then
+       --         isnull(zs.持有面积,0) else  0 end  as 自持情况_总自持资产面积,-- 赛道图楼栋标签为D1/D2/D3的反算剩余面积，或赛道图楼栋标签不为D1/D2/D3的持有面积
+       --     case  when tag.BuildTagValue in ('D1-已开业未融资','D2-已开业已融资','D3-未开业')  then  
+       --         isnull(hz.待售货值 / 10000,0) + isnull(case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
+       --           else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end ,0 )  else 0 end as 自持情况_已转经营货值,	-- 赛道图楼栋标签为D1/D2/D3的反算剩余货值
+       --     case when  tag.BuildTagValue in ('D1-已开业未融资','D2-已开业已融资','D3-未开业') then
+       --        isnull(hz.待售面积 / 10000.0,0) + isnull(zs.持有面积,0) else  0 end as 自持情况_已转经营面积, -- 赛道图楼栋标签为D1/D2/D3的反算剩余面积
 
-           -- 在途情况
-           case when hz.SJzskgdate is not null and hz.SjDdysxxDate is null then isnull(hz.待售货值 / 10000.0,0) + isnull(case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
-                 else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end ,0 ) else 0 end as 在途情况_在途货值, -- 已开工未达形象的反算剩余货值
-           case when hz.SJzskgdate is not null and hz.SjDdysxxDate is null then isnull(hz.待售面积 / 10000.0,0) + isnull(zs.持有面积,0)  else 0 end as 在途情况_在途面积, -- 已开工未达形象的反算剩余面积
-           -- 未开工情况
-           case when hz.SJzskgdate is NULL then isnull(hz.待售货值 / 10000.0,0) + isnull(case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
-                 else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end ,0 ) else 0 end as 未开工情况_未开工货值, -- 尚未开工的反算剩余货值
-           case when hz.SJzskgdate is NULL then isnull(hz.待售面积 / 10000.0,0) + isnull(zs.持有面积,0)  else 0 end as 未开工情况_未开工面积, -- 尚未开工的反算剩余面积
+       --     -- 在途情况
+       --     case when hz.SJzskgdate is not null and hz.SjDdysxxDate is null then isnull(hz.待售货值 / 10000.0,0) + isnull(case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
+       --           else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end ,0 ) else 0 end as 在途情况_在途货值, -- 已开工未达形象的反算剩余货值
+       --     case when hz.SJzskgdate is not null and hz.SjDdysxxDate is null then isnull(hz.待售面积 / 10000.0,0) + isnull(zs.持有面积,0)  else 0 end as 在途情况_在途面积, -- 已开工未达形象的反算剩余面积
+       --     -- 未开工情况
+       --     case when hz.SJzskgdate is NULL then isnull(hz.待售货值 / 10000.0,0) + isnull(case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
+       --           else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end ,0 ) else 0 end as 未开工情况_未开工货值, -- 尚未开工的反算剩余货值
+       --     case when hz.SJzskgdate is NULL then isnull(hz.待售面积 / 10000.0,0) + isnull(zs.持有面积,0)  else 0 end as 未开工情况_未开工面积, -- 尚未开工的反算剩余面积
            
-           -- 分货情况
-           case when  czfl.[处置后去向] ='分货' then
-             case when  czfl.[赛道图楼栋标签] in ('D1-已开业未融资','D2-已开业已融资','D3-未开业') then
-               isnull(hz.待售面积 / 10000.0,0) + isnull(zs.持有面积,0) else  0 end * isnull(p.项目股权比例,0)
-           else 0 end as 分货转经营面积,	-- 处置后去向标签为分货的反算剩余面积*我司股比
-           case when  czfl.[处置后去向] ='分货' then
-             case when  czfl.[赛道图楼栋标签] in ('D1-已开业未融资','D2-已开业已融资','D3-未开业') then
-               isnull(hz.待售货值 / 10000.0,0) + isnull(case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
-                 else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end ,0 ) else  0 end * isnull(p.项目股权比例,0)
-           else 0 end as 分货转经营金额,	-- 处置后去向标签为分货的反算剩余货值*我司股比
-           case when  czfl.[处置后去向] ='分货' then
-             case when  czfl.[赛道图楼栋标签] in ('D1-已开业未融资','D2-已开业已融资','D3-未开业') then
-               isnull(hz.待售面积 / 10000.0,0) + isnull(zs.持有面积,0) else  0 end * ( 1- isnull(p.项目股权比例,0) )
-           else 0 end as 分货销售面积,  -- 处置后去向标签为分货的反算剩余面积*非我司股比
-           case when  czfl.[处置后去向] ='分货' then
-             case when  czfl.[赛道图楼栋标签] in ('D1-已开业未融资','D2-已开业已融资','D3-未开业') then
-               isnull(hz.待售货值 / 10000.0,0) + isnull(case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
-                 else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end ,0 ) else  0 end * ( 1- isnull(p.项目股权比例,0) )
-           else 0 end as 分货销售金额,	--处置后去向标签为分货的反算剩余货值*非我司股比
+       --     -- 分货情况
+       --     case when  czfl.[处置后去向] ='分货' then
+       --       case when  czfl.[赛道图楼栋标签] in ('D1-已开业未融资','D2-已开业已融资','D3-未开业') then
+       --         isnull(hz.待售面积 / 10000.0,0) + isnull(zs.持有面积,0) else  0 end * isnull(p.项目股权比例,0)
+       --     else 0 end as 分货转经营面积,	-- 处置后去向标签为分货的反算剩余面积*我司股比
+       --     case when  czfl.[处置后去向] ='分货' then
+       --       case when  czfl.[赛道图楼栋标签] in ('D1-已开业未融资','D2-已开业已融资','D3-未开业') then
+       --         isnull(hz.待售货值 / 10000.0,0) + isnull(case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
+       --           else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end ,0 ) else  0 end * isnull(p.项目股权比例,0)
+       --     else 0 end as 分货转经营金额,	-- 处置后去向标签为分货的反算剩余货值*我司股比
+       --     case when  czfl.[处置后去向] ='分货' then
+       --       case when  czfl.[赛道图楼栋标签] in ('D1-已开业未融资','D2-已开业已融资','D3-未开业') then
+       --         isnull(hz.待售面积 / 10000.0,0) + isnull(zs.持有面积,0) else  0 end * ( 1- isnull(p.项目股权比例,0) )
+       --     else 0 end as 分货销售面积,  -- 处置后去向标签为分货的反算剩余面积*非我司股比
+       --     case when  czfl.[处置后去向] ='分货' then
+       --       case when  czfl.[赛道图楼栋标签] in ('D1-已开业未融资','D2-已开业已融资','D3-未开业') then
+       --         isnull(hz.待售货值 / 10000.0,0) + isnull(case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
+       --           else isnull(zs.持有面积,0) * isnull(hz.业态均价,0) end ,0 ) else  0 end * ( 1- isnull(p.项目股权比例,0) )
+       --     else 0 end as 分货销售金额,	--处置后去向标签为分货的反算剩余货值*非我司股比
 
            -- 标签划分
            case when hz.SJzskgdate is not null then '是' else '否' end as 是否开工,
@@ -1846,6 +1882,7 @@ BEGIN
            case when hz.SJjgbadate  is not NULL  then '是' else  '否' end  as 竣备情况,
            czfl.[处置前五类] as 处置前五类,
            czfl.[处置后去向] as 处置后去向
+    into #rest
     FROM #ms ms
     LEFT JOIN #bnqy bnqy ON ms.SaleBldGUID = bnqy.SaleBldGUID
     LEFT JOIN #p p ON ms.TopProjGuid = p.ProjGUID
@@ -1874,6 +1911,51 @@ BEGIN
     left join #czfl czfl ON czfl.产品楼栋GUID = ms.SaleBldGUID
     ORDER BY dv.DevelopmentCompanyName, p.ProjCode
 
+    -- 反算资源情况
+    -- 业务说明：根据楼栋的开工、销售等状态，计算各种情况下的货值和面积
+    SELECT  *,
+            -- 已开工情况
+            -- 计算已开工项目的货值和面积数据
+            CASE WHEN 实际开工完成日期 IS NOT NULL THEN 反算总货值_总货值 ELSE 0 END AS 已开工情况_已开工货值,    -- 已开工的反算总货值
+            CASE WHEN 实际开工完成日期 IS NOT NULL THEN 反算总货值_总面积 ELSE 0 END AS 已开工情况_已开工面积,    -- 已开工的反算总面积
+            CASE WHEN 实际开工完成日期 IS NOT NULL THEN 已售货值 ELSE 0 END AS 已开工情况_已开工已售货值,         -- 已开工项目中已售部分的货值
+            CASE WHEN 实际开工完成日期 IS NOT NULL THEN 已售面积 ELSE 0 END AS 已开工情况_已开工已售面积,         -- 已开工项目中已售部分的面积
+            CASE WHEN 实际开工完成日期 IS NOT NULL THEN 反算总货值_剩余货值 ELSE 0 END AS 已开工情况_已开工未售货值, -- 已开工的反算剩余货值
+            CASE WHEN 实际开工完成日期 IS NOT NULL THEN 反算总货值_剩余面积 ELSE 0 END AS 已开工情况_已开工未售面积, -- 已开工的反算剩余面积
+           
+            -- 存货情况
+            -- 计算已达到预售形象的存货情况
+            CASE WHEN 实际开工完成日期 IS NOT NULL AND 达到预售形象完成日期 IS NOT NULL THEN 反算总货值_剩余货值 ELSE 0 END AS 存货情况_存货货值, -- 达预售形象的反算剩余货值
+            CASE WHEN 实际开工完成日期 IS NOT NULL AND 达到预售形象完成日期 IS NOT NULL THEN 反算总货值_剩余面积 ELSE 0 END AS 存货情况_存货面积, -- 达预售形象的反算剩余面积
+
+            -- 自持情况
+            -- 计算自持资产的货值和面积
+            CASE WHEN 赛道图标签 IN ('D1-已开业未融资','D2-已开业已融资','D3-未开业') THEN 反算总货值_剩余货值 ELSE 0 END 
+              + CASE WHEN 赛道图标签 NOT IN ('D1-已开业未融资','D2-已开业已融资','D3-未开业') THEN 持有货值 ELSE 0 END AS 自持情况_总自持资产货值, -- 自持资产总货值
+            CASE WHEN 赛道图标签 IN ('D1-已开业未融资','D2-已开业已融资','D3-未开业') THEN 反算总货值_剩余面积 ELSE 0 END 
+              + CASE WHEN 赛道图标签 NOT IN ('D1-已开业未融资','D2-已开业已融资','D3-未开业') THEN 持有面积 ELSE 0 END AS 自持情况_总自持资产面积, -- 自持资产总面积
+            CASE WHEN 赛道图标签 IN ('D1-已开业未融资','D2-已开业已融资','D3-未开业') THEN 反算总货值_剩余货值 ELSE 0 END AS 自持情况_已转经营货值, -- 赛道图楼栋标签为D1/D2/D3的反算剩余货值
+            CASE WHEN 赛道图标签 IN ('D1-已开业未融资','D2-已开业已融资','D3-未开业') THEN 反算总货值_剩余面积 ELSE 0 END AS 自持情况_已转经营面积, -- 赛道图楼栋标签为D1/D2/D3的反算剩余面积
+
+            -- 在途情况
+            -- 计算已开工但未达到预售形象的在途项目
+            CASE WHEN 实际开工完成日期 IS NOT NULL AND 达到预售形象完成日期 IS NULL THEN 反算总货值_剩余货值 ELSE 0 END AS 在途情况_在途货值, -- 已开工未达形象的反算剩余货值
+            CASE WHEN 实际开工完成日期 IS NOT NULL AND 达到预售形象完成日期 IS NULL THEN 反算总货值_剩余面积 ELSE 0 END AS 在途情况_在途面积, -- 已开工未达形象的反算剩余面积
+            
+            -- 未开工情况
+            -- 计算尚未开工项目的情况
+            CASE WHEN 实际开工完成日期 IS NULL THEN 反算总货值_剩余货值 ELSE 0 END AS 未开工情况_未开工货值, -- 尚未开工的反算剩余货值
+            CASE WHEN 实际开工完成日期 IS NULL THEN 反算总货值_剩余面积 ELSE 0 END AS 未开工情况_未开工面积, -- 尚未开工的反算剩余面积
+           
+            -- 分货情况
+            -- 计算处置后去向为分货的项目情况
+            CASE WHEN 处置后去向 = '分货' THEN 反算总货值_剩余面积 * 股权比例 / 100.0 ELSE 0 END AS 分货转经营面积, -- 处置后去向标签为分货的反算剩余面积*我司股比
+            CASE WHEN 处置后去向 = '分货' THEN 反算总货值_剩余货值 * 股权比例 / 100.0 ELSE 0 END AS 分货转经营金额, -- 处置后去向标签为分货的反算剩余货值*我司股比
+            CASE WHEN 处置后去向 = '分货' THEN 反算总货值_剩余面积 * (1 - 股权比例 / 100.0) ELSE 0 END AS 分货销售面积, -- 处置后去向标签为分货的反算剩余面积*非我司股比
+            CASE WHEN 处置后去向 = '分货' THEN 反算总货值_剩余货值 * (1 - 股权比例 / 100.0) ELSE 0 END AS 分货销售金额 -- 处置后去向标签为分货的反算剩余货值*非我司股比
+    FROM #rest
+    where  管理方式 <>'代建'
+
     -- =============================================
     -- 第十七部分：清理临时表
     -- =============================================
@@ -1883,6 +1965,188 @@ BEGIN
                #dfhz, #bld_lst, #bld_st, #con, #con2024, #feebck, #hz_st, #ld_rate, #ld_st_sale,
                #proj_rate, #proj_st, #qy_st, #rg_st, #t, #ts_st, #vrt, #gcbld_rate, #tj_Rate, #cpbld_rate,
                #vor, #htnotfee, #fqcz, #ldcz, #htrate, #zy, #ljhl, #zs_area, #mj, #sftax, #xsjz, #jzcb, #CarryOverMbb,
-               #Budget, #yfs, #yjl, #hy, #hygh, #hygh_new,#czfl
+               #Budget, #yfs, #yjl, #hy, #hygh, #hygh_new,#czfl,#rest
 
 END
+
+
+-- SELECT
+--       [OrgGUID]
+--       ,[平台公司]
+--       ,[项目名称]
+--       ,[项目推广名]
+--       ,[明源系统代码]
+--       ,[项目代码]
+--       ,[获取时间]
+--       ,[总地价]
+--       ,[是否合作项目]
+--       ,[分期名称]
+--       ,[产品楼栋名称]
+--       ,[SaleBldGUID]
+--       ,[GCBldGUID]
+--       ,[工程楼栋名称]
+--       ,[产品类型]
+--       ,[产品名称]
+--       ,[商品类型]
+--       ,[是否可售]
+--       ,[是否持有]
+--       ,[装修标准]
+--       ,[地上层数]
+--       ,[地下层数]
+--       ,[达到预售形象的条件]
+--       ,[实际开工计划日期]
+--       ,[实际开工完成日期]
+--       ,[达到预售形象计划日期]
+--       ,[达到预售形象完成日期]
+--       ,[预售办理计划日期]
+--       ,[预售办理完成日期]
+--       ,[竣工备案计划日期]
+--       ,[竣工备案完成日期]
+--       ,[集中交付计划日期]
+--       ,[集中交付完成日期]
+--       ,[立项均价]
+--       ,[立项货值]
+--       ,[定位均价]
+--       ,[定位货值]
+--       ,[总建面]
+--       ,[地上建面]
+--       ,[地下建面]
+--       ,[总可售面积]
+--       ,[动态总货值]
+--       ,[整盘均价]
+--       ,[已售面积]
+--       ,[已售货值]
+--       ,[已售均价]
+--       ,[待售面积]
+--       ,[待售货值]
+--       ,[预测单价]
+--       ,[年初可售面积]
+--       ,[年初可售货值]
+--       ,[本年签约面积]
+--       ,[本年签约金额]
+--       ,[本年签约均价]
+--       ,[本月签约面积]
+--       ,[本月签约金额]
+--       ,[本月签约均价]
+--       ,[本年预计签约面积]
+--       ,[本年预计签约金额]
+--       ,[正式开工实际完成时间]
+--       ,[正式开工预计完成时间]
+--       ,[待售套数]
+--       ,[总可售套数]
+--       ,[首推时间]
+--       ,[业态组合键]
+--       ,[营业成本单方]
+--       ,[土地款单方]
+--       ,[除地价外直投单方]
+--       ,[资本化利息单方]
+--       ,[开发间接费单方]
+--       ,[营销费用单方]
+--       ,[综合管理费单方]
+--       ,[税金及附加单方]
+--       ,[股权溢价单方]
+--       ,[总成本不含税单方]
+--       ,[已售对应总成本]
+--       ,[已售货值不含税]
+--       ,[已售净利润签约]
+--       ,[未售对应总成本]
+--       ,[近三月签约金额均价不含税]
+--       ,[近六月签约金额均价不含税]
+--       ,[立项单价]
+--       ,[定位单价]
+--       ,[已售均价不含税]
+--       ,[货量铺排均价计算方式]
+--       ,[未售货值不含税]
+--       ,[未售净利润签约]
+--       ,[项目已售税前利润签约]
+--       ,[项目未售税前利润签约]
+--       ,[项目整盘利润]
+--       ,[货值铺排均价不含税]
+--       ,[已售套数]
+--       ,[近三月签约金额不含税]
+--       ,[近三月签约面积]
+--       ,[近六月签约金额不含税]
+--       ,[近六月签约面积]
+--       ,[ztguid]
+--       ,[是否停工]
+--       ,[项目首推时间]
+--       ,[首开楼栋标签]
+--       ,[首开30天签约套数]
+--       ,[首开30天签约面积]
+--       ,[首开30天签约金额]
+--       ,[首开30天认购套数]
+--       ,[首开30天认购面积]
+--       ,[首开30天认购金额]
+--       ,[总产值]
+--       ,[已完成产值]
+--       ,[待发生产值]
+--       ,[合同约定应付金额]
+--       ,[累计支付金额]
+--       ,[产值未付]
+--       ,[应付未付]
+--       ,[持有套数]
+--       ,[业态均价]
+--       ,[持有面积]
+--       ,[土地分摊金额]
+--       ,[除地价外直投分摊金额]
+--       ,[已发生营销费用摊分金额]
+--       ,[已发生管理费用摊分金额]
+--       ,[已发生财务费用费用摊分金额]
+--       ,[已发生税金分摊]
+--       ,[已结转套数]
+--       ,[已结转面积]
+--       ,[已结转收入]
+--       ,[已结转成本]
+--       ,[签约套数2024年]
+--       ,[签约面积2024年]
+--       ,[签约金额2024年]
+--       ,[签约均价2024年]
+--       ,[经营成本单方]
+--       ,[赛道图标签]
+--       ,[占压资金]
+--       ,[累计回笼金额]
+--       ,[累计本年回笼金额]
+--       ,[累计本月回笼金额]
+--       ,[用地面积]
+--       ,[可售面积]
+--       ,[计容面积]
+--       ,[自持面积]
+--       ,[自持可售面积]
+--       ,[地上可售面积]
+--       ,[地上自持面积]
+--       ,[地上可售面积地上自持面积]
+--       ,[项目GUID]
+--       ,[股权比例]
+--       ,[所属城市]
+--       ,[持有货值]
+--       ,[反算总货值_总货值]
+--       ,[反算总货值_总面积]
+--       ,[反算总货值_剩余货值]
+--       ,[反算总货值_剩余面积]
+--       ,[已开工情况_已开工货值]
+--       ,[已开工情况_已开工面积]
+--       ,[已开工情况_已开工已售货值]
+--       ,[已开工情况_已开工已售面积]
+--       ,[已开工情况_已开工未售货值]
+--       ,[已开工情况_已开工未售面积]
+--       ,[存货情况_存货货值]
+--       ,[存货情况_存货面积]
+--       ,[自持情况_总自持资产货值]
+--       ,[自持情况_总自持资产面积]
+--       ,[自持情况_已转经营货值]
+--       ,[自持情况_已转经营面积]
+--       ,[在途情况_在途货值]
+--       ,[在途情况_在途面积]
+--       ,[未开工情况_未开工货值]
+--       ,[未开工情况_未开工面积]
+--       ,[分货转经营面积]
+--       ,[分货转经营金额]
+--       ,[分货销售面积]
+--       ,[分货销售金额]
+--       ,[是否开工]
+--       ,[推售状态]
+--       ,[竣备情况]
+--       ,[处置前五类]
+--       ,[处置后去向]
+--       ,[业态六分类]
+--   FROM [dbo].[data_wide_dws_s_WqBaseStatic_CompanyResource]

@@ -1,12 +1,12 @@
-use erp25
-go
+USE [ERP25]
+GO
 
 /*********************************************************************
  功能：盈利规划楼栋签约数据楼栋维度调用接口,传递项目分期GUID，返回产品楼栋签约表（楼栋维度）
  exec usp_ylgh_ProjBLdContractInfo '18409189-6E34-EF11-B3A4-F40270D39969','2025-09'
  --18409189-6E34-EF11-B3A4-F40270D39969 --合肥龙川瑧悦
 **********************************************************************/
-create or   ALTER    proc  [dbo].[usp_ylgh_ProjBLdContractInfo](
+create or  ALTER proc  [dbo].[usp_ylgh_ProjBLdContractInfo](
    @var_projguid varchar(max),  -- 项目GUID，多个项目用,号分隔
    @var_tqrq varchar(7)  -- 统计截止月份，格式如YYYY-MM
 )
@@ -647,16 +647,43 @@ Begin
                 inner join #data_wide_dws_mdm_Project p with(nolock) on p.ProjGUID = spp.ParentProjGUID 				--项目
                 left join (select  Row_Number() over(partition by ParentGUID order by projcode asc) as Num,* from #data_wide_dws_mdm_Project where ParentGUID is not null) childProj on Num=1 and p.ProjGUID = childProj.ParentGUID --分期
                 left join #data_wide_dws_s_Dimension_Organization org with(nolock) on org.OrgGUID = p.XMSSCSGSGUID AND  org.ParentOrganizationGUID =p.BUGUID 	
-        ) 
+        ),
+       ProductBuildInfo as ( 
+                -- 取基础数据产品楼栋信息 
+                SELECT 
+                        a.ParentProjGUID   AS projguid,         -- 项目GUID
+                        a.ProjGUID        AS projguid_fq,
+                        ProductBuild.ProductBuildGUID,               -- 楼栋GUID
+                        ProductBuild.bldcode,                        -- 楼栋编码
+                        ProductBuild.BldName                         -- 楼栋名称
+                FROM [MyCost_Erp352].dbo.md_ProductBuild AS ProductBuild WITH(NOLOCK)
+                INNER JOIN (
+                        SELECT 
+                        VersionGUID, 
+                        ProjGUID,
+                        ParentProjGUID, 
+                        projname,
+                        ROW_NUMBER() OVER (
+                                PARTITION BY ProjGUID 
+                                ORDER BY CreateDate DESC
+                        ) AS rowno 
+                        FROM [MyCost_Erp352].dbo.md_Project  WITH(NOLOCK)
+                        WHERE IsActive = 1
+                ) a 
+                        ON ProductBuild.VersionGUID = a.VersionGUID 
+                        AND ProductBuild.ProjGUID = a.ProjGUID 
+                        AND a.rowno = 1  -- 项目必须要有激活版，否则排除掉   
+      )
 
         -- 返回结果数据集
         SELECT
                 项目名称            AS [项目名称],
-                项目GUID           AS [项目GUID],
+                LOWER(项目GUID)           AS [项目GUID],
                 分期名称            AS [分期名称],
-                分期GUID           AS [分期GUID],
-                产品楼栋名称        AS [产品楼栋名称],
-                产品楼栋GUID        AS [产品楼栋GUID],
+                LOWER(分期GUID)           AS [分期GUID],
+                isnull( ProductBuild.BldName,产品楼栋名称)        AS [产品楼栋名称], -- 取基础数据楼栋名称
+                --ProductBuild.BldName        AS [产品楼栋名称],
+                LOWER(产品楼栋GUID)        AS [产品楼栋GUID],
                 产品类型            AS [产品类型],
                 产品名称            AS [产品名称],
                 经营属性            AS [经营属性],
@@ -677,7 +704,7 @@ Begin
                 SELECT
                         sf.ParentProjName         AS [项目名称],
                         sf.ParentProjGUID         AS [项目GUID],
-                         sf.ParentProjName +'-'+ sf.ProjName   AS [分期名称],
+                        sf.ParentProjName +'-'+ sf.ProjName   AS [分期名称],
                         sf.ProjGUID               AS [分期GUID],
                         sf.BldName                AS [产品楼栋名称],
                         sf.BldGUID                AS [产品楼栋GUID],
@@ -696,9 +723,9 @@ Begin
                         ELSE '是'
                         END AS [是否车位],
                         SetNum                      AS [套数],
-                        YEAR(StatisticalDate)       AS [年份],
-                        MONTH(StatisticalDate)      AS [月份],
-                        convert(varchar(7),StatisticalDate,121) as [年月],
+                        case when YEAR(StatisticalDate) < year(@tqrq) then year(@tqrq)-1 else  year(@tqrq) end AS [年份],
+                        case when YEAR(StatisticalDate) < year(@tqrq) then 12 else  MONTH(StatisticalDate) end AS [月份],
+                        case when YEAR(StatisticalDate) < year(@tqrq) then convert(varchar(4),year(@tqrq)-1)+'-12' else  convert(varchar(7),StatisticalDate,121) end as [年月],
                         ISNULL(CNetArea, 0) + ISNULL(SpecialCNetArea, 0) AS [本月销售面积（签约）],
                         ISNULL(CNetAmount, 0) + ISNULL(SpecialCNetAmount, 0) AS [本月销售金额（签约）],
                         ISNULL(CNetCount, 0) + ISNULL(SpecialCNetCount, 0) AS [本月签约套数] -- 套
@@ -708,14 +735,15 @@ Begin
                 WHERE
                         sf.ParentProjGUID IN (SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ','))
         ) slae
+        left join ProductBuildInfo ProductBuild on slae.产品楼栋GUID = ProductBuild.ProductBuildGUID
         WHERE 年份< year(@tqrq) or (年份=year(@tqrq) and 月份<=month(@tqrq) )  or 年份 is null 
         GROUP BY
                 项目名称,
-                项目GUID,
+                LOWER(项目GUID),
                 分期名称,
-                分期GUID,
-                产品楼栋名称,
-                产品楼栋GUID,
+                LOWER(分期GUID),
+                isnull( ProductBuild.BldName,产品楼栋名称)  ,
+                LOWER(产品楼栋GUID),
                 产品类型,
                 产品名称,
                 经营属性,
@@ -725,334 +753,6 @@ Begin
                 月份,
                 年月
         
-        -- -- 行转列，本年签约按照1-12月份拆分，本年及之前汇总成一列
-        -- --  去年及之前签约
-        -- SELECT
-        --     项目名称,
-        --     项目GUID,
-        --     分期名称,
-        --     分期GUID,
-        --     产品楼栋名称,
-        --     产品楼栋GUID,
-        --     产品类型,
-        --     产品名称,
-        --     经营属性,
-        --     是否车位,
-        --     套数,
-        --     SUM([本月销售面积（签约）]) AS [去年及之前销售面积（签约）],
-        --     SUM([本月销售金额（签约）]) AS [去年及之前销售金额（签约）],
-        --    case when 产品类型 ='地下室/车库' then  
-        --        CASE 
-        --         WHEN SUM([本月签约套数]) = 0 THEN 0
-        --         ELSE SUM([本月销售金额（签约）]) * 10000.0 / SUM([本月签约套数])
-        --        END
-        --    else 
-        --        CASE 
-        --         WHEN SUM([本月销售面积（签约）]) = 0 THEN 0
-        --         ELSE SUM([本月销售金额（签约）]) * 10000.0/ SUM([本月销售面积（签约）])
-        --        END
-        --    end 
-        --    AS [去年及之前销售均价（签约）],
-        --     SUM([本月签约套数]) AS [去年及之前签约套数]
-        -- into #LastYearSale
-        -- FROM
-        --     #SaleInfo
-        -- WHERE
-        --     年份 < YEAR(@tqrq)
-        -- GROUP BY
-        --     项目名称,
-        --     项目GUID,
-        --     分期名称,
-        --     分期GUID,
-        --     产品楼栋名称,
-        --     产品楼栋GUID,
-        --     产品类型,
-        --     产品名称,
-        --     经营属性,
-        --     是否车位,
-        --     套数
-
-        -- -- 今年签约1-12月份，行转列，按月份拆分签约面积、签约金额、签约均价、签约套数
-        -- SELECT
-        --     项目名称,
-        --     项目GUID,
-        --     分期名称,
-        --     分期GUID,
-        --     产品楼栋名称,
-        --     产品楼栋GUID,
-        --     产品类型,
-        --     产品名称,
-        --     经营属性,
-        --     是否车位,
-        --     套数,
-        --     -- 1-12月签约面积
-        --     SUM(CASE WHEN 月份 = 1 THEN [本月销售面积（签约）] ELSE 0 END) AS [本年1月销售面积（签约）],
-        --     SUM(CASE WHEN 月份 = 2 THEN [本月销售面积（签约）] ELSE 0 END) AS [本年2月销售面积（签约）],
-        --     SUM(CASE WHEN 月份 = 3 THEN [本月销售面积（签约）] ELSE 0 END) AS [本年3月销售面积（签约）],
-        --     SUM(CASE WHEN 月份 = 4 THEN [本月销售面积（签约）] ELSE 0 END) AS [本年4月销售面积（签约）],
-        --     SUM(CASE WHEN 月份 = 5 THEN [本月销售面积（签约）] ELSE 0 END) AS [本年5月销售面积（签约）],
-        --     SUM(CASE WHEN 月份 = 6 THEN [本月销售面积（签约）] ELSE 0 END) AS [本年6月销售面积（签约）],
-        --     SUM(CASE WHEN 月份 = 7 THEN [本月销售面积（签约）] ELSE 0 END) AS [本年7月销售面积（签约）],
-        --     SUM(CASE WHEN 月份 = 8 THEN [本月销售面积（签约）] ELSE 0 END) AS [本年8月销售面积（签约）],
-        --     SUM(CASE WHEN 月份 = 9 THEN [本月销售面积（签约）] ELSE 0 END) AS [本年9月销售面积（签约）],
-        --     SUM(CASE WHEN 月份 = 10 THEN [本月销售面积（签约）] ELSE 0 END) AS [本年10月销售面积（签约）],
-        --     SUM(CASE WHEN 月份 = 11 THEN [本月销售面积（签约）] ELSE 0 END) AS [本年11月销售面积（签约）],
-        --     SUM(CASE WHEN 月份 = 12 THEN [本月销售面积（签约）] ELSE 0 END) AS [本年12月销售面积（签约）],
-
-        --     -- 1-12月签约金额
-        --     SUM(CASE WHEN 月份 = 1 THEN [本月销售金额（签约）] ELSE 0 END) AS [本年1月销售金额（签约）],
-        --     SUM(CASE WHEN 月份 = 2 THEN [本月销售金额（签约）] ELSE 0 END) AS [本年2月销售金额（签约）],
-        --     SUM(CASE WHEN 月份 = 3 THEN [本月销售金额（签约）] ELSE 0 END) AS [本年3月销售金额（签约）],
-        --     SUM(CASE WHEN 月份 = 4 THEN [本月销售金额（签约）] ELSE 0 END) AS [本年4月销售金额（签约）],
-        --     SUM(CASE WHEN 月份 = 5 THEN [本月销售金额（签约）] ELSE 0 END) AS [本年5月销售金额（签约）],
-        --     SUM(CASE WHEN 月份 = 6 THEN [本月销售金额（签约）] ELSE 0 END) AS [本年6月销售金额（签约）],
-        --     SUM(CASE WHEN 月份 = 7 THEN [本月销售金额（签约）] ELSE 0 END) AS [本年7月销售金额（签约）],
-        --     SUM(CASE WHEN 月份 = 8 THEN [本月销售金额（签约）] ELSE 0 END) AS [本年8月销售金额（签约）],
-        --     SUM(CASE WHEN 月份 = 9 THEN [本月销售金额（签约）] ELSE 0 END) AS [本年9月销售金额（签约）],
-        --     SUM(CASE WHEN 月份 = 10 THEN [本月销售金额（签约）] ELSE 0 END) AS [本年10月销售金额（签约）],
-        --     SUM(CASE WHEN 月份 = 11 THEN [本月销售金额（签约）] ELSE 0 END) AS [本年11月销售金额（签约）],
-        --     SUM(CASE WHEN 月份 = 12 THEN [本月销售金额（签约）] ELSE 0 END) AS [本年12月销售金额（签约）],
-
-        --     -- 1-12月签约均价（签约金额/签约面积或签约金额/签约套数，按产品类型区分）
-        --     -- 地下室/车库按金额/套数，其余按金额/面积
-        --     -- 修正：不能在聚合函数中嵌套SUM，应先SUM后再计算
-        --     -- 1月
-        --     CASE 
-        --         WHEN 产品类型 = '地下室/车库' THEN 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 1 THEN [本月签约套数] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 1 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 1 THEN [本月签约套数] ELSE 0 END),0)
-        --             END
-        --         ELSE 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 1 THEN [本月销售面积（签约）] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 1 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 1 THEN [本月销售面积（签约）] ELSE 0 END),0)
-        --             END
-        --     END AS [本年1月销售均价（签约）],
-        --     -- 2月
-        --     CASE 
-        --         WHEN 产品类型 = '地下室/车库' THEN 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 2 THEN [本月签约套数] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 2 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 2 THEN [本月签约套数] ELSE 0 END),0)
-        --             END
-        --         ELSE 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 2 THEN [本月销售面积（签约）] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 2 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 2 THEN [本月销售面积（签约）] ELSE 0 END),0)
-        --             END
-        --     END AS [本年2月销售均价（签约）],
-        --     -- 3月
-        --     CASE 
-        --         WHEN 产品类型 = '地下室/车库' THEN 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 3 THEN [本月签约套数] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 3 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 3 THEN [本月签约套数] ELSE 0 END),0)
-        --             END
-        --         ELSE 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 3 THEN [本月销售面积（签约）] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 3 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 3 THEN [本月销售面积（签约）] ELSE 0 END),0)
-        --             END
-        --     END AS [本年3月销售均价（签约）],
-        --     -- 4月
-        --     CASE 
-        --         WHEN 产品类型 = '地下室/车库' THEN 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 4 THEN [本月签约套数] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 4 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 4 THEN [本月签约套数] ELSE 0 END),0)
-        --             END
-        --         ELSE 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 4 THEN [本月销售面积（签约）] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 4 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 4 THEN [本月销售面积（签约）] ELSE 0 END),0)
-        --             END
-        --     END AS [本年4月销售均价（签约）],
-        --     -- 5月
-        --     CASE 
-        --         WHEN 产品类型 = '地下室/车库' THEN 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 5 THEN [本月签约套数] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 5 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 5 THEN [本月签约套数] ELSE 0 END),0)
-        --             END
-        --         ELSE 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 5 THEN [本月销售面积（签约）] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 5 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 5 THEN [本月销售面积（签约）] ELSE 0 END),0)
-        --             END
-        --     END AS [本年5月销售均价（签约）],
-        --     -- 6月
-        --     CASE 
-        --         WHEN 产品类型 = '地下室/车库' THEN 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 6 THEN [本月签约套数] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 6 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 6 THEN [本月签约套数] ELSE 0 END),0)
-        --             END
-        --         ELSE 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 6 THEN [本月销售面积（签约）] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 6 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 6 THEN [本月销售面积（签约）] ELSE 0 END),0)
-        --             END
-        --     END AS [本年6月销售均价（签约）],
-        --     -- 7月
-        --     CASE 
-        --         WHEN 产品类型 = '地下室/车库' THEN 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 7 THEN [本月签约套数] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 7 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 7 THEN [本月签约套数] ELSE 0 END),0)
-        --             END
-        --         ELSE 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 7 THEN [本月销售面积（签约）] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 7 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 7 THEN [本月销售面积（签约）] ELSE 0 END),0)
-        --             END
-        --     END AS [本年7月销售均价（签约）],
-        --     -- 8月
-        --     CASE 
-        --         WHEN 产品类型 = '地下室/车库' THEN 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 8 THEN [本月签约套数] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 8 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 8 THEN [本月签约套数] ELSE 0 END),0)
-        --             END
-        --         ELSE 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 8 THEN [本月销售面积（签约）] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 8 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 8 THEN [本月销售面积（签约）] ELSE 0 END),0)
-        --             END
-        --     END AS [本年8月销售均价（签约）],
-        --     -- 9月
-        --     CASE 
-        --         WHEN 产品类型 = '地下室/车库' THEN 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 9 THEN [本月签约套数] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 9 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 9 THEN [本月签约套数] ELSE 0 END),0)
-        --             END
-        --         ELSE 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 9 THEN [本月销售面积（签约）] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 9 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 9 THEN [本月销售面积（签约）] ELSE 0 END),0)
-        --             END
-        --     END AS [本年9月销售均价（签约）],
-        --     -- 10月
-        --     CASE 
-        --         WHEN 产品类型 = '地下室/车库' THEN 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 10 THEN [本月签约套数] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 10 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 10 THEN [本月签约套数] ELSE 0 END),0)
-        --             END
-        --         ELSE 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 10 THEN [本月销售面积（签约）] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 10 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 10 THEN [本月销售面积（签约）] ELSE 0 END),0)
-        --             END
-        --     END AS [本年10月销售均价（签约）],
-        --     -- 11月
-        --     CASE 
-        --         WHEN 产品类型 = '地下室/车库' THEN 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 11 THEN [本月签约套数] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 11 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 11 THEN [本月签约套数] ELSE 0 END),0)
-        --             END
-        --         ELSE 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 11 THEN [本月销售面积（签约）] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 11 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 11 THEN [本月销售面积（签约）] ELSE 0 END),0)
-        --             END
-        --     END AS [本年11月销售均价（签约）],
-        --     -- 12月
-        --     CASE 
-        --         WHEN 产品类型 = '地下室/车库' THEN 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 12 THEN [本月签约套数] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 12 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 12 THEN [本月签约套数] ELSE 0 END),0)
-        --             END
-        --         ELSE 
-        --             CASE WHEN SUM(CASE WHEN 月份 = 12 THEN [本月销售面积（签约）] ELSE 0 END) = 0 THEN 0
-        --                  ELSE SUM(CASE WHEN 月份 = 12 THEN [本月销售金额（签约）] ELSE 0 END) * 10000.0 / NULLIF(SUM(CASE WHEN 月份 = 12 THEN [本月销售面积（签约）] ELSE 0 END),0)
-        --             END
-        --     END AS [本年12月销售均价（签约）],
-
-        --     -- 1-12月签约套数
-        --     SUM(CASE WHEN 月份 = 1 THEN [本月签约套数] ELSE 0 END) AS [本年1月签约套数],
-        --     SUM(CASE WHEN 月份 = 2 THEN [本月签约套数] ELSE 0 END) AS [本年2月签约套数],
-        --     SUM(CASE WHEN 月份 = 3 THEN [本月签约套数] ELSE 0 END) AS [本年3月签约套数],
-        --     SUM(CASE WHEN 月份 = 4 THEN [本月签约套数] ELSE 0 END) AS [本年4月签约套数],
-        --     SUM(CASE WHEN 月份 = 5 THEN [本月签约套数] ELSE 0 END) AS [本年5月签约套数],
-        --     SUM(CASE WHEN 月份 = 6 THEN [本月签约套数] ELSE 0 END) AS [本年6月签约套数],
-        --     SUM(CASE WHEN 月份 = 7 THEN [本月签约套数] ELSE 0 END) AS [本年7月签约套数],
-        --     SUM(CASE WHEN 月份 = 8 THEN [本月签约套数] ELSE 0 END) AS [本年8月签约套数],
-        --     SUM(CASE WHEN 月份 = 9 THEN [本月签约套数] ELSE 0 END) AS [本年9月签约套数],
-        --     SUM(CASE WHEN 月份 = 10 THEN [本月签约套数] ELSE 0 END) AS [本年10月签约套数],
-        --     SUM(CASE WHEN 月份 = 11 THEN [本月签约套数] ELSE 0 END) AS [本年11月签约套数],
-        --     SUM(CASE WHEN 月份 = 12 THEN [本月签约套数] ELSE 0 END) AS [本年12月签约套数]
-        -- INTO #ThisYearSale
-        -- FROM
-        --     #SaleInfo
-        -- WHERE
-        --     年份 = YEAR(@tqrq)
-        -- GROUP BY
-        --     项目名称,
-        --     项目GUID,
-        --     分期名称,
-        --     分期GUID,
-        --     产品楼栋名称,
-        --     产品楼栋GUID,
-        --     产品类型,
-        --     产品名称,
-        --     经营属性,
-        --     是否车位,
-        --     套数;
-            
-        -- -- 查询最终结果
-        -- select  
-        --     isnull(lys.项目名称, tys.项目名称)           as 项目名称,
-        --     isnull(lys.项目GUID, tys.项目GUID)           as 项目GUID,
-        --     isnull(lys.分期名称, tys.分期名称)           as 分期名称,
-        --     isnull(lys.分期GUID, tys.分期GUID)           as 分期GUID,
-        --     isnull(lys.产品楼栋名称, tys.产品楼栋名称)     as 产品楼栋名称,
-        --     isnull(lys.产品楼栋GUID, tys.产品楼栋GUID)     as 产品楼栋GUID,
-        --     isnull(lys.产品类型, tys.产品类型)           as 产品类型,
-        --     isnull(lys.产品名称, tys.产品名称)           as 产品名称,
-        --     isnull(lys.经营属性, tys.经营属性)           as 经营属性,
-        --     isnull(lys.是否车位, tys.是否车位)           as 是否车位,
-        --     isnull(lys.套数, tys.套数)                 as 套数,
-
-        --     lys.[去年及之前销售面积（签约）],
-        --     lys.[去年及之前销售金额（签约）],
-        --     lys.[去年及之前销售均价（签约）],
-        --     lys.[去年及之前签约套数],
-
-        --     tys.[本年1月销售面积（签约）],
-        --     tys.[本年2月销售面积（签约）],
-        --     tys.[本年3月销售面积（签约）],
-        --     tys.[本年4月销售面积（签约）],
-        --     tys.[本年5月销售面积（签约）],
-        --     tys.[本年6月销售面积（签约）],
-        --     tys.[本年7月销售面积（签约）],
-        --     tys.[本年8月销售面积（签约）],
-        --     tys.[本年9月销售面积（签约）],
-        --     tys.[本年10月销售面积（签约）],
-        --     tys.[本年11月销售面积（签约）],
-        --     tys.[本年12月销售面积（签约）],
-
-        --     tys.[本年1月销售金额（签约）],
-        --     tys.[本年2月销售金额（签约）],
-        --     tys.[本年3月销售金额（签约）],
-        --     tys.[本年4月销售金额（签约）],
-        --     tys.[本年5月销售金额（签约）],
-        --     tys.[本年6月销售金额（签约）],
-        --     tys.[本年7月销售金额（签约）],
-        --     tys.[本年8月销售金额（签约）],
-        --     tys.[本年9月销售金额（签约）],
-        --     tys.[本年10月销售金额（签约）],
-        --     tys.[本年11月销售金额（签约）],
-        --     tys.[本年12月销售金额（签约）],
-
-        --     tys.[本年1月销售均价（签约）],
-        --     tys.[本年2月销售均价（签约）],
-        --     tys.[本年3月销售均价（签约）],
-        --     tys.[本年4月销售均价（签约）],
-        --     tys.[本年5月销售均价（签约）],
-        --     tys.[本年6月销售均价（签约）],
-        --     tys.[本年7月销售均价（签约）],
-        --     tys.[本年8月销售均价（签约）],
-        --     tys.[本年9月销售均价（签约）],
-        --     tys.[本年10月销售均价（签约）],
-        --     tys.[本年11月销售均价（签约）],
-        --     tys.[本年12月销售均价（签约）],
-
-        --     tys.[本年1月签约套数],
-        --     tys.[本年2月签约套数],
-        --     tys.[本年3月签约套数],
-        --     tys.[本年4月签约套数],
-        --     tys.[本年5月签约套数],
-        --     tys.[本年6月签约套数],
-        --     tys.[本年7月签约套数],
-        --     tys.[本年8月签约套数],
-        --     tys.[本年9月签约套数],
-        --     tys.[本年10月签约套数],
-        --     tys.[本年11月签约套数],
-        --     tys.[本年12月签约套数]
-        -- from 
-        --     #LastYearSale lys
-        --     full join #ThisYearSale tys on lys.产品楼栋GUID = tys.产品楼栋GUID
 
         -- 删除临时表
         drop table #data_wide_dws_s_Dimension_Organization;
@@ -1068,4 +768,4 @@ Begin
         -- drop table #ThisYearSale;
         -- drop table #LastYearSale;
 
-end 
+END
