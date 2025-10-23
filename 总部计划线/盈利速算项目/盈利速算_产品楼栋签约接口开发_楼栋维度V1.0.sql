@@ -4,6 +4,7 @@ GO
 /*********************************************************************
  功能：盈利规划楼栋签约数据楼栋维度调用接口,传递项目分期GUID，返回产品楼栋签约表（楼栋维度）
  exec usp_ylgh_ProjBLdContractInfo '18409189-6E34-EF11-B3A4-F40270D39969','2025-09'
+exec usp_ylgh_ProjBLdContractInfo '7e0636d1-b649-eb11-b398-f40270d39969', '2025-10'
  --18409189-6E34-EF11-B3A4-F40270D39969 --合肥龙川瑧悦
 **********************************************************************/
 create or  ALTER proc  [dbo].[usp_ylgh_ProjBLdContractInfo](
@@ -12,7 +13,7 @@ create or  ALTER proc  [dbo].[usp_ylgh_ProjBLdContractInfo](
 )
 as 
 Begin
-	SET NOCOUNT ON;  -- 禁止显示受影响的行数信息
+     SET NOCOUNT ON;  -- 禁止显示受影响的行数信息
      declare  @tqrq datetime =convert(datetime,@var_tqrq+'-01');
 -- [172.16.4.161].[HighData_prod].dbo.data_wide_dws_s_Dimension_Organization 
 -- [172.16.4.161].[HighData_prod].dbo.data_wide_dws_mdm_Building
@@ -25,6 +26,32 @@ Begin
 -- [172.16.4.161].[HighData_prod].dbo.data_wide_mdm_ProductType
 
       -- 创建临时表
+        -- 取基础数据产品楼栋信息 
+        SELECT 
+                a.ParentProjGUID   AS projguid,         -- 项目GUID
+                a.ProjGUID        AS projguid_fq,
+                ProductBuild.ProductBuildGUID,               -- 楼栋GUID
+                ProductBuild.bldcode,                        -- 楼栋编码
+                ProductBuild.BldName                         -- 楼栋名称
+        into  #ProductBuildInfo
+        FROM (
+                SELECT 
+                VersionGUID, 
+                ProjGUID,
+                ParentProjGUID, 
+                projname,
+                ROW_NUMBER() OVER (
+                        PARTITION BY ProjGUID 
+                        ORDER BY CreateDate DESC
+                ) AS rowno 
+                FROM [MyCost_Erp352].dbo.md_Project  WITH(NOLOCK)
+                WHERE IsActive = 1
+        ) a 
+        --[MyCost_Erp352].dbo.md_ProductBuild AS ProductBuild WITH(NOLOCK)
+        inner join MyCost_Erp352.dbo.md_GCBuild  gcnew on gcnew.IsActive = 1 and gcnew.ProjGUID = a.ProjGUID and  a.rowno = 1
+        inner join MyCost_Erp352.dbo.md_ProductBuild ProductBuild  on ProductBuild.BldKeyGUID =gcnew.BldKeyGUID 
+        where a.ParentProjGUID IN (SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ','))
+
       -- #data_wide_dws_mdm_Project
       SELECT a.*
         INTO #data_wide_dws_mdm_Project
@@ -647,33 +674,9 @@ Begin
                 inner join #data_wide_dws_mdm_Project p with(nolock) on p.ProjGUID = spp.ParentProjGUID 				--项目
                 left join (select  Row_Number() over(partition by ParentGUID order by projcode asc) as Num,* from #data_wide_dws_mdm_Project where ParentGUID is not null) childProj on Num=1 and p.ProjGUID = childProj.ParentGUID --分期
                 left join #data_wide_dws_s_Dimension_Organization org with(nolock) on org.OrgGUID = p.XMSSCSGSGUID AND  org.ParentOrganizationGUID =p.BUGUID 	
-        ),
-       ProductBuildInfo as ( 
-                -- 取基础数据产品楼栋信息 
-                SELECT 
-                        a.ParentProjGUID   AS projguid,         -- 项目GUID
-                        a.ProjGUID        AS projguid_fq,
-                        ProductBuild.ProductBuildGUID,               -- 楼栋GUID
-                        ProductBuild.bldcode,                        -- 楼栋编码
-                        ProductBuild.BldName                         -- 楼栋名称
-                FROM [MyCost_Erp352].dbo.md_ProductBuild AS ProductBuild WITH(NOLOCK)
-                INNER JOIN (
-                        SELECT 
-                        VersionGUID, 
-                        ProjGUID,
-                        ParentProjGUID, 
-                        projname,
-                        ROW_NUMBER() OVER (
-                                PARTITION BY ProjGUID 
-                                ORDER BY CreateDate DESC
-                        ) AS rowno 
-                        FROM [MyCost_Erp352].dbo.md_Project  WITH(NOLOCK)
-                        WHERE IsActive = 1
-                ) a 
-                        ON ProductBuild.VersionGUID = a.VersionGUID 
-                        AND ProductBuild.ProjGUID = a.ProjGUID 
-                        AND a.rowno = 1  -- 项目必须要有激活版，否则排除掉   
-      )
+        )
+
+
 
         -- 返回结果数据集
         SELECT
@@ -693,7 +696,7 @@ Begin
                 月份                AS [月份],
                 年月                as [年月],
                 SUM(ISNULL([本月销售面积（签约）], 0)) AS [本月销售面积（签约）],
-                SUM(ISNULL([本月销售金额（签约）], 0)) AS [本月销售金额（签约）], -- 万元
+                SUM(ISNULL([本月销售金额（签约）], 0)) /10000.0 AS [本月销售金额（签约）], -- 万元
                 CASE
                         WHEN SUM(ISNULL([本月销售面积（签约）], 0)) = 0 THEN 0
                         ELSE SUM(ISNULL([本月销售金额（签约）], 0)) / SUM(ISNULL([本月销售面积（签约）], 0))
@@ -735,7 +738,7 @@ Begin
                 WHERE
                         sf.ParentProjGUID IN (SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ','))
         ) slae
-        left join ProductBuildInfo ProductBuild on slae.产品楼栋GUID = ProductBuild.ProductBuildGUID
+        left join #ProductBuildInfo ProductBuild on slae.产品楼栋GUID = ProductBuild.ProductBuildGUID
         WHERE 年份< year(@tqrq) or (年份=year(@tqrq) and 月份<=month(@tqrq) )  or 年份 is null 
         GROUP BY
                 项目名称,
@@ -764,6 +767,7 @@ Begin
         drop table #data_wide_s_NoControl;
         drop table #data_wide_s_SaleHsData;
         drop table #data_wide_mdm_ProductType;
+        drop table #ProductBuildInfo;
         -- drop table #SaleInfo;
         -- drop table #ThisYearSale;
         -- drop table #LastYearSale;

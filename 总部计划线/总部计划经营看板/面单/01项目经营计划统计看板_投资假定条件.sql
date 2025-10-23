@@ -2,7 +2,14 @@
 -- 测试数据：龙川臻悦 18409189-6E34-EF11-B3A4-F40270D39969 
 -- 存储过程：usp_zb_jyjhtjkb_PositDiff
 -- 主要功能：每日汇总并插入投资假定条件偏差相关数据，避免重复插入，并可校验当日数据
-create or ALTER     proc [dbo].[usp_zb_jyjhtjkb_PositDiff]
+USE [HighData_prod]
+GO
+/****** Object:  StoredProcedure [dbo].[usp_zb_jyjhtjkb_PositDiff]    Script Date: 2025/10/22 9:49:21 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+create or   ALTER     proc [dbo].[usp_zb_jyjhtjkb_PositDiff]
 as
 begin
 
@@ -181,7 +188,10 @@ begin
         [续销流速截止本月累计套数],         -- 截止本月续销流速累计套数
         [续销流速截止本月累计金额],         -- 截止本月续销流速累计金额
         [续销流速截止上月累计套数],         -- 截止上月续销流速累计套数
-        [续销流速截止上月累计金额]          -- 截止上月续销流速累计金额
+        [续销流速截止上月累计金额],          -- 截止上月续销流速累计金额
+        [开盘时间-一盘一策版],
+        [首开去化套数-一盘一策版],
+        [续销流速累计套数—一盘一策版]
     )
     SELECT
         pj.buguid                                       AS [buguid],                        -- 事业部GUID
@@ -210,7 +220,11 @@ begin
                 (ISNULL(sale.截止上月的累计签约套数, 0) - ISNULL(sale.首开去化签约套数, 0)) 
                 / (DATEDIFF(month, sk.SJkpxsDate, @lastMonth) - 1)
         END                                             AS [续销流速截止上月累计套数],        -- 【截止上月累计签约套数-首开套数】/【截止目前时间-开盘时间-1】
-        sale.截止本月的累计签约金额                      AS [续销流速截止上月累计金额]         -- 截止上月续销流速累计金额
+        sale.截止本月的累计签约金额                      AS [续销流速截止上月累计金额],         -- 截止上月续销流速累计金额
+
+        null as [开盘时间-一盘一策版],
+        null as [首开去化套数-一盘一策版],
+        null as [续销流速累计套数—一盘一策版]
     FROM 
         data_wide_dws_mdm_Project pj
         LEFT JOIN data_wide_dws_ys_SumOperatingProfitDataLXDWBfYt t 
@@ -245,7 +259,10 @@ begin
         [续销流速截止本月累计套数],                 -- 截止本月续销流速累计套数
         [续销流速截止本月累计金额],                 -- 截止本月续销流速累计金额
         [续销流速截止上月累计套数],                 -- 截止上月续销流速累计套数
-        [续销流速截止上月累计金额]                  -- 截止上月续销流速累计金额
+        [续销流速截止上月累计金额],                  -- 截止上月续销流速累计金额
+        [开盘时间-一盘一策版],
+        [首开去化套数-一盘一策版],
+        [续销流速累计套数—一盘一策版]
     FROM zb_jyjhtjkb_PositDiff
     WHERE DATEDIFF(DAY, 清洗日期, GETDATE()) = 0;
 
@@ -254,7 +271,6 @@ begin
     drop table #JyjhtjkbTb
     drop  table  #sale
 end
-
 
 
 -- SELECT
@@ -300,43 +316,99 @@ end
 
 
 
-SELECT
-    [buguid],                                   -- 组织GUID
-    [projguid],                                 -- 项目GUID
-    [清洗日期],                                 -- 清洗日期
-    [开盘时间_动态版],                          -- 动态版开盘时间
-    [开盘时间_立项版],                          -- 立项版开盘时间
-    [开盘时长_动态版],                          -- 动态版开盘时长
-    [开盘时长_立项版],                          -- 立项版开盘时长
-    CASE 
-        WHEN [开盘时长_动态版] IS NOT NULL AND [开盘时长_立项版] IS NOT NULL 
-        THEN  ISNULL([开盘时长_动态版], 0)  - ISNULL([开盘时长_立项版], 0)   
-        ELSE NULL 
-    END AS [开盘时长偏差],                       -- 开盘时长偏差
-    [首开去化套数_动态版],                      -- 动态版首开去化套数
-    [首开去化套数_立项版],                      -- 立项版首开去化套数
-    CASE 
-        WHEN [首开去化套数_动态版] IS NOT NULL AND [首开去化套数_立项版] IS NOT NULL 
-        THEN  ISNULL([首开去化套数_动态版], 0) - ISNULL([首开去化套数_立项版], 0) 
-        ELSE NULL 
-    END AS [首开去化套数偏差],                   -- 首开去化套数偏差
+-- SELECT
+--     [buguid],                                   -- 组织GUID
+--     [projguid],                                 -- 项目GUID
+--     [清洗日期],                                 -- 清洗日期
+--     [开盘时间_动态版],                          -- 动态版开盘时间
+--     [开盘时间_立项版],                          -- 立项版开盘时间
+--     [开盘时长_动态版],                          -- 动态版开盘时长
+--     [开盘时长_立项版],                          -- 立项版开盘时长
+--     CASE 
+--         WHEN [开盘时长_动态版] IS NOT NULL AND [开盘时长_立项版] IS NOT NULL 
+--         THEN  ISNULL([开盘时长_动态版], 0)  - ISNULL([开盘时长_立项版], 0)   
+--         ELSE NULL 
+--     END AS [开盘时长偏差],                       -- 开盘时长偏差
+--     [首开去化套数_动态版],                      -- 动态版首开去化套数
+--     [首开去化套数_立项版],                      -- 立项版首开去化套数
+--     CASE 
+--         WHEN [首开去化套数_动态版] IS NOT NULL AND [首开去化套数_立项版] IS NOT NULL 
+--         THEN  ISNULL([首开去化套数_动态版], 0) - ISNULL([首开去化套数_立项版], 0) 
+--         ELSE NULL 
+--     END AS [首开去化套数偏差],                   -- 首开去化套数偏差
 
-    [续销流速累计套数_立项版],                  -- 立项版续销流速累计套数
+--     [续销流速累计套数_立项版],                  -- 立项版续销流速累计套数
 
-    [续销流速截止本月累计套数],                 -- 截止本月续销流速累计套数
-    [续销流速截止上月累计套数],                 -- 截止上月续销流速累计套数
-    case when [续销流速累计套数_立项版] is  not null  and  [续销流速截止本月累计套数] is  not null 
-       then   isnull([续销流速截止本月累计套数],0) - isnull([续销流速累计套数_立项版],0) end  as  [续销流速累计套数偏差],
-    [续销流速累计本月套数_立项版],              -- 立项版续销流速累计本月套数
-    [续销流速累计本月金额_立项版],              -- 立项版续销流速累计本月金额
-    [续销流速截止本月累计金额],                 -- 截止本月续销流速累计金额
-    [续销流速截止上月累计金额],                  -- 截止上月续销流速累计金额
-    case when [续销流速累计本月金额_立项版] is  not null  and  [续销流速截止本月累计金额] is  not null 
-       then  isnull([续销流速截止本月累计金额],0) -isnull([续销流速累计本月金额_立项版],0) end  as  [续销流速累计本月金额缺口],
-    case when [续销流速截止本月累计套数] is  not null and [续销流速截止上月累计套数] is  not  null 
-        then   isnull([续销流速截止上月累计套数],0) -isnull([续销流速截止本月累计套数],0)  end  as   [续销流速环比上月提降]
-FROM 
-    zb_jyjhtjkb_PositDiff 
-WHERE 
-    DATEDIFF(DAY, [清洗日期], ${qxDate}) = 0
+--     [续销流速截止本月累计套数],                 -- 截止本月续销流速累计套数
+--     [续销流速截止上月累计套数],                 -- 截止上月续销流速累计套数
+--     case when [续销流速累计套数_立项版] is  not null  and  [续销流速截止本月累计套数] is  not null 
+--        then   isnull([续销流速截止本月累计套数],0) - isnull([续销流速累计套数_立项版],0) end  as  [续销流速累计套数偏差],
+--     [续销流速累计本月套数_立项版],              -- 立项版续销流速累计本月套数
+--     [续销流速累计本月金额_立项版],              -- 立项版续销流速累计本月金额
+--     [续销流速截止本月累计金额],                 -- 截止本月续销流速累计金额
+--     [续销流速截止上月累计金额],                  -- 截止上月续销流速累计金额
+--     case when [续销流速累计本月金额_立项版] is  not null  and  [续销流速截止本月累计金额] is  not null 
+--        then  isnull([续销流速截止本月累计金额],0) -isnull([续销流速累计本月金额_立项版],0) end  as  [续销流速累计本月金额缺口],
+--     case when [续销流速截止本月累计套数] is  not null and [续销流速截止上月累计套数] is  not  null 
+--         then   isnull([续销流速截止上月累计套数],0) -isnull([续销流速截止本月累计套数],0)  end  as   [续销流速环比上月提降]
+-- FROM 
+--     zb_jyjhtjkb_PositDiff 
+-- WHERE 
+--     DATEDIFF(DAY, [清洗日期], ${qxDate}) = 0
 
+
+-- SELECT
+--     [buguid],                                   -- 组织GUID
+--     [projguid],                                 -- 项目GUID
+--     [清洗日期],                                 -- 清洗日期
+--     [开盘时间_动态版],                           -- 动态版开盘时间
+--     [开盘时间_立项版],                           -- 立项版开盘时间
+--     [开盘时长_动态版],                           -- 动态版开盘时长
+--     [开盘时长_立项版],                           -- 立项版开盘时长
+--     CASE 
+--         WHEN [开盘时长_动态版] IS NOT NULL AND [开盘时长_立项版] IS NOT NULL
+--             THEN ISNULL([开盘时长_动态版], 0) - ISNULL([开盘时长_立项版], 0)
+--         ELSE NULL
+--     END AS [开盘时长偏差],                        -- 开盘时长偏差
+--     [首开去化套数_动态版],                       -- 动态版首开去化套数
+--     [首开去化套数_立项版],                       -- 立项版首开去化套数
+--     CASE 
+--         WHEN [首开去化套数_动态版] IS NOT NULL AND [首开去化套数_立项版] IS NOT NULL
+--             THEN ISNULL([首开去化套数_动态版], 0) - ISNULL([首开去化套数_立项版], 0)
+--         ELSE NULL
+--     END AS [首开去化套数偏差],                    -- 首开去化套数偏差
+
+--     [续销流速累计套数_立项版],                   -- 立项版续销流速累计套数
+
+--     [续销流速截止本月累计套数],                  -- 截止本月续销流速累计套数
+--     [续销流速截止上月累计套数],                  -- 截止上月续销流速累计套数
+--     CASE 
+--         WHEN [续销流速累计套数_立项版] IS NOT NULL AND [续销流速截止本月累计套数] IS NOT NULL
+--             THEN ISNULL([续销流速截止本月累计套数], 0) - ISNULL([续销流速累计套数_立项版], 0)
+--         ELSE NULL
+--     END AS [续销流速累计套数偏差],                -- 续销流速累计套数偏差
+
+--     [续销流速累计本月套数_立项版],               -- 立项版续销流速累计本月套数
+--     [续销流速累计本月金额_立项版],               -- 立项版续销流速累计本月金额
+--     [续销流速截止本月累计金额],                  -- 截止本月续销流速累计金额
+--     [续销流速截止上月累计金额],                  -- 截止上月续销流速累计金额
+--     CASE 
+--         WHEN [续销流速累计本月金额_立项版] IS NOT NULL AND [续销流速截止本月累计金额] IS NOT NULL
+--             THEN ISNULL([续销流速截止本月累计金额], 0) - ISNULL([续销流速累计本月金额_立项版], 0)
+--         ELSE NULL
+--     END AS [续销流速累计本月金额缺口],             -- 续销流速累计本月金额缺口
+--     CASE 
+--         WHEN [续销流速截止本月累计套数] IS NOT NULL AND [续销流速截止上月累计套数] IS NOT NULL
+--             THEN ISNULL([续销流速截止上月累计套数], 0) - ISNULL([续销流速截止本月累计套数], 0)
+--         ELSE NULL
+--     END AS [续销流速环比上月提降],                -- 续销流速环比上月提降
+
+--     [开盘时间-一盘一策版],                        -- 开盘时间-一盘一策版
+--     datediff(month, [开盘时间-一盘一策版], getdate()) as  [开盘时长-一盘一策版],
+--     [首开去化套数-一盘一策版],                    -- 首开去化套数-一盘一策版
+--     [续销流速累计套数—一盘一策版]                 -- 续销流速累计套数-一盘一策版
+
+-- FROM 
+--     zb_jyjhtjkb_PositDiff
+-- WHERE 
+--     DATEDIFF(DAY, [清洗日期], ${qxDate}) = 0

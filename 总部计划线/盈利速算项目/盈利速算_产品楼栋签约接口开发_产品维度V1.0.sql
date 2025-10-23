@@ -4,6 +4,9 @@ GO
 /*********************************************************************
  功能：盈利规划楼栋签约数据产品维度调用接口，传递项目分期GUID，返回产品楼栋签约表（产品维度）
  示例：exec usp_ylgh_ProjProductContractInfo '18409189-6E34-EF11-B3A4-F40270D39969','2025-09'
+ exec usp_ylgh_ProjProductContractInfo '7e0636d1-b649-eb11-b398-f40270d39969', '2025-10'
+
+ usp_ylgh_ProjProductContractInfo  'fbf40d1f-baae-ea11-80b8-0a94ef7517dd','2025-10'
  -- 18409189-6E34-EF11-B3A4-F40270D39969 -- 合肥龙川瑧悦
 **********************************************************************/
 Create or  ALTER  PROC [dbo].[usp_ylgh_ProjProductContractInfo]
@@ -61,7 +64,7 @@ BEGIN
         月份,
         年月,
         SUM(ISNULL([本月销售面积（签约）], 0)) AS [本月销售面积（签约）],
-        SUM(ISNULL([本月销售金额（签约）], 0)) AS [本月销售金额（签约）], -- 元
+        SUM(ISNULL([本月销售金额（签约）], 0)) AS [本月销售金额（签约）], 
         CASE
         WHEN SUM(ISNULL([本月销售面积（签约）], 0)) = 0 THEN 0
         ELSE SUM(ISNULL([本月销售金额（签约）], 0)) / SUM(ISNULL([本月销售面积（签约）], 0))
