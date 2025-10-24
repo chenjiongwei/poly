@@ -13,8 +13,7 @@
 ******************************************************************************************/
 USE [MyCost_Erp352]
 GO
-
-CREATE or alter   PROC [dbo].[usp_cb_存货分析报表] (
+ CREATE OR ALTER PROC [dbo].[usp_cb_存货分析报表] (
     @var_buguid VARCHAR(MAX) -- 平台公司GUID，多个用逗号分隔
 )
 AS
@@ -43,8 +42,8 @@ BEGIN
         END AS 存量增量分类
         -- flg.存量增量                          -- 存量增量标识（暂不使用）
     INTO #proj
-    FROM erp25.dbo.vmdm_projectFlagnew flg
-    INNER JOIN erp25.dbo.mdm_project p ON flg.projguid = p.projguid
+    FROM erp25.dbo.vmdm_projectFlagnew flg with (nolock)
+    INNER JOIN erp25.dbo.mdm_project p with (nolock) ON flg.projguid = p.projguid
     WHERE p.level = 2                            -- 只取二级项目
       AND flg.DevelopmentCompanyGUID IN (SELECT value FROM dbo.fn_Split2(@var_buguid, ',')) -- 按传入的公司GUID筛选
 
@@ -59,14 +58,14 @@ BEGIN
         ISNULL(累计投资_小计E_亿元, 0) * 10000.0 AS 已投资未落实金额   -- 万元
     into #F016
     FROM  
-        dss.[dbo].[nmap_s_F016_表9已投资未落实] F016
+        dss.[dbo].[nmap_s_F016_表9已投资未落实] F016 with (nolock)
         INNER JOIN (
             -- 取2个月前当月最新的版本
             SELECT TOP 1
                 ver.VersionGuid,      -- 版本唯一标识
                 ver.StartTime         -- 版本开始时间
             FROM
-                dss.[dbo].[nmap_RptVersion] ver
+                dss.[dbo].[nmap_RptVersion] ver with (nolock)
             WHERE
                 ver.RptID = 'B593DEF7_B031_445C_9129_63026BADA454'
             ORDER BY 
@@ -110,10 +109,10 @@ BEGIN
            sfp.jz_mjgs,                                          -- 已结转面积套数
            sfp.jz_TotalCost,                                      -- 已结转总成本 
            sfp.Wkgtdje                                           -- 存货结果输出-未开工土地金额，需要增加判断逻辑，如果当前分期下的所有楼栋都没有开工，采取存货拍照表上的未开工分期的土地款金额
-       FROM [TaskCenterData].dbo.cb_StockFtCostPhoto sfp
-       INNER JOIN erp25.dbo.mdm_SaleBuild sb ON sfp.ProductBldGUID = sb.SaleBldGUID
-       INNER JOIN erp25.dbo.mdm_Project mp ON mp.ProjGUID = sfp.ProjGUID
-       LEFT JOIN erp25.dbo.mdm_Product pt ON pt.ProductGUID = sb.ProductGUID
+       FROM [TaskCenterData].dbo.cb_StockFtCostPhoto sfp with (nolock)
+       INNER JOIN erp25.dbo.mdm_SaleBuild sb  with (nolock) ON sfp.ProductBldGUID = sb.SaleBldGUID
+       INNER JOIN erp25.dbo.mdm_Project mp with (nolock) ON mp.ProjGUID = sfp.ProjGUID
+       LEFT JOIN erp25.dbo.mdm_Product pt with (nolock) ON pt.ProductGUID = sb.ProductGUID
        INNER JOIN (
            SELECT  
                ROW_NUMBER() OVER (PARTITION BY ProjGUID ORDER BY PhotoDate DESC) AS num, -- 取每个项目最新的审核版本
@@ -121,7 +120,7 @@ BEGIN
                ProjGUID,
                ProjName,
                PhotoDate
-           FROM [TaskCenterData].dbo.cb_StockFtProjVersionPhoto 
+           FROM [TaskCenterData].dbo.cb_StockFtProjVersionPhoto with (nolock)
            WHERE ApproveState = '已审核'    -- 只取已审核的版本
        ) vr 
            ON vr.VersionGUID = sfp.VersionGUID 
@@ -140,15 +139,15 @@ BEGIN
        sum(isnull(jtdtl.累计实付建安成本,0)) / 10000.0 as 累计实付建安成本, -- 万元
        sum(isnull(jtdtl.累计实付直投,0)) / 10000.0 as 累计实付直投 -- 万元
    into #jt
-   FROM [TaskCenterData].dbo.cb_StockJt jt
-   INNER JOIN erp25.dbo.mdm_Project mp ON mp.ProjGUID = jt.ProjGUID
+   FROM [TaskCenterData].dbo.cb_StockJt jt with (nolock)
+   INNER JOIN erp25.dbo.mdm_Project mp with (nolock) ON mp.ProjGUID = jt.ProjGUID
    left  join (
       SELECT 
           StockJtGUID,
           SUM(CASE WHEN CostName = '土地款' THEN LjSfJeCur ELSE 0 END) AS 累计实付土地款,
           SUM(CASE WHEN CostName = '建安成本' THEN LjSfJeCurNotTax ELSE 0 END) AS 累计实付建安成本,
           sum(case when  costname in ('土地款','建安成本') then LjSfJeCur else 0 end)累计实付直投
-      FROM TaskCenterData.dbo.cb_StockJtDtl jtdtl
+      FROM TaskCenterData.dbo.cb_StockJtDtl jtdtl with (nolock)
       GROUP BY StockJtGUID
    ) jtdtl on jt.StockJtGUID = jtdtl.StockJtGUID
    INNER JOIN [TaskCenterData].dbo.cb_StockFtProjVersionZbPhoto zb   ON jt.StockJtGUID = zb.StockJtGUID
@@ -159,12 +158,13 @@ BEGIN
            ProjGUID,
            ProjName,
            PhotoDate
-       FROM [TaskCenterData].dbo.cb_StockFtProjVersionPhoto 
+       FROM [TaskCenterData].dbo.cb_StockFtProjVersionPhoto  with (nolock)
        WHERE ApproveState = '已审核'            -- 只取已审核的版本
    ) vr 
        ON zb.VersionGUID = vr.VersionGUID 
        AND jt.ProjGUID = vr.ProjGUID 
        AND vr.num = 1
+    inner join #proj pj on pj.项目GUID = mp.ParentProjGUID
     group by  mp.ParentProjGUID
 
     -- 统计财务计提中的土地款和建安成本实付
@@ -179,8 +179,8 @@ BEGIN
        SUM(ftCostimp.JacbJt) / 10000.0 AS JacbJt, -- 建安成本-计提
        SUM(ftCostimp.Jacb)  / 10000.0 AS Jacb      -- 建安成本-Jacb
    into #jacb 
-   FROM [TaskCenterData].dbo.cb_StockFtCostImportPhoto ftCostimp
-   INNER JOIN erp25.dbo.mdm_Project mp ON mp.ProjGUID = ftCostimp.ProjGUID
+   FROM [TaskCenterData].dbo.cb_StockFtCostImportPhoto ftCostimp with (nolock)
+   INNER JOIN erp25.dbo.mdm_Project mp with (nolock) ON mp.ProjGUID = ftCostimp.ProjGUID
    INNER JOIN (
        SELECT
            ROW_NUMBER() OVER (PARTITION BY ProjGUID ORDER BY PhotoDate DESC) AS num, -- 取每个项目最新的审核版本
@@ -188,12 +188,13 @@ BEGIN
            ProjGUID,
            ProjName,
            PhotoDate
-       FROM [TaskCenterData].dbo.cb_StockFtProjVersionPhoto
+       FROM [TaskCenterData].dbo.cb_StockFtProjVersionPhoto with (nolock)
        WHERE ApproveState = '已审核' -- 只取已审核的版本
    ) vr
        ON ftCostimp.VersionGUID = vr.VersionGUID
        AND ftCostimp.ProjGUID = vr.ProjGUID
        AND vr.num = 1
+   inner join #proj pj on pj.项目GUID = mp.ParentProjGUID
     group by mp.ParentProjGUID
 
 --引入存货成本
@@ -230,8 +231,8 @@ BEGIN
         是否持有,
         持有面积  
     into #F06Ld
-    FROM [172.16.4.161].[HighData_prod].[dbo].[data_wide_dws_qt_F05601] F056
-    INNER JOIN erp25.dbo.mdm_Project mp ON mp.ProjGUID = F056.ProjGUID
+    FROM [172.16.4.161].[HighData_prod].[dbo].[data_wide_dws_qt_F05601] F056 with (nolock)
+    INNER JOIN erp25.dbo.mdm_Project mp with (nolock) ON mp.ProjGUID = F056.ProjGUID
     INNER JOIN #proj pj  ON pj.项目GUID = mp.ParentProjGUID
 
     -- 将F056汇总到项目、产品类型、产品名称、装修标准、商品类型层级
@@ -274,7 +275,7 @@ BEGIN
         盈利规划综合管理费单方协议口径,
         盈利规划税金及附加单方
     INTO #M002
-    FROM [172.16.4.161].[HighData_prod].[dbo].data_wide_dws_qt_M002项目业态级毛利净利表 
+    FROM [172.16.4.161].[HighData_prod].[dbo].data_wide_dws_qt_M002项目业态级毛利净利表 with (nolock)
     inner join #proj pj on pj.项目GUID = projguid
     WHERE  versionType='累计版' -- versionType IN ('累计版', '本年版');
 
@@ -291,7 +292,7 @@ BEGIN
         [楼层天地层未售住宅面积],
         [楼层天地层未售住宅金额]
     INTO #LHFloorBldHz
-    FROM [172.16.4.161].[HighData_prod].[dbo].[data_wide_dws_s_LHFloorBldHz]
+    FROM [172.16.4.161].[HighData_prod].[dbo].[data_wide_dws_s_LHFloorBldHz] with (nolock)
 
 
     -- 按楼栋统计近三个月销售情况
@@ -317,8 +318,8 @@ BEGIN
         ) AS 近三月签约套数
     into #SaleBld
     FROM 
-        [172.16.4.161].highdata_prod.dbo.data_wide_dws_s_SalesPerf Sale        -- 销售合同明细表
-        INNER JOIN [172.16.4.161].highdata_prod.dbo.[data_wide_dws_mdm_Building] pb  -- 产品楼栋维度表
+        [172.16.4.161].highdata_prod.dbo.data_wide_dws_s_SalesPerf Sale  with (nolock)      -- 销售合同明细表
+        INNER JOIN [172.16.4.161].highdata_prod.dbo.[data_wide_dws_mdm_Building] pb with (nolock) -- 产品楼栋维度表
             ON Sale.BldGUID = pb.BuildingGUID
             AND pb.BldType = '产品楼栋'
         INNER JOIN #proj pj
@@ -335,14 +336,14 @@ BEGIN
         SUM( ISNULL(oa.截止目前股东合作方投入余额C, 0) ) /10000.0 AS 截止目前股东投入余额, -- 万元
         sum( case when  isnull(oa.股东合作方简称,'') <> '' then ISNULL(oa.截止目前股东合作方投入余额C, 0) end ) /10000.0 AS 截止目前合作方投入余额, --万元
         SUM( case when  isnull(oa.股东合作方简称,'') = '' then ISNULL(oa.截止目前股东合作方投入余额C, 0) end ) /10000.0 AS 截止目前保利方投入余额 --万元
-    INTO #Shareholder_investment
-    FROM [172.16.4.161].highdata_prod.dbo.data_wide_dws_mdm_Project p
+    INTO #Shareholder_investment 
+    FROM [172.16.4.161].highdata_prod.dbo.data_wide_dws_mdm_Project p with (nolock)
     OUTER APPLY (
         SELECT 
             si.截止目前股东合作方投入余额C,
 			si.股东合作方简称
         FROM 
-            [172.16.4.161].highdata_prod.dbo.data_wide_dws_qt_Shareholder_investment si
+            [172.16.4.161].highdata_prod.dbo.data_wide_dws_qt_Shareholder_investment si with (nolock)
         WHERE 
             si.明源代码 = p.ProjCode
             AND si.FillHistoryGUID IN (
@@ -373,7 +374,7 @@ BEGIN
             CurYearPlanAmount as 本年计划还款金额,
             CurYearPayAmount as 本年实际还款金额
         FROM 
-            md_ProductBldKfd
+            md_ProductBldKfd with (nolock)
     ) AS bldkfd
     GROUP BY 
         ProductBldGUID
@@ -603,19 +604,20 @@ BEGIN
             bld.Zcz /10000.0 as Zcz,                                 -- 总产值
             bld.Xmpdljwccz /10000.0 as Xmpdljwccz                           -- 项目累计已完成产值
         INTO #czld
-        FROM cb_OutputValueReviewProdBld bld
+        FROM cb_OutputValueReviewProdBld bld with (nolock)
         INNER JOIN (
             SELECT 
                 ROW_NUMBER() OVER (PARTITION BY ProjGUID ORDER BY ReviewDate DESC) AS num, -- 取每个项目最新的审核版本
                 OutputValueMonthReviewGUID,
                 ProjGUID,
                 ReviewDate
-            FROM [dbo].[cb_OutputValueMonthReview]
+            FROM [dbo].[cb_OutputValueMonthReview] with (nolock)
             WHERE ApproveState = '已审核'            -- 只取已审核的版本
         ) vr 
             ON vr.OutputValueMonthReviewGUID = bld.OutputValueMonthReviewGUID 
             AND vr.num = 1        
-        inner join erp25.dbo.mdm_Project mp on mp.ProjGUID =vr.ProjGUID
+        inner join erp25.dbo.mdm_Project mp with (nolock) on mp.ProjGUID =vr.ProjGUID
+        inner join #proj pj on pj.项目GUID = mp.ParentProjGUID
 
     -- 取楼栋的保理余额
     SELECT 
@@ -623,10 +625,10 @@ BEGIN
         SUM(isnull(bld.BlYe, 0)) /10000.0 AS 保理余额
     into #bld_bl
     FROM 
-        [TaskCenterData].dbo.cb_StockProjHzCzReview AS CzReview
+        [TaskCenterData].dbo.cb_StockProjHzCzReview AS CzReview with (nolock)
         INNER JOIN #czld AS czld 
             ON czld.OutputValueMonthReviewGUID = CzReview.OutputValueMonthReviewGUID
-        INNER JOIN [TaskCenterData].dbo.cb_StockProdBldReviewHzCzDtl AS bld 
+        INNER JOIN [TaskCenterData].dbo.cb_StockProdBldReviewHzCzDtl AS bld  with (nolock)
             ON bld.ProductBldGUID = czld.ProdBldGUID 
             AND bld.ReviewGUID = CzReview.ReviewGUID
     GROUP BY 
@@ -679,14 +681,13 @@ BEGIN
         SUM(CASE WHEN b.CostShortName IN ('营销费用') THEN a.CostMoney ELSE 0 END) AS 营销费用,
         SUM(CASE WHEN b.CostShortName IN ('财务费用') THEN a.CostMoney ELSE 0 END) AS 财务费用
     INTO #lx_cb -- 暂时不需要存入临时表
-    FROM erp25.dbo.mdm_ProjProductCostIndex a
-    INNER JOIN erp25.dbo.mdm_TechTargetProduct pd
+    FROM erp25.dbo.mdm_ProjProductCostIndex a with (nolock)
+    INNER JOIN erp25.dbo.mdm_TechTargetProduct pd with (nolock)
         ON a.ProjGUID = pd.ProjGUID
         AND a.ProductGUID = pd.ProductGUID
-    INNER JOIN erp25.dbo.mdm_CostIndex b
+    INNER JOIN erp25.dbo.mdm_CostIndex b with (nolock)
         ON a.CostGuid = b.CostGUID
-    INNER JOIN #proj pj  
-        ON pj.项目GUID = a.ProjGUID
+    INNER JOIN #proj pj  ON pj.项目GUID = a.ProjGUID
     GROUP BY 
         a.ProjGUID
         -- pd.ProductType,
@@ -717,12 +718,11 @@ BEGIN
         SUM(ISNULL(LandAddedTax, 0)) AS 土地增值税,         -- 土地增值税
         SUM(ISNULL(TurnoverTaxPlus, 0)) AS 流转税附加       -- 流转税附加
     INTO #lx_lr -- 暂时不需要存入临时表
-    FROM erp25.dbo.mdm_ProjectIncomeIndex a
-    INNER JOIN erp25.dbo.mdm_TechTargetProduct b
+    FROM erp25.dbo.mdm_ProjectIncomeIndex a with (nolock)
+    INNER JOIN erp25.dbo.mdm_TechTargetProduct b with (nolock)
         ON a.ProjGUID = b.ProjGUID
         AND a.ProductGUID = b.ProductGUID
-    INNER JOIN #proj pj  
-        ON pj.项目GUID = b.ProjGUID
+    INNER JOIN #proj pj    ON pj.项目GUID = b.ProjGUID
     -- WHERE b.projguid = '1BCF8FE5-46C7-EF11-B3A6-F40270D39969' -- 测试用，可注释
     GROUP BY 
         b.ProjGUID
@@ -841,11 +841,12 @@ BEGIN
         ) AS 近六月签约面积
 
     INTO #sale  -- 将结果存入临时表#sale
-    FROM [172.16.4.161].highdata_prod.dbo.data_wide_dws_s_SalesPerf Sale              -- 销售合同明细表
-        INNER JOIN [172.16.4.161].highdata_prod.dbo.[data_wide_dws_mdm_Building] pb  -- 产品楼栋维度表
+    FROM [172.16.4.161].highdata_prod.dbo.data_wide_dws_s_SalesPerf Sale  with (nolock)            -- 销售合同明细表
+        INNER JOIN [172.16.4.161].highdata_prod.dbo.[data_wide_dws_mdm_Building] pb with (nolock) -- 产品楼栋维度表
             ON Sale.BldGUID = pb.BuildingGUID
             AND pb.BldType = '产品楼栋'
     INNER JOIN #proj pj   ON pj.项目GUID = sale.ParentProjGUID
+    where Sale.StatisticalDate BETWEEN CONVERT(VARCHAR(10), DATEADD(MONTH, -12, GETDATE()), 121) AND GETDATE() 
     GROUP BY
         sale.ParentProjGUID,        -- 父项目GUID
         pb.TopProductTypeName,      -- 顶层产品类型名称
@@ -862,8 +863,8 @@ BEGIN
         pb.CommodityType,        -- 商品类型
         SUM(ISNULL(hl.回笼金额, 0)) /10000.0 AS 回笼金额
         into #HL
-    FROM [172.16.4.161].highdata_prod.dbo.data_wide_dws_s_cpldhl hl
-        INNER JOIN [172.16.4.161].highdata_prod.dbo.[data_wide_dws_mdm_Building] pb  -- 产品楼栋维度表
+    FROM [172.16.4.161].highdata_prod.dbo.data_wide_dws_s_cpldhl hl with (nolock)
+        INNER JOIN [172.16.4.161].highdata_prod.dbo.[data_wide_dws_mdm_Building] pb  with (nolock) -- 产品楼栋维度表
             ON hl.BldGUID = pb.BuildingGUID
             AND pb.BldType = '产品楼栋'
         INNER JOIN #proj pj  ON pj.项目GUID = hl.projguid
@@ -1051,9 +1052,9 @@ BEGIN
         NULL AS 存货现金流风险分析_融资余额_经营贷,
 
         isnull(ch.融资期限_贷款合同期限,0) * case when isnull(ch.贷款合同期限_合计,0) =0  then  0 else  isnull(ch.融资期限_贷款合同期限,0) /isnull(ch.贷款合同期限_合计,0)  end  
-        * case when isnull(cz.融资余额_开发贷_合计,0) =0  then  0 else  isnull(cz.融资余额_开发贷,0) /isnull(ch.融资余额_开发贷_合计,0)  end    AS 存货现金流风险分析_融资期限_合计, -- 按照业态进行加权平均
+        * case when isnull(ch.融资余额_开发贷_合计,0) =0  then  0 else  isnull(ch.融资余额_开发贷,0) /isnull(ch.融资余额_开发贷_合计,0)  end    AS 存货现金流风险分析_融资期限_合计, -- 按照业态进行加权平均
         isnull(ch.融资期限_贷款合同期限,0) * case when isnull(ch.贷款合同期限_合计,0) =0  then  0 else  isnull(ch.融资期限_贷款合同期限,0) /isnull(ch.贷款合同期限_合计,0)  end  
-        * case when isnull(cz.融资余额_开发贷_合计,0) =0  then  0 else  isnull(cz.融资余额_开发贷,0) /isnull(ch.融资余额_开发贷_合计,0)  end  AS 存货现金流风险分析_融资期限_开发贷,
+        * case when isnull(ch.融资余额_开发贷_合计,0) =0  then  0 else  isnull(ch.融资余额_开发贷,0) /isnull(ch.融资余额_开发贷_合计,0)  end  AS 存货现金流风险分析_融资期限_开发贷,
         NULL AS 存货现金流风险分析_融资期限_经营贷,
 
         isnull(ch.融资余额_开发贷本年计划还款金额,0) + isnull(cz.保理余额,0)  AS 存货现金流风险分析_其中一年内到期融资_合计,
@@ -1399,6 +1400,3 @@ BEGIN
     DROP TABLE #proj, #ch, #chld, #cz, #czld, #lx_cb, #lx_lr, #sale,#SaleBld, #F056,#jt,#jacb,#F016,#result,#Shareholder_investment,#HL
 
 END
-GO
-
-

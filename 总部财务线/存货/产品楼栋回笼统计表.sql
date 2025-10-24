@@ -23,16 +23,16 @@ SELECT c.contractguid,
        --concat(pr.ProductName,'-',pr.BusinessType,'-',pr.Standard) as ProductName
        CONCAT(md_productnamemodule.producttype,'-',md_room.productname,'-',md_room.businesstype,'-',case when md_room.zxbz ='' then pr.Standard else md_room.zxbz end) AS ProductName
 INTO #con
-FROM s_contract c
-LEFT JOIN ep_room r ON c.roomguid = r.roomguid
-left join p_Building b on r.BldGUID = b.BldGUID
-left join p_project p on p.ProjGUID = c.ProjGUID
-left join p_project pp on p.ParentCode = pp.ProjCode
-inner join mdm_salebuild sb on sb.SaleBldGUID = b.BldGUID
-inner join mdm_Product pr on pr.ProductGUID = sb.ProductGUID
+FROM s_contract c WITH (NOLOCK)
+LEFT JOIN ep_room r WITH (NOLOCK) ON c.roomguid = r.roomguid
+left join p_Building b WITH (NOLOCK) on r.BldGUID = b.BldGUID
+left join p_project p WITH (NOLOCK) on p.ProjGUID = c.ProjGUID
+left join p_project pp WITH (NOLOCK) on p.ParentCode = pp.ProjCode
+inner join mdm_salebuild sb WITH (NOLOCK) on sb.SaleBldGUID = b.BldGUID
+inner join mdm_Product pr WITH (NOLOCK) on pr.ProductGUID = sb.ProductGUID
 LEFT JOIN (
    select tradeguid,sum(Amount) as Amount 
-    from s_fee 
+    from s_fee WITH (NOLOCK)
     where  ItemType in ('非贷款类房款','贷款类房款')
     group by tradeguid 
 ) fee on fee.tradeguid = c.tradeguid
@@ -40,7 +40,7 @@ LEFT JOIN (
     select saleguid,
         sum(RmbAmount) as RmbAmount,
         max(GetDate) as GetDate
-    from s_getin  g
+    from s_getin  g WITH (NOLOCK)
     where  ItemType in ('非贷款类房款','贷款类房款') 
         and g.status is null
     group by saleguid
@@ -50,8 +50,8 @@ left join (
     select md_productbuild.productbuildguid,
         md_productbuild.bldname as productbldname,
         md_gcbuild.bldname as projectbldname
-    from MyCost_Erp352.DBO.md_productbuild
-    inner join MyCost_Erp352.DBO.md_gcbuild on md_gcbuild.bldkeyguid = md_productbuild.bldkeyguid and md_gcbuild.isactive = 1
+    from MyCost_Erp352.DBO.md_productbuild WITH (NOLOCK)
+    inner join MyCost_Erp352.DBO.md_gcbuild WITH (NOLOCK) on md_gcbuild.bldkeyguid = md_productbuild.bldkeyguid and md_gcbuild.isactive = 1
 ) bld on md_room.productbldguid = bld.productbuildguid
 left join MyCost_Erp352.DBO.md_productnamemodule on md_productnamemodule.productnamecode = md_room.productnamecode
 WHERE c.status = '激活' 
@@ -94,8 +94,8 @@ from (
             g.ItemType,
             CASE WHEN datediff(month,con.qsdate,g.getdate) < 0 THEN 0 ELSE datediff(month,con.qsdate,g.getdate) END as months
         from #con con 
-        inner join s_getin g on con.tradeguid = g.saleguid and g.itemtype in ('非贷款类房款','贷款类房款')
-        inner join dbo.s_Voucher v1 on v1.VouchGUID = g.VouchGUID
+        inner join s_getin g WITH (NOLOCK) on con.tradeguid = g.saleguid and g.itemtype in ('非贷款类房款','贷款类房款')
+        inner join dbo.s_Voucher v1  WITH (NOLOCK) on v1.VouchGUID = g.VouchGUID
         where g.Status IS NULL
             and v1.VouchType ='收款单'
     ) temp
@@ -115,7 +115,7 @@ left join (
 			g.ItemName,
             g.rmbamount
         from #con con 
-        inner join s_getin g on con.tradeguid = g.saleguid and g.itemtype in ('非贷款类房款','贷款类房款')
+        inner join s_getin g WITH (NOLOCK) on con.tradeguid = g.saleguid and g.itemtype in ('非贷款类房款','贷款类房款')
     ) x
 	group by ProjGUID,StageGUID,ProductName,ItemName
 ) tt on tt.ItemName = t.ItemName and tt.ProductName = t.ProductName and t.ProjGUID = tt.ProjGUID and t.StageGUID = tt.StageGUID
@@ -154,7 +154,7 @@ from (
             g.ItemType,
             CASE WHEN datediff(month,con.qsdate,g.getdate) < 0 THEN 0 ELSE datediff(month,con.qsdate,g.getdate) END as months
         from #con con 
-        inner join s_getin g on con.tradeguid = g.saleguid and g.itemtype in ('非贷款类房款')
+        inner join s_getin g WITH (NOLOCK) on con.tradeguid = g.saleguid and g.itemtype in ('非贷款类房款')
         where g.Status IS NULL
     ) temp
     group by temp.ProjGUID,
@@ -172,7 +172,7 @@ left join (
 			g.ItemName,
             g.rmbamount
         from #con con 
-        inner join s_getin g on con.tradeguid = g.saleguid and g.itemtype in ('非贷款类房款')
+        inner join s_getin g WITH (NOLOCK) on con.tradeguid = g.saleguid and g.itemtype in ('非贷款类房款')
     ) x
 	group by ProjGUID,StageGUID,ProductName
 ) tt on  tt.ProductName = t.ProductName and tt.ProjGUID = t.ProjGUID and tt.StageGUID = t.StageGUID
@@ -193,16 +193,16 @@ SELECT
        month(getin.GetDate) as 回笼月份,
        sum(getin.RmbAmount) as 回笼金额       
 INTO #getin
-FROM s_contract c
-LEFT JOIN ep_room r ON c.roomguid = r.roomguid
-left join p_Building b on r.BldGUID = b.BldGUID
-inner join mdm_salebuild sb on sb.SaleBldGUID = b.BldGUID
-inner join mdm_Product pr on pr.ProductGUID = sb.ProductGUID
-left join p_project p on p.ProjGUID = c.ProjGUID
-left join p_project pp on p.ParentCode = pp.ProjCode
+FROM s_contract c WITH (NOLOCK)
+LEFT JOIN ep_room r WITH (NOLOCK) ON c.roomguid = r.roomguid
+left join p_Building b  WITH (NOLOCK) on r.BldGUID = b.BldGUID
+inner join mdm_salebuild sb WITH (NOLOCK) on sb.SaleBldGUID = b.BldGUID
+inner join mdm_Product pr WITH (NOLOCK) on pr.ProductGUID = sb.ProductGUID
+left join p_project p WITH (NOLOCK) on p.ProjGUID = c.ProjGUID
+left join p_project pp WITH (NOLOCK) on p.ParentCode = pp.ProjCode
 LEFT JOIN (
     select tradeguid,sum(Amount) as Amount 
-    from s_fee 
+    from s_fee WITH (NOLOCK)
     where  ItemType in ('非贷款类房款','贷款类房款')
     group by tradeguid 
 ) fee on fee.tradeguid = c.tradeguid
@@ -210,18 +210,18 @@ LEFT JOIN (
     select saleguid,
         sum(RmbAmount) as RmbAmount,
         max(GetDate) as GetDate
-    from s_getin  g
+    from s_getin  g WITH (NOLOCK)
     where  ItemType in ('非贷款类房款','贷款类房款') 
         and g.status is null
     group by saleguid
 ) getin on getin.saleguid = c.tradeguid
-LEFT JOIN MyCost_Erp352.DBO.md_room md_room ON md_room.roomguid = r.roomguid
+LEFT JOIN MyCost_Erp352.DBO.md_room md_room WITH (NOLOCK) ON md_room.roomguid = r.roomguid
 left join (
     select md_productbuild.productbuildguid,
         md_productbuild.bldname as productbldname,
         md_gcbuild.bldname as projectbldname
-    from MyCost_Erp352.DBO.md_productbuild
-    inner join MyCost_Erp352.DBO.md_gcbuild on md_gcbuild.bldkeyguid = md_productbuild.bldkeyguid and md_gcbuild.isactive = 1
+    from MyCost_Erp352.DBO.md_productbuild WITH (NOLOCK)
+    inner join MyCost_Erp352.DBO.md_gcbuild  WITH (NOLOCK) on md_gcbuild.bldkeyguid = md_productbuild.bldkeyguid and md_gcbuild.isactive = 1
 ) bld on md_room.productbldguid = bld.productbuildguid
 left join MyCost_Erp352.DBO.md_productnamemodule on md_productnamemodule.productnamecode = md_room.productnamecode
 WHERE c.status = '激活' 
@@ -255,23 +255,23 @@ SELECT
         yj.回笼月份,
         CASE WHEN ISNULL(b.TotalAmount, 0) = 0 THEN 0 ELSE ISNULL(yj.huilongjiner, 0) * (ISNULL(a.AmountDetermined, 0) * 1.00 / ISNULL(b.TotalAmount, 0)) END AS huilongjiner 
 INTO    #ts
-FROM    S_PerformanceAppraisalBuildings a
-LEFT JOIN S_PerformanceAppraisal b ON b.PerformanceAppraisalGUID = a.PerformanceAppraisalGUID
+FROM    S_PerformanceAppraisalBuildings a WITH (NOLOCK)
+LEFT JOIN S_PerformanceAppraisal b WITH (NOLOCK) ON b.PerformanceAppraisalGUID = a.PerformanceAppraisalGUID
 LEFT JOIN (
         SELECT    v.SaleGUID ,
                 YEAR(g.GetDate) as 回笼年,
                 MONTH(g.GetDate) as 回笼月份,
                 SUM(ISNULL(g.RmbAmount, 0)) AS huilongjiner
-        FROM  dbo.s_Voucher v
-        INNER JOIN dbo.s_Getin g ON g.VouchGUID = v.VouchGUID
+        FROM  dbo.s_Voucher v WITH (NOLOCK)
+        INNER JOIN dbo.s_Getin g WITH (NOLOCK) ON g.VouchGUID = v.VouchGUID
         WHERE g.SaleType = '特殊业绩' AND (v.VouchStatus IS NULL OR  v.VouchStatus = '')
         GROUP BY v.SaleGUID,MONTH(g.GetDate),YEAR(g.GetDate)
 ) yj ON yj.SaleGUID = b.PerformanceAppraisalGUID
-left join p_Building bd on a.BldGUID = bd.BldGUID
-inner join mdm_salebuild sb on sb.SaleBldGUID = bd.BldGUID
-inner join mdm_Product pr on pr.ProductGUID = sb.ProductGUID
-left join p_project p on p.ProjGUID = bd.ProjGUID
-left join p_project pp on p.ParentCode = pp.ProjCode
+left join p_Building bd  WITH (NOLOCK) on a.BldGUID = bd.BldGUID
+inner join mdm_salebuild sb WITH (NOLOCK) on sb.SaleBldGUID = bd.BldGUID
+inner join mdm_Product pr WITH (NOLOCK) on pr.ProductGUID = sb.ProductGUID
+left join p_project p WITH (NOLOCK) on p.ProjGUID = bd.ProjGUID
+left join p_project pp WITH (NOLOCK) on p.ParentCode = pp.ProjCode
 WHERE   b.AuditStatus = '已审核'
         AND b.YjType NOT IN ('经营类(reits)', '经营类(溢价款)', '经营类(自持业绩认定)', '经营类(租金)')
         -- AND pp.ProjGUID = @var_projguid
@@ -288,28 +288,27 @@ SELECT  pp.ProjGUID,
         t.回笼年,
         t.回笼月份,
         sum(CASE WHEN ISNULL(b.TotalAmount, 0) = 0 THEN 0 ELSE ISNULL(t.huilongjiner, 0) * (ISNULL(a.AmountDetermined, 0) * 1.00 / ISNULL(b.TotalAmount, 0)) END) AS huilongjiner
-FROM    S_PerformanceAppraisalRoom a
-LEFT JOIN S_PerformanceAppraisal b ON b.PerformanceAppraisalGUID = a.PerformanceAppraisalGUID
+FROM    S_PerformanceAppraisalRoom a WITH (NOLOCK)
+LEFT JOIN S_PerformanceAppraisal b WITH (NOLOCK) ON b.PerformanceAppraisalGUID = a.PerformanceAppraisalGUID
 LEFT JOIN dbo.ep_room r on a.RoomGUID = r.RoomGUID
 LEFT JOIN (
         SELECT    v.SaleGUID ,
                 YEAR(g.GetDate) as 回笼年,
                 MONTH(g.GetDate) as 回笼月份,
                 SUM(ISNULL(g.RmbAmount, 0)) AS huilongjiner 
-        FROM  dbo.s_Voucher v
-            INNER JOIN dbo.s_Getin g ON g.VouchGUID = v.VouchGUID
+        FROM  dbo.s_Voucher v WITH (NOLOCK)
+            INNER JOIN dbo.s_Getin g  WITH (NOLOCK) ON g.VouchGUID = v.VouchGUID
         WHERE g.SaleType = '特殊业绩' AND (v.VouchStatus IS NULL OR  v.VouchStatus = '')
         GROUP BY v.SaleGUID,MONTH(g.GetDate),YEAR(g.GetDate)
 ) t ON t.SaleGUID = b.PerformanceAppraisalGUID
-left join p_Building bd on r.BldGUID = bd.BldGUID
-inner join mdm_salebuild sb on sb.SaleBldGUID = bd.BldGUID
-inner join mdm_Product pr on pr.ProductGUID = sb.ProductGUID
-left join p_project p on p.ProjGUID = bd.ProjGUID
-left join p_project pp on p.ParentCode = pp.ProjCode
-LEFT JOIN MyCost_Erp352.DBO.md_room md_room ON md_room.roomguid = r.roomguid
-left join MyCost_Erp352.DBO.md_productnamemodule on md_productnamemodule.productnamecode = md_room.productnamecode
+left join p_Building bd  WITH (NOLOCK)on r.BldGUID = bd.BldGUID
+inner join mdm_salebuild sb WITH (NOLOCK) on sb.SaleBldGUID = bd.BldGUID
+inner join mdm_Product pr WITH (NOLOCK) on pr.ProductGUID = sb.ProductGUID
+left join p_project p WITH (NOLOCK) on p.ProjGUID = bd.ProjGUID
+left join p_project pp WITH (NOLOCK) on p.ParentCode = pp.ProjCode
+LEFT JOIN MyCost_Erp352.DBO.md_room md_room WITH (NOLOCK) ON md_room.roomguid = r.roomguid
+left join MyCost_Erp352.DBO.md_productnamemodule WITH (NOLOCK) on md_productnamemodule.productnamecode = md_room.productnamecode
 WHERE   b.AuditStatus = '已审核'
-        --AND b.YjType<>'经营类'
         AND b.YjType NOT IN ('经营类(reits)', '经营类(溢价款)', '经营类(自持业绩认定)', '经营类(租金)')
         -- AND pp.ProjGUID = @var_projguid
 GROUP BY pp.ProjGUID,
@@ -334,8 +333,8 @@ SELECT
     hzyj.DateMonth as 回笼月份,
     sum(a.huilongjiner) as 回笼金额
 into #hzyj
-FROM dbo.s_YJRLProducteDescript a
-LEFT JOIN vs_HzyjFinaceBase hzyj ON a.ProducteDetailGUID = hzyj.ProducteDetailGUID
+FROM dbo.s_YJRLProducteDescript a WITH (NOLOCK)
+LEFT JOIN vs_HzyjFinaceBase hzyj WITH (NOLOCK) ON a.ProducteDetailGUID = hzyj.ProducteDetailGUID
 LEFT JOIN
 (
     SELECT *,
@@ -343,10 +342,10 @@ LEFT JOIN
     FROM dbo.s_YJRLProducteDetail b
     WHERE b.Shenhe = '审核'
 ) b ON b.ProducteDetailGUID = a.ProducteDetailGUID
-LEFT JOIN dbo.s_YJRLProjSet c ON c.ProjSetGUID = b.ProjSetGUID
-LEFT JOIN dbo.p_Project p ON p.ProjGUID = c.ProjGUID
-LEFT JOIN dbo.p_Project stage ON stage.ProjGUID = a.ProjGUID
-LEFT JOIN dbo.myBusinessUnit bu ON bu.BUGUID = c.BUGuid
+LEFT JOIN dbo.s_YJRLProjSet c WITH (NOLOCK) ON c.ProjSetGUID = b.ProjSetGUID
+LEFT JOIN dbo.p_Project p WITH (NOLOCK) ON p.ProjGUID = c.ProjGUID
+LEFT JOIN dbo.p_Project stage WITH (NOLOCK) ON stage.ProjGUID = a.ProjGUID
+LEFT JOIN dbo.myBusinessUnit bu WITH (NOLOCK) ON bu.BUGUID = c.BUGuid
 WHERE b.Shenhe = '审核'
    -- AND p.ProjGUID = @var_projguid
 group by p.ProjGUID,
@@ -385,12 +384,12 @@ SELECT c.contractguid,
        CONCAT(md_productnamemodule.producttype,'-',md_room.productname,'-',md_room.businesstype,'-',case when md_room.zxbz ='' then pr.Standard else md_room.zxbz end) AS ProductName
 INTO #con_ys
 FROM s_contract c
-LEFT JOIN ep_room r ON c.roomguid = r.roomguid
-left join p_Building b on r.BldGUID = b.BldGUID
-inner join mdm_salebuild sb on sb.SaleBldGUID = b.BldGUID
-inner join mdm_Product pr on pr.ProductGUID = sb.ProductGUID
-left join p_project p on p.ProjGUID = c.ProjGUID
-left join p_project pp on p.ParentCode = pp.ProjCode
+LEFT JOIN ep_room r WITH (NOLOCK) ON c.roomguid = r.roomguid
+left join p_Building b WITH (NOLOCK) on r.BldGUID = b.BldGUID
+inner join mdm_salebuild sb WITH (NOLOCK) on sb.SaleBldGUID = b.BldGUID
+inner join mdm_Product pr WITH (NOLOCK) on pr.ProductGUID = sb.ProductGUID
+left join p_project p WITH (NOLOCK) on p.ProjGUID = c.ProjGUID
+left join p_project pp WITH (NOLOCK) on p.ParentCode = pp.ProjCode
 LEFT JOIN (
    select tradeguid,
         sum(Amount) as Amount,
@@ -398,7 +397,7 @@ LEFT JOIN (
         SUM(CASE WHEN  ItemType in ('非贷款类房款') THEN ISNULL(Ye, 0) - ISNULL(DsAmount, 0) ELSE 0 END) AS FDK_YE,
         SUM(CASE WHEN  ItemType in ('贷款类房款') AND ITEMNAME ='银行按揭' THEN ISNULL(Ye, 0) - ISNULL(DsAmount, 0) ELSE 0 END) AS YHAJ_YE,
         SUM(CASE WHEN  ItemType in ('贷款类房款') AND ITEMNAME ='公积金' THEN ISNULL(Ye, 0) - ISNULL(DsAmount, 0) ELSE 0 END) AS GJJ_YE
-    from s_fee 
+    from s_fee WITH (NOLOCK)
     where  ItemType in ('非贷款类房款','贷款类房款') 
     group by tradeguid 
 ) fee on fee.tradeguid = c.tradeguid
@@ -406,7 +405,7 @@ LEFT JOIN (
     select saleguid,
         sum(RmbAmount) as RmbAmount,
         max(GetDate) as GetDate
-    from s_getin  g
+    from s_getin  g WITH (NOLOCK)
     where  ItemType in ('非贷款类房款','贷款类房款') 
         and g.status is null
     group by saleguid
@@ -416,8 +415,8 @@ left join (
     select md_productbuild.productbuildguid,
         md_productbuild.bldname as productbldname,
         md_gcbuild.bldname as projectbldname
-    from MyCost_Erp352.DBO.md_productbuild
-    inner join MyCost_Erp352.DBO.md_gcbuild on md_gcbuild.bldkeyguid = md_productbuild.bldkeyguid and md_gcbuild.isactive = 1
+    from MyCost_Erp352.DBO.md_productbuild WITH (NOLOCK)
+    inner join MyCost_Erp352.DBO.md_gcbuild WITH (NOLOCK) on md_gcbuild.bldkeyguid = md_productbuild.bldkeyguid and md_gcbuild.isactive = 1
 ) bld on md_room.productbldguid = bld.productbuildguid
 left join MyCost_Erp352.DBO.md_productnamemodule on md_productnamemodule.productnamecode = md_room.productnamecode
 WHERE c.status = '激活' 
@@ -512,7 +511,7 @@ SELECT
     month(s.lastDate) as 回笼月份,
     SUM(ISNULL(Ye, 0) - ISNULL(DsAmount, 0)) AS 非贷款类已售未回款金额
 INTO #ys_fdk
-FROM s_fee s
+FROM s_fee s WITH (NOLOCK)
 INNER JOIN #con_ys v ON s.TradeGUID = v.tradeguid
 WHERE s.ItemType IN ('非贷款类房款') 
 GROUP BY v.ProjGUID,
