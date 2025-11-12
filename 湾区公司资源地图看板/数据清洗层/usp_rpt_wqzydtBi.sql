@@ -1,12 +1,12 @@
 USE [HighData_prod]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_rpt_wqzydtBi]    Script Date: 2025/5/24 12:32:31 ******/
+/****** Object:  StoredProcedure [dbo].[usp_rpt_wqzydtBi]    Script Date: 2025/11/10 18:50:24 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
 
-ALTER proc [dbo].[usp_rpt_wqzydtBi] as 
+alter proc [dbo].[usp_rpt_wqzydtBi] as 
 /*
 [usp_rpt_wqzydtBi]
 为了看板性能，将数据集的结果也按天存储进来
@@ -870,14 +870,14 @@ case when sum(org.去年除地价外直投任务) = 0 then 0 else sum(org.去年
 --2.2资金情况
 sum(org.账面可动用资金) as 账面可动用资金,		
 sum(org.监控款余额) as 监控款余额,		
-sum(org.贷款余额 -org.供应链融资余额) as 贷款余额,	 --包含了供应链余额的，所以要先去掉	
+sum(isnull(org.贷款余额,0) -isnull(org.供应链融资余额,0)) as 贷款余额,	 --包含了供应链余额的，所以要先去掉	
 sum(org.我司资金占用) as 我司资金占用 ,	
 sum(org.股东投入余额) as 股东投入余额 ,		
 sum(org.供应链融资余额) as 供应链融资余额 ,
 --并表口径	
 sum(org.账面可动用资金并表口径) as 账面可动用资金并表口径,		
 sum(org.监控款余额并表口径) as 监控款余额并表口径,		
-sum(org.贷款余额并表口径 -org.供应链融资余额并表口径) as  贷款余额并表口径,		
+sum(isnull(org.贷款余额并表口径,0) -isnull(org.供应链融资余额并表口径,0)) as  贷款余额并表口径,		
 sum(org.我司资金占用并表口径) as 我司资金占用并表口径,	
 sum(org.股东投入余额并表口径) as 股东投入余额并表口径,		
 sum(org.供应链融资余额并表口径) as 供应链融资余额并表口径,
@@ -1376,235 +1376,939 @@ drop table  #dw02, #date02
                                                 
 
 -------------------------03 公司资源情况_1
---缓存业态及项目的维度信息
-select distinct
-org.清洗时间,
-'4' 组织架构类型, --业态维度
-tj.统计维度,
-case when tj.统计维度 in ('公司') then '湾区公司' else '无' end  公司,
-case when tj.统计维度 in ('城市') then org.区域 else '无' end  城市,
-case when tj.统计维度 in ('片区') then org.销售片区 else '无' end 片区,
-case when tj.统计维度 in ('镇街') then org.所属镇街 else '无' end 镇街,
-case when tj.统计维度 in ('项目') then yt.项目名称 else '无' end  项目,
-case when  tj.统计维度 in ('公司') then '湾区公司'
-when tj.统计维度 in ('城市') then org.区域
-when tj.统计维度 in ('片区') then org.区域+'_'+isnull(org.销售片区,'无')
-when tj.统计维度 in ('镇街') then org.区域+'_'+isnull(org.销售片区,'无')+'_'+isnull(org.所属镇街,'无')
-else yt.项目名称 end 外键关联,
-yt.项目guid as projguid, 
-yt.组织架构id as 组织架构id,
-case when case when yt.组织架构名称 in ('别墅') then '高级住宅' else yt.组织架构名称 end in (
-'住宅','高级住宅','公寓','商业','写字楼','地下室/车库') then case when yt.组织架构名称 in ('别墅') then '高级住宅' else yt.组织架构名称 end else '其他' end 组织架构名称,
-t.二级科目
-into #baseinfo03
-from s_WqBaseStatic_summary org
-inner join (select '货值' as 二级科目 union all select '面积' as 二级科目 union all select '均价' as 二级科目 union all select '套数' as 二级科目) t on 1=1
-inner join (select DISTINCT 组织架构id,组织架构名称,组织架构编码,项目guid,项目推广名 as 项目名称 from s_WqBaseStatic_summary org
-where 组织架构类型 = 4 and org.清洗时间id = @date_id)yt on CHARINDEX(org.组织架构编码,yt.组织架构编码)>0
-inner join (select '公司' 统计维度 union all select '城市' 统计维度 union all select '片区' 统计维度 union all select '镇街' 统计维度 union all select '项目' 统计维度) tj on 1=1
-where org.组织架构类型=3 and org.清洗时间id = @date_id and org.平台公司名称 = '湾区公司'
-union all 
---汇总数据直接取项目的，因为业态层级的数据不等于项目层级的数据
-select distinct
-org.清洗时间,
-org.组织架构类型, --项目维度
-tj.统计维度,
-case when tj.统计维度 in ('公司') then '湾区公司' else '无' end  公司,
-case when tj.统计维度 in ('城市') then org.区域 else '无' end  城市,
-case when tj.统计维度 in ('片区') then org.销售片区 else '无' end 片区,
-case when tj.统计维度 in ('镇街') then org.所属镇街 else '无' end 镇街,
-case when tj.统计维度 in ('项目') then org.项目推广名 else '无' end  项目,
-case when  tj.统计维度 in ('公司') then '湾区公司'
-when tj.统计维度 in ('城市') then org.区域
-when tj.统计维度 in ('片区') then org.区域+'_'+isnull(org.销售片区,'无')
-when tj.统计维度 in ('镇街') then org.区域+'_'+isnull(org.销售片区,'无')+'_'+isnull(org.所属镇街,'无')
-else org.项目推广名 end 外键关联,
-org.项目guid as projguid,  
-org.组织架构id as 组织架构id,
-org.项目推广名 as 组织架构名称,
-t.二级科目 
-from s_WqBaseStatic_summary org
-inner join (select '货值' as 二级科目 union all select '面积' as 二级科目 union all select '均价' as 二级科目 union all select '套数' as 二级科目) t on 1=1
-inner join (select '公司' 统计维度 union all select '城市' 统计维度 union all select '片区' 统计维度 union all select '镇街' 统计维度 union all select '项目' 统计维度) tj on 1=1
-where org.组织架构类型=3 
-and org.清洗时间id = @date_id and org.平台公司名称 = '湾区公司'
- 
+-- 缓存业态及项目的维度信息
+SELECT DISTINCT
+    org.清洗时间,
+    '4' AS 组织架构类型, -- 业态维度
+    tj.统计维度,
+    CASE WHEN tj.统计维度 IN ('公司') THEN '湾区公司' ELSE '无' END AS 公司,
+    CASE WHEN tj.统计维度 IN ('城市') THEN org.区域 ELSE '无' END AS 城市,
+    CASE WHEN tj.统计维度 IN ('片区') THEN org.销售片区 ELSE '无' END AS 片区,
+    CASE WHEN tj.统计维度 IN ('镇街') THEN org.所属镇街 ELSE '无' END AS 镇街,
+    CASE WHEN tj.统计维度 IN ('项目') THEN yt.项目名称 ELSE '无' END AS 项目,
+    CASE
+        WHEN tj.统计维度 IN ('公司') THEN '湾区公司'
+        WHEN tj.统计维度 IN ('城市') THEN org.区域
+        WHEN tj.统计维度 IN ('片区') THEN org.区域 + '_' + ISNULL(org.销售片区, '无')
+        WHEN tj.统计维度 IN ('镇街') THEN org.区域 + '_' + ISNULL(org.销售片区, '无') + '_' + ISNULL(org.所属镇街, '无')
+        ELSE yt.项目名称
+    END AS 外键关联,
+    yt.项目guid AS projguid,
+    yt.组织架构id AS 组织架构id,
+    CASE 
+        WHEN 
+            CASE WHEN yt.组织架构名称 IN ('别墅') THEN '高级住宅' ELSE yt.组织架构名称 END
+            IN ('住宅','高级住宅','公寓','商业','写字楼','地下室/车库')
+        THEN CASE WHEN yt.组织架构名称 IN ('别墅') THEN '高级住宅' ELSE yt.组织架构名称 END
+        ELSE '其他'
+    END AS 组织架构名称,
+    t.二级科目
+INTO #baseinfo03
+FROM s_WqBaseStatic_summary org
+INNER JOIN (
+    SELECT '货值' AS 二级科目
+    UNION ALL SELECT '面积'
+    UNION ALL SELECT '均价'
+    UNION ALL SELECT '套数'
+) t ON 1 = 1
+INNER JOIN (
+    SELECT DISTINCT 组织架构id, 组织架构名称, 组织架构编码, 项目guid, 项目推广名 AS 项目名称
+    FROM s_WqBaseStatic_summary org
+    WHERE 组织架构类型 = 4 AND org.清洗时间id = @date_id
+) yt ON CHARINDEX(org.组织架构编码, yt.组织架构编码) > 0
+INNER JOIN (
+    SELECT '公司' 统计维度
+    UNION ALL SELECT '城市'
+    UNION ALL SELECT '片区'
+    UNION ALL SELECT '镇街'
+    UNION ALL SELECT '项目'
+) tj ON 1 = 1
+WHERE org.组织架构类型 = 3 
+    AND org.清洗时间id = @date_id 
+    AND org.平台公司名称 = '湾区公司'
 
-----预处理立项定位数据，针对代建以及老项目等存在没有立项定位数据的话，就取动态总资源
+UNION ALL
+
+-- 汇总数据直接取项目的，因为业态层级的数据不等于项目层级的数据
+SELECT DISTINCT
+    org.清洗时间,
+    org.组织架构类型, -- 项目维度
+    tj.统计维度,
+    CASE WHEN tj.统计维度 IN ('公司') THEN '湾区公司' ELSE '无' END AS 公司,
+    CASE WHEN tj.统计维度 IN ('城市') THEN org.区域 ELSE '无' END AS 城市,
+    CASE WHEN tj.统计维度 IN ('片区') THEN org.销售片区 ELSE '无' END AS 片区,
+    CASE WHEN tj.统计维度 IN ('镇街') THEN org.所属镇街 ELSE '无' END AS 镇街,
+    CASE WHEN tj.统计维度 IN ('项目') THEN org.项目推广名 ELSE '无' END AS 项目,
+    CASE
+        WHEN tj.统计维度 IN ('公司') THEN '湾区公司'
+        WHEN tj.统计维度 IN ('城市') THEN org.区域
+        WHEN tj.统计维度 IN ('片区') THEN org.区域 + '_' + ISNULL(org.销售片区, '无')
+        WHEN tj.统计维度 IN ('镇街') THEN org.区域 + '_' + ISNULL(org.销售片区, '无') + '_' + ISNULL(org.所属镇街, '无')
+        ELSE org.项目推广名
+    END AS 外键关联,
+    org.项目guid AS projguid,
+    org.组织架构id AS 组织架构id,
+    org.项目推广名 AS 组织架构名称,
+    t.二级科目
+FROM s_WqBaseStatic_summary org
+INNER JOIN (
+    SELECT '货值' AS 二级科目
+    UNION ALL SELECT '面积'
+    UNION ALL SELECT '均价'
+    UNION ALL SELECT '套数'
+) t ON 1 = 1
+INNER JOIN (
+    SELECT '公司' 统计维度
+    UNION ALL SELECT '城市'
+    UNION ALL SELECT '片区'
+    UNION ALL SELECT '镇街'
+    UNION ALL SELECT '项目'
+) tj ON 1 = 1
+WHERE org.组织架构类型 = 3
+    AND org.清洗时间id = @date_id
+    AND org.平台公司名称 = '湾区公司'
+
+
+
+---- 预处理立项定位数据，针对代建以及老项目等存在没有立项定位数据的话，就取动态总资源
 -- 如果立项为0，定位有数据，立项就按定位的数据。
 -- 如果立项有数据，定位为0，那定位就按立项的数据。
 -- 如果两者都为0，那就按动态总资源的数据。
---1、通过项目层级判断应该取哪个版本的数据 
-select org.清洗时间,
-org.组织架构id,
-case when isnull(org.立项货值,0)=0 then (case when isnull(org.定位最新版货值,0) = 0 then '动态' else '定位' end) else '立项' end  立项版本,
-case when isnull(org.定位最新版货值,0)=0 then (case when isnull(org.立项货值,0) = 0 then '动态' else '立项' end) else '定位' end 定位版本
-into #ver03
-from s_WqBaseStatic_summary org
-where org.组织架构类型=3 
-and org.清洗时间id = @date_id
+-- 1、通过项目层级判断应该取哪个版本的数据 
+SELECT 
+    org.清洗时间,
+    org.组织架构id,
+    CASE 
+        WHEN ISNULL(org.立项货值, 0) = 0 
+            THEN (CASE WHEN ISNULL(org.定位最新版货值, 0) = 0 THEN '动态' ELSE '定位' END) 
+        ELSE '立项'
+    END AS 立项版本,
+    CASE 
+        WHEN ISNULL(org.定位最新版货值, 0) = 0 
+            THEN (CASE WHEN ISNULL(org.立项货值, 0) = 0 THEN '动态' ELSE '立项' END) 
+        ELSE '定位'
+    END AS 定位版本
+INTO #ver03
+FROM s_WqBaseStatic_summary org
+WHERE org.组织架构类型 = 3
+    AND org.清洗时间id = @date_id
 
---2、预处理需要计算的指标
-select org.清洗时间, 
-org.组织架构id,
-case when ver.立项版本='立项' then org.立项货值 when 立项版本='定位' then org.定位最新版货值 else  org.动态总货值金额 end  立项货值,
-case when ver.立项版本='立项' then org.立项套数 when 立项版本='定位' then org.定位最新版套数 else  org.总货值套数 end  立项套数,
-case when ver.立项版本='立项' then org.立项总建筑面积 when 立项版本='定位' then org.定位最新版总建筑面积 else  org.动态总货值面积 end  立项总建筑面积,
-case when ver.定位版本='立项' then org.立项货值 when 定位版本='定位' then org.定位最新版货值 else  org.动态总货值金额 end 定位最新版货值,
-case when ver.定位版本='立项' then org.立项套数 when 定位版本='定位' then org.定位最新版套数 else  org.总货值套数 end 定位最新版套数,
-case when ver.定位版本='立项' then org.立项总建筑面积 when 定位版本='定位' then org.定位最新版总建筑面积 else  org.动态总货值面积 end  定位最新版总建筑面积,
---A=B+C
-动态总货值金额 动态总资源, 
-动态总货值面积 总货值面积,
-总货值套数,
---A1=A-F2
-动态总货值金额 -预计3年内不开工货值金额 动态总货值金额_除3年不开工,  
-动态总货值面积 -预计3年内不开工货值面积 动态总货值面积_除3年不开工,
-总货值套数 -剩余货值套数_三年内不开工 动态总货值套数_除3年不开工,
---B
-已售货值金额 累计签约货值,
-已售货值面积 累计签约面积,
-累计签约套数,
---C=D+E+F
-剩余资源金额 剩余货值金额,
-剩余资源面积 剩余货值面积,
-剩余货值套数,
---D=D1+D2
-isnull(存货货值金额,0) as 存货货值金额,
-isnull(存货货值面积,0) as 存货货值面积,
-isnull(剩余可售货值套数,0) as 存货货值套数,
---D1=①+②+③
-isnull(存货货值金额,0) - isnull(停工缓建剩余可售货值金额,0) 当前可售货值金额, --正常销售
-isnull(存货货值面积,0) - isnull(停工缓建剩余可售货值面积,0) 当前可售货值面积,
-isnull(剩余可售货值套数,0) - isnull(停工缓建剩余可售货值套数,0) 当前可售货值套数,
---①
-isnull(达形象未取证货值,0) - isnull(停工缓建工程达到可售未拿证货值金额,0) 具备条件未领证金额,
-isnull(达形象未取证面积,0) - isnull(停工缓建工程达到可售未拿证货值面积,0) 具备条件未领证面积,
-isnull(工程达到可售未拿证货值套数,0) - isnull(停工缓建工程达到可售未拿证货值套数,0) 具备条件未领证套数,
---②
-isnull(获证待推货值,0)-isnull(停工缓建获证未推货值金额,0) 获证待推金额,
-isnull(获证待推面积,0)-isnull(停工缓建获证未推货值面积,0)  获证待推面积,
-isnull(获证未推货值套数,0)-isnull(停工缓建获证未推货值套数,0)  获证待推套数,
---③
-isnull(已推未售货值,0)-isnull(停工缓建已推未售货值金额,0) 已推未售金额,
-isnull(已推未售面积,0)-isnull(停工缓建已推未售货值面积,0) 已推未售面积,
-isnull(已推未售货值套数,0)-isnull(停工缓建已推未售货值套数,0) 已推未售套数,
---D2
-isnull(停工缓建剩余可售货值金额,0) as 停工缓建剩余可售货值金额,
-isnull(停工缓建剩余可售货值面积,0) as 停工缓建剩余可售货值面积,
-isnull(停工缓建剩余可售货值套数,0) as 停工缓建剩余可售货值套数,
---E=E1+E2
-isnull(在途货值金额,0)  as 在途货值金额合计,
-isnull(在途货值面积,0) as 在途货值面积合计,
-isnull(在途剩余货值套数,0) 在途剩余货值套数合计,
---E1
-isnull(在途货值金额,0)-isnull(停工缓建在途剩余货值金额,0) 在途剩余货值金额,
-isnull(在途货值面积,0)-isnull(停工缓建在途剩余货值面积,0) 在途剩余货值面积,
-isnull(在途剩余货值套数,0)-isnull(停工缓建在途剩余货值套数,0) 在途剩余货值套数,
---E2
-isnull(停工缓建在途剩余货值金额,0) as 停工缓建在途剩余货值金额,
-isnull(停工缓建在途剩余货值面积,0) as 停工缓建在途剩余货值面积,
-isnull(停工缓建在途剩余货值套数,0) as 停工缓建在途剩余货值套数,
---F=F1+F2
-未开工货值金额 未开工剩余货值金额,
-未开工货值面积 未开工剩余货值面积,
-未开工剩余货值套数 未开工剩余货值套数,
---F1
-isnull(未开工货值金额,0) - isnull(预计3年内不开工货值金额,0) as 三年内开工剩余货值金额,
-isnull(未开工货值面积,0) - isnull(预计3年内不开工货值面积,0) as 三年内开工剩余货值面积,
-isnull(未开工剩余货值套数,0) - isnull(剩余货值套数_三年内不开工,0) as 三年内开工剩余货值套数,
---F2
-预计3年内不开工货值金额 剩余货值金额_三年内不开工,  
-预计3年内不开工货值面积 剩余货值面积_三年内不开工,
-剩余货值套数_三年内不开工,
+-- 2、预处理需要计算的指标
+SELECT 
+    org.清洗时间, 
+    org.组织架构id,
+    CASE WHEN ver.立项版本 = '立项' THEN org.立项货值 
+         WHEN 立项版本 = '定位' THEN org.定位最新版货值 
+         ELSE org.动态总货值金额 END AS 立项货值,
+    CASE WHEN ver.立项版本 = '立项' THEN org.立项套数 
+         WHEN 立项版本 = '定位' THEN org.定位最新版套数 
+         ELSE org.总货值套数 END AS 立项套数,
+    CASE WHEN ver.立项版本 = '立项' THEN org.立项总建筑面积 
+         WHEN 立项版本 = '定位' THEN org.定位最新版总建筑面积 
+         ELSE org.动态总货值面积 END AS 立项总建筑面积,
+    CASE WHEN ver.定位版本 = '立项' THEN org.立项货值 
+         WHEN 定位版本 = '定位' THEN org.定位最新版货值 
+         ELSE org.动态总货值金额 END AS 定位最新版货值,
+    CASE WHEN ver.定位版本 = '立项' THEN org.立项套数 
+         WHEN 定位版本 = '定位' THEN org.定位最新版套数 
+         ELSE org.总货值套数 END AS 定位最新版套数,
+    CASE WHEN ver.定位版本 = '立项' THEN org.立项总建筑面积 
+         WHEN 定位版本 = '定位' THEN org.定位最新版总建筑面积 
+         ELSE org.动态总货值面积 END AS 定位最新版总建筑面积,
+    --A=B+C
+    动态总货值金额 AS 动态总资源, 
+    动态总货值面积 AS 总货值面积,
+    总货值套数,
+    --A1=A-F2
+    动态总货值金额 - 预计3年内不开工货值金额 AS 动态总货值金额_除3年不开工,  
+    动态总货值面积 - 预计3年内不开工货值面积 AS 动态总货值面积_除3年不开工,
+    总货值套数 - 剩余货值套数_三年内不开工 AS 动态总货值套数_除3年不开工,
+    --B
+    已售货值金额 AS 累计签约货值,
+    已售货值面积 AS 累计签约面积,
+    累计签约套数,
+    --C=D+E+F
+    剩余资源金额 AS 剩余货值金额,
+    剩余资源面积 AS 剩余货值面积,
+    剩余货值套数,
+    --D=D1+D2
+    ISNULL(存货货值金额, 0) AS 存货货值金额,
+    ISNULL(存货货值面积, 0) AS 存货货值面积,
+    ISNULL(剩余可售货值套数, 0) AS 存货货值套数,
+    --D1=①+②+③
+    ISNULL(存货货值金额, 0) - ISNULL(停工缓建剩余可售货值金额, 0) AS 当前可售货值金额, -- 正常销售
+    ISNULL(存货货值面积, 0) - ISNULL(停工缓建剩余可售货值面积, 0) AS 当前可售货值面积,
+    ISNULL(剩余可售货值套数, 0) - ISNULL(停工缓建剩余可售货值套数, 0) AS 当前可售货值套数,
+    --①
+    ISNULL(达形象未取证货值, 0) - ISNULL(停工缓建工程达到可售未拿证货值金额, 0) AS 具备条件未领证金额,
+    ISNULL(达形象未取证面积, 0) - ISNULL(停工缓建工程达到可售未拿证货值面积, 0) AS 具备条件未领证面积,
+    ISNULL(工程达到可售未拿证货值套数, 0) - ISNULL(停工缓建工程达到可售未拿证货值套数, 0) AS 具备条件未领证套数,
+    --②
+    ISNULL(获证待推货值, 0) - ISNULL(停工缓建获证未推货值金额, 0) AS 获证待推金额,
+    ISNULL(获证待推面积, 0) - ISNULL(停工缓建获证未推货值面积, 0) AS 获证待推面积,
+    ISNULL(获证未推货值套数, 0) - ISNULL(停工缓建获证未推货值套数, 0) AS 获证待推套数,
+    --③
+    ISNULL(已推未售货值, 0) - ISNULL(停工缓建已推未售货值金额, 0) AS 已推未售金额,
+    ISNULL(已推未售面积, 0) - ISNULL(停工缓建已推未售货值面积, 0) AS 已推未售面积,
+    ISNULL(已推未售货值套数, 0) - ISNULL(停工缓建已推未售货值套数, 0) AS 已推未售套数,
+    --D2
+    ISNULL(停工缓建剩余可售货值金额, 0) AS 停工缓建剩余可售货值金额,
+    ISNULL(停工缓建剩余可售货值面积, 0) AS 停工缓建剩余可售货值面积,
+    ISNULL(停工缓建剩余可售货值套数, 0) AS 停工缓建剩余可售货值套数,
+    --E=E1+E2
+    ISNULL(在途货值金额, 0) AS 在途货值金额合计,
+    ISNULL(在途货值面积, 0) AS 在途货值面积合计,
+    ISNULL(在途剩余货值套数, 0) AS 在途剩余货值套数合计,
+    --E1
+    ISNULL(在途货值金额, 0) - ISNULL(停工缓建在途剩余货值金额, 0) AS 在途剩余货值金额,
+    ISNULL(在途货值面积, 0) - ISNULL(停工缓建在途剩余货值面积, 0) AS 在途剩余货值面积,
+    ISNULL(在途剩余货值套数, 0) - ISNULL(停工缓建在途剩余货值套数, 0) AS 在途剩余货值套数,
+    --E2
+    ISNULL(停工缓建在途剩余货值金额, 0) AS 停工缓建在途剩余货值金额,
+    ISNULL(停工缓建在途剩余货值面积, 0) AS 停工缓建在途剩余货值面积,
+    ISNULL(停工缓建在途剩余货值套数, 0) AS 停工缓建在途剩余货值套数,
+    --F=F1+F2
+    未开工货值金额 AS 未开工剩余货值金额,
+    未开工货值面积 AS 未开工剩余货值面积,
+    未开工剩余货值套数 AS 未开工剩余货值套数,
+    --F1
+    ISNULL(未开工货值金额, 0) - ISNULL(预计3年内不开工货值金额, 0) AS 三年内开工剩余货值金额,
+    ISNULL(未开工货值面积, 0) - ISNULL(预计3年内不开工货值面积, 0) AS 三年内开工剩余货值面积,
+    ISNULL(未开工剩余货值套数, 0) - ISNULL(剩余货值套数_三年内不开工, 0) AS 三年内开工剩余货值套数,
+    --F2
+    预计3年内不开工货值金额 AS 剩余货值金额_三年内不开工,
+    预计3年内不开工货值面积 AS 剩余货值面积_三年内不开工,
+    剩余货值套数_三年内不开工,
 
-停工缓建剩余货值金额,
-停工缓建剩余货值面积,
-停工缓建剩余货值套数
+    停工缓建剩余货值金额,
+    停工缓建剩余货值面积,
+    停工缓建剩余货值套数
 
-into #lxdw03
-from s_WqBaseStatic_summary org
-inner join #ver03 ver on org.项目guid = ver.组织架构id 
-where org.组织架构类型 in (3,4) 
-and org.清洗时间id = @date_id and org.平台公司名称 = '湾区公司'
- 
---清空当天数据
-delete from wqzydtBi_resourseinfo where datediff(dd,清洗时间,getdate()) = 0
-insert into wqzydtBi_resourseinfo
---汇总结果
-select 
-base.清洗时间,
-base.统计维度,
-base.公司,
-base.城市,
-base.片区,
-base.镇街,
-base.项目,
-base.外键关联,
-case when base.组织架构类型 = 4 then base.组织架构名称 else '汇总' end as 业态,
-case when base.二级科目 = '货值' then '货值（亿元）' when base.二级科目 = '面积' then '面积（万㎡）'
-when base.二级科目 = '套数' then '套数（套）' else '均价（元）' end as 二级科目 , 
-case when base.组织架构类型 = 4 then base.组织架构名称 else '汇总' end+base.二级科目  id,
-case when base.二级科目 = '货值' then null else (case when base.组织架构类型 = 4 then base.组织架构名称 else '汇总' end)+'货值' end parentid,
-case when base.组织架构类型 = 4 then 0 else 1 end  as 是否加背景色, --项目汇总的话，就加背景色
-case when base.二级科目 ='货值' then sum(lxdw.立项货值) when base.二级科目 ='面积' then sum(lxdw.立项总建筑面积) when base.二级科目 = '套数' then sum(lxdw.立项套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.立项总建筑面积) = 0 then 0 else sum(lxdw.立项货值)*10000.0/sum(lxdw.立项总建筑面积) end) else 0 end 立项,
-case when base.二级科目 ='货值' then sum(lxdw.定位最新版货值) when base.二级科目 ='面积' then sum(lxdw.定位最新版总建筑面积) when base.二级科目 = '套数' then sum(lxdw.定位最新版套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.定位最新版总建筑面积) = 0 then 0 else sum(lxdw.定位最新版货值)*10000.0/sum(lxdw.定位最新版总建筑面积) end) else 0 end 定位,
-case when base.二级科目 ='货值' then sum(lxdw.动态总资源) when base.二级科目 ='面积' then sum(lxdw.总货值面积) when base.二级科目 = '套数' then sum(lxdw.总货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.总货值面积) = 0 then 0 else sum(lxdw.动态总资源)*10000.0/sum(lxdw.总货值面积)  end) else 0 end  as 总货量,	
-case when base.二级科目 ='货值' then sum(lxdw.动态总货值金额_除3年不开工) when base.二级科目 ='面积' then sum(lxdw.动态总货值面积_除3年不开工) when base.二级科目 ='套数' then sum(lxdw.动态总货值套数_除3年不开工)
-when base.二级科目 ='均价' then (case when (sum(lxdw.动态总货值面积_除3年不开工)) = 0 then 0 else sum(lxdw.动态总货值金额_除3年不开工)*10000.0/sum(lxdw.动态总货值面积_除3年不开工)  end) else 0 end  as 总货量_除3年不开工,
-case when base.二级科目 ='货值' then sum(lxdw.累计签约货值) when base.二级科目 ='面积' then sum(lxdw.累计签约面积) when base.二级科目 ='套数' then sum(lxdw.累计签约套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.累计签约面积) = 0 then 0 else sum(lxdw.累计签约货值)*10000.0/sum(lxdw.累计签约面积) end) else 0 end as 已售,
-case when base.二级科目 ='货值' then sum(lxdw.当前可售货值金额) when base.二级科目 ='面积' then sum(lxdw.当前可售货值面积) when base.二级科目 ='套数' then sum(lxdw.当前可售货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.当前可售货值面积) = 0 then 0 else sum(lxdw.当前可售货值金额)*10000.0/sum(lxdw.当前可售货值面积) end) else 0 end as 存货合计,
-case when base.二级科目 ='货值' then sum(lxdw.具备条件未领证金额) when base.二级科目 ='面积' then sum(lxdw.具备条件未领证面积) when base.二级科目 ='套数' then sum(lxdw.具备条件未领证套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.具备条件未领证面积) = 0 then 0 else sum(lxdw.具备条件未领证金额)*10000.0/sum(lxdw.具备条件未领证面积) end) else 0 end as 达形象未取证剩余货量,	
-case when base.二级科目 ='货值' then sum(lxdw.获证待推金额) when base.二级科目 ='面积' then sum(lxdw.获证待推面积) when base.二级科目 ='套数' then sum(lxdw.获证待推套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.获证待推面积) = 0 then 0 else sum(lxdw.获证待推金额)*10000.0/sum(lxdw.获证待推面积)  end) else 0 end as 获证待推剩余货量,
-case when base.二级科目 ='货值' then sum(lxdw.已推未售金额) when base.二级科目 ='面积' then sum(lxdw.已推未售面积) when base.二级科目 ='套数' then sum(lxdw.已推未售套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.已推未售面积) = 0 then 0 else sum(lxdw.已推未售金额)*10000.0/sum(lxdw.已推未售面积) end) else 0 end as 已推未售,	
-case when base.二级科目 ='货值' then sum(lxdw.在途剩余货值金额) when base.二级科目 ='面积' then sum(lxdw.在途剩余货值面积) when base.二级科目 ='套数' then sum(lxdw.在途剩余货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.在途剩余货值面积) = 0 then 0 else sum(lxdw.在途剩余货值金额)*10000.0/sum(lxdw.在途剩余货值面积) end) else 0 end  as 在途,	
-case when base.二级科目 ='货值' then sum(lxdw.未开工剩余货值金额) when base.二级科目 ='面积' then sum(lxdw.未开工剩余货值面积) when base.二级科目 ='套数' then sum(lxdw.未开工剩余货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.未开工剩余货值面积) = 0 then 0 else sum(lxdw.未开工剩余货值金额)*10000.0/sum(lxdw.未开工剩余货值面积) end) else 0 end as 未开工,	
-case when base.二级科目 ='货值' then sum(lxdw.剩余货值金额_三年内不开工) when base.二级科目 ='面积' then sum(lxdw.剩余货值面积_三年内不开工) when base.二级科目 ='套数' then sum(lxdw.剩余货值套数_三年内不开工)
-when base.二级科目 ='均价' then (case when sum(lxdw.剩余货值面积_三年内不开工)= 0 then 0 else sum(lxdw.剩余货值金额_三年内不开工)*10000.0/sum(lxdw.剩余货值面积_三年内不开工)  end) else 0 end as 预计三年内不开工,
-case when base.二级科目 ='货值' then sum(lxdw.停工缓建剩余货值金额) when base.二级科目 ='面积' then sum(lxdw.停工缓建剩余货值面积)  when base.二级科目 ='套数' then sum(lxdw.停工缓建剩余货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.停工缓建剩余货值面积)= 0 then 0 else sum(lxdw.停工缓建剩余货值金额)*10000.0/sum(lxdw.停工缓建剩余货值面积)  end) else 0 end as 停工缓建剩余货值,
---新增
-case when base.二级科目 ='货值' then sum(lxdw.剩余货值金额) when base.二级科目 ='面积' then sum(lxdw.剩余货值面积)  when base.二级科目 ='套数' then sum(lxdw.剩余货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.剩余货值面积)= 0 then 0 else sum(lxdw.剩余货值金额)*10000.0/sum(lxdw.剩余货值面积)  end) else 0 end as 未售合计,
-case when base.二级科目 ='货值' then sum(lxdw.存货货值金额) when base.二级科目 ='面积' then sum(lxdw.存货货值面积)  when base.二级科目 ='套数' then sum(lxdw.存货货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.存货货值面积)= 0 then 0 else sum(lxdw.存货货值金额)*10000.0/sum(lxdw.存货货值面积)  end) else 0 end as 存货合计含停工缓建,
-case when base.二级科目 ='货值' then sum(lxdw.停工缓建剩余可售货值金额) when base.二级科目 ='面积' then sum(lxdw.停工缓建剩余可售货值面积)  when base.二级科目 ='套数' then sum(lxdw.停工缓建剩余可售货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.停工缓建剩余可售货值面积)= 0 then 0 else sum(lxdw.停工缓建剩余可售货值金额)*10000.0/sum(lxdw.停工缓建剩余可售货值面积)  end) else 0 end as 存货停工缓建,
-case when base.二级科目 ='货值' then sum(lxdw.在途货值金额合计) when base.二级科目 ='面积' then sum(lxdw.在途货值面积合计)  when base.二级科目 ='套数' then sum(lxdw.在途剩余货值套数合计)
-when base.二级科目 ='均价' then (case when sum(lxdw.在途货值面积合计)= 0 then 0 else sum(lxdw.在途货值金额合计)*10000.0/sum(lxdw.在途货值面积合计)  end) else 0 end as 在途合计, 
-case when base.二级科目 ='货值' then sum(lxdw.停工缓建在途剩余货值金额) when base.二级科目 ='面积' then sum(lxdw.停工缓建在途剩余货值面积)  when base.二级科目 ='套数' then sum(lxdw.停工缓建在途剩余货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.停工缓建在途剩余货值面积)= 0 then 0 else sum(lxdw.停工缓建在途剩余货值金额)*10000.0/sum(lxdw.停工缓建在途剩余货值面积)  end) else 0 end as 在途停工缓建,
+INTO #lxdw03
+FROM s_WqBaseStatic_summary org
+INNER JOIN #ver03 ver ON org.项目guid = ver.组织架构id
+WHERE org.组织架构类型 IN (3, 4)
+    AND org.清洗时间id = @date_id
+    AND org.平台公司名称 = '湾区公司'
 
-case when base.二级科目 ='货值' then sum(lxdw.三年内开工剩余货值金额) when base.二级科目 ='面积' then sum(lxdw.三年内开工剩余货值面积)  when base.二级科目 ='套数' then sum(lxdw.三年内开工剩余货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.三年内开工剩余货值面积)= 0 then 0 else sum(lxdw.三年内开工剩余货值金额)*10000.0/sum(lxdw.三年内开工剩余货值面积)  end) else 0 end as 三年内开工
-from #baseinfo03 base
--- left join s_WqBaseStatic_summary hz on base.组织架构id = lxdw.组织架构id   
-left join #lxdw03 lxdw on base.组织架构id = lxdw.组织架构id and base.清洗时间 = lxdw.清洗时间 
-where lxdw.立项货值<>0 or lxdw.动态总资源<>0 or lxdw.累计签约货值 <>0
-group by base.清洗时间,base.统计维度,
-base.公司,
-base.城市,
-base.片区,
-base.镇街,
-base.项目,
-base.外键关联,
-case when base.组织架构类型 = 4 then base.组织架构名称 else '汇总' end ,
-case when base.组织架构类型 = 4 then base.组织架构名称 else '汇总' end+base.二级科目,
-case when base.二级科目 = '货值' then null else (case when base.组织架构类型 = 4 then base.组织架构名称 else '汇总' end)+'货值' end,
-case when base.组织架构类型 = 4 then 0 else 1 end,
-base.二级科目 
- 
-drop table #baseinfo03,#lxdw03,#ver03
+
+-- 清空当天数据
+DELETE FROM wqzydtBi_resourseinfo
+WHERE DATEDIFF(dd, 清洗时间, GETDATE()) = 0;
+
+-- 汇总结果插入
+INSERT INTO wqzydtBi_resourseinfo
+SELECT
+    base.清洗时间,
+    base.统计维度,
+    base.公司,
+    base.城市,
+    base.片区,
+    base.镇街,
+    base.项目,
+    base.外键关联,
+    CASE
+        WHEN base.组织架构类型 = 4 THEN base.组织架构名称
+        ELSE '汇总'
+    END AS 业态,
+    CASE
+        WHEN base.二级科目 = '货值' THEN '货值（亿元）'
+        WHEN base.二级科目 = '面积' THEN '面积（万㎡）'
+        WHEN base.二级科目 = '套数' THEN '套数（套）'
+        ELSE '均价（元）'
+    END AS 二级科目,
+    CASE
+        WHEN base.组织架构类型 = 4 THEN base.组织架构名称
+        ELSE '汇总'
+    END + base.二级科目 AS id,
+    CASE
+        WHEN base.二级科目 = '货值' THEN NULL
+        ELSE (CASE WHEN base.组织架构类型 = 4 THEN base.组织架构名称 ELSE '汇总' END) + '货值'
+    END AS parentid,
+    CASE
+        WHEN base.组织架构类型 = 4 THEN 0
+        ELSE 1
+    END AS 是否加背景色, -- 项目汇总的话，就加背景色
+
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(lxdw.立项货值)
+        WHEN base.二级科目 = '面积' THEN SUM(lxdw.立项总建筑面积)
+        WHEN base.二级科目 = '套数' THEN SUM(lxdw.立项套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(lxdw.立项总建筑面积) = 0 THEN 0
+                ELSE SUM(lxdw.立项货值) * 10000.0 / SUM(lxdw.立项总建筑面积)
+            END
+        ELSE 0
+    END AS 立项,
+
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(lxdw.定位最新版货值)
+        WHEN base.二级科目 = '面积' THEN SUM(lxdw.定位最新版总建筑面积)
+        WHEN base.二级科目 = '套数' THEN SUM(lxdw.定位最新版套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(lxdw.定位最新版总建筑面积) = 0 THEN 0
+                ELSE SUM(lxdw.定位最新版货值) * 10000.0 / SUM(lxdw.定位最新版总建筑面积)
+            END
+        ELSE 0
+    END AS 定位,
+
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(lxdw.动态总资源)
+        WHEN base.二级科目 = '面积' THEN SUM(lxdw.总货值面积)
+        WHEN base.二级科目 = '套数' THEN SUM(lxdw.总货值套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(lxdw.总货值面积) = 0 THEN 0
+                ELSE SUM(lxdw.动态总资源) * 10000.0 / SUM(lxdw.总货值面积)
+            END
+        ELSE 0
+    END AS 总货量,
+
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(lxdw.动态总货值金额_除3年不开工)
+        WHEN base.二级科目 = '面积' THEN SUM(lxdw.动态总货值面积_除3年不开工)
+        WHEN base.二级科目 = '套数' THEN SUM(lxdw.动态总货值套数_除3年不开工)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(lxdw.动态总货值面积_除3年不开工) = 0 THEN 0
+                ELSE SUM(lxdw.动态总货值金额_除3年不开工) * 10000.0 / SUM(lxdw.动态总货值面积_除3年不开工)
+            END
+        ELSE 0
+    END AS 总货量_除3年不开工,
+
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(lxdw.累计签约货值)
+        WHEN base.二级科目 = '面积' THEN SUM(lxdw.累计签约面积)
+        WHEN base.二级科目 = '套数' THEN SUM(lxdw.累计签约套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(lxdw.累计签约面积) = 0 THEN 0
+                ELSE SUM(lxdw.累计签约货值) * 10000.0 / SUM(lxdw.累计签约面积)
+            END
+        ELSE 0
+    END AS 已售,
+
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(lxdw.当前可售货值金额)
+        WHEN base.二级科目 = '面积' THEN SUM(lxdw.当前可售货值面积)
+        WHEN base.二级科目 = '套数' THEN SUM(lxdw.当前可售货值套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(lxdw.当前可售货值面积) = 0 THEN 0
+                ELSE SUM(lxdw.当前可售货值金额) * 10000.0 / SUM(lxdw.当前可售货值面积)
+            END
+        ELSE 0
+    END AS 存货合计,
+
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(lxdw.具备条件未领证金额)
+        WHEN base.二级科目 = '面积' THEN SUM(lxdw.具备条件未领证面积)
+        WHEN base.二级科目 = '套数' THEN SUM(lxdw.具备条件未领证套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(lxdw.具备条件未领证面积) = 0 THEN 0
+                ELSE SUM(lxdw.具备条件未领证金额) * 10000.0 / SUM(lxdw.具备条件未领证面积)
+            END
+        ELSE 0
+    END AS 达形象未取证剩余货量,
+
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(lxdw.获证待推金额)
+        WHEN base.二级科目 = '面积' THEN SUM(lxdw.获证待推面积)
+        WHEN base.二级科目 = '套数' THEN SUM(lxdw.获证待推套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(lxdw.获证待推面积) = 0 THEN 0
+                ELSE SUM(lxdw.获证待推金额) * 10000.0 / SUM(lxdw.获证待推面积)
+            END
+        ELSE 0
+    END AS 获证待推剩余货量,
+
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(lxdw.已推未售金额)
+        WHEN base.二级科目 = '面积' THEN SUM(lxdw.已推未售面积)
+        WHEN base.二级科目 = '套数' THEN SUM(lxdw.已推未售套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(lxdw.已推未售面积) = 0 THEN 0
+                ELSE SUM(lxdw.已推未售金额) * 10000.0 / SUM(lxdw.已推未售面积)
+            END
+        ELSE 0
+    END AS 已推未售,
+
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(lxdw.在途剩余货值金额)
+        WHEN base.二级科目 = '面积' THEN SUM(lxdw.在途剩余货值面积)
+        WHEN base.二级科目 = '套数' THEN SUM(lxdw.在途剩余货值套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(lxdw.在途剩余货值面积) = 0 THEN 0
+                ELSE SUM(lxdw.在途剩余货值金额) * 10000.0 / SUM(lxdw.在途剩余货值面积)
+            END
+        ELSE 0
+    END AS 在途,
+
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(lxdw.未开工剩余货值金额)
+        WHEN base.二级科目 = '面积' THEN SUM(lxdw.未开工剩余货值面积)
+        WHEN base.二级科目 = '套数' THEN SUM(lxdw.未开工剩余货值套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(lxdw.未开工剩余货值面积) = 0 THEN 0
+                ELSE SUM(lxdw.未开工剩余货值金额) * 10000.0 / SUM(lxdw.未开工剩余货值面积)
+            END
+        ELSE 0
+    END AS 未开工,
+
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(lxdw.剩余货值金额_三年内不开工)
+        WHEN base.二级科目 = '面积' THEN SUM(lxdw.剩余货值面积_三年内不开工)
+        WHEN base.二级科目 = '套数' THEN SUM(lxdw.剩余货值套数_三年内不开工)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(lxdw.剩余货值面积_三年内不开工) = 0 THEN 0
+                ELSE SUM(lxdw.剩余货值金额_三年内不开工) * 10000.0 / SUM(lxdw.剩余货值面积_三年内不开工)
+            END
+        ELSE 0
+    END AS 预计三年内不开工,
+
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(lxdw.停工缓建剩余货值金额)
+        WHEN base.二级科目 = '面积' THEN SUM(lxdw.停工缓建剩余货值面积)
+        WHEN base.二级科目 = '套数' THEN SUM(lxdw.停工缓建剩余货值套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(lxdw.停工缓建剩余货值面积) = 0 THEN 0
+                ELSE SUM(lxdw.停工缓建剩余货值金额) * 10000.0 / SUM(lxdw.停工缓建剩余货值面积)
+            END
+        ELSE 0
+    END AS 停工缓建剩余货值,
+
+    -- 新增
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(lxdw.剩余货值金额)
+        WHEN base.二级科目 = '面积' THEN SUM(lxdw.剩余货值面积)
+        WHEN base.二级科目 = '套数' THEN SUM(lxdw.剩余货值套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(lxdw.剩余货值面积) = 0 THEN 0
+                ELSE SUM(lxdw.剩余货值金额) * 10000.0 / SUM(lxdw.剩余货值面积)
+            END
+        ELSE 0
+    END AS 未售合计,
+
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(lxdw.存货货值金额)
+        WHEN base.二级科目 = '面积' THEN SUM(lxdw.存货货值面积)
+        WHEN base.二级科目 = '套数' THEN SUM(lxdw.存货货值套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(lxdw.存货货值面积) = 0 THEN 0
+                ELSE SUM(lxdw.存货货值金额) * 10000.0 / SUM(lxdw.存货货值面积)
+            END
+        ELSE 0
+    END AS 存货合计含停工缓建,
+
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(lxdw.停工缓建剩余可售货值金额)
+        WHEN base.二级科目 = '面积' THEN SUM(lxdw.停工缓建剩余可售货值面积)
+        WHEN base.二级科目 = '套数' THEN SUM(lxdw.停工缓建剩余可售货值套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(lxdw.停工缓建剩余可售货值面积) = 0 THEN 0
+                ELSE SUM(lxdw.停工缓建剩余可售货值金额) * 10000.0 / SUM(lxdw.停工缓建剩余可售货值面积)
+            END
+        ELSE 0
+    END AS 存货停工缓建,
+
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(lxdw.在途货值金额合计)
+        WHEN base.二级科目 = '面积' THEN SUM(lxdw.在途货值面积合计)
+        WHEN base.二级科目 = '套数' THEN SUM(lxdw.在途剩余货值套数合计)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(lxdw.在途货值面积合计) = 0 THEN 0
+                ELSE SUM(lxdw.在途货值金额合计) * 10000.0 / SUM(lxdw.在途货值面积合计)
+            END
+        ELSE 0
+    END AS 在途合计,
+
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(lxdw.停工缓建在途剩余货值金额)
+        WHEN base.二级科目 = '面积' THEN SUM(lxdw.停工缓建在途剩余货值面积)
+        WHEN base.二级科目 = '套数' THEN SUM(lxdw.停工缓建在途剩余货值套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(lxdw.停工缓建在途剩余货值面积) = 0 THEN 0
+                ELSE SUM(lxdw.停工缓建在途剩余货值金额) * 10000.0 / SUM(lxdw.停工缓建在途剩余货值面积)
+            END
+        ELSE 0
+    END AS 在途停工缓建,
+
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(lxdw.三年内开工剩余货值金额)
+        WHEN base.二级科目 = '面积' THEN SUM(lxdw.三年内开工剩余货值面积)
+        WHEN base.二级科目 = '套数' THEN SUM(lxdw.三年内开工剩余货值套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(lxdw.三年内开工剩余货值面积) = 0 THEN 0
+                ELSE SUM(lxdw.三年内开工剩余货值金额) * 10000.0 / SUM(lxdw.三年内开工剩余货值面积)
+            END
+        ELSE 0
+    END AS 三年内开工,
+
+    -- 2025-11-11新增字段
+    --反算总货量
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算总货量_总货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.反算总货量_总面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.反算总货量_套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.反算总货量_总面积) = 0 THEN 0
+                ELSE SUM(res.反算总货量_总货值)  / SUM(res.反算总货量_总面积)
+            END
+        ELSE 0
+    END AS 反算总货量,
+    -- 反算已开工货量
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算已开工货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.反算已开工面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.反算已开工套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.反算已开工面积) = 0 THEN 0
+                ELSE SUM(res.反算已开工货值)  / SUM(res.反算已开工面积)
+            END
+        ELSE 0
+    END AS 反算已开工货量,
+    -- 反算剩余货量
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算剩余货量_剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.反算剩余货量_剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.反算剩余货量_剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.反算剩余货量_剩余面积) = 0 THEN 0
+                ELSE SUM(res.反算剩余货量_剩余货值)  / SUM(res.反算剩余货量_剩余面积)
+            END
+        ELSE 0
+    END AS 反算剩余货量, 
+    -- 反算存货货量
+     CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算存货货量_存货货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.反算存货货量_存货面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.反算存货货量_存货套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.反算存货货量_存货面积) = 0 THEN 0
+                ELSE SUM(res.反算存货货量_存货货值)  / SUM(res.反算存货货量_存货面积)
+            END
+        ELSE 0
+    END AS 反算存货货量, 
+    -- 反算在途货量
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算在途货量_在途货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.反算在途货量_在途面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.反算在途货量_在途套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.反算在途货量_在途面积) = 0 THEN 0
+                ELSE SUM(res.反算在途货量_在途货值)  / SUM(res.反算在途货量_在途面积)
+            END
+        ELSE 0
+    END AS 反算在途货量, 
+    -- 反算未开工货量
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算未开工货量_未开工货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.反算未开工货量_未开工面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.反算未开工货量_未开工套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.反算未开工货量_未开工面积) = 0 THEN 0
+                ELSE SUM(res.反算未开工货量_未开工货值)  / SUM(res.反算未开工货量_未开工面积)
+            END
+        ELSE 0
+    END AS 反算未开工货量,
+    -- 当前处置临时冻结合计
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结货值合计)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结面积合计)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结套数合计)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前临时冻结面积合计) = 0 THEN 0
+                ELSE SUM(res.处置前临时冻结货值合计)  / SUM(res.处置前临时冻结面积合计)
+            END
+        ELSE 0
+    END  as [当前处置临时冻结合计],
+    -- 当前处置其中：合作受阻
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_合作受阻冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_合作受阻冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_合作受阻冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前临时冻结_合作受阻冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置前临时冻结_合作受阻冻结货值)  / SUM(res.处置前临时冻结_合作受阻冻结面积)
+            END
+        ELSE 0
+    END  as  [当前处置其中：合作受阻],
+  -- 开发受限
+   CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_开发受限冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_开发受限冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_开发受限冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前临时冻结_开发受限冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置前临时冻结_开发受限冻结货值)  / SUM(res.处置前临时冻结_开发受限冻结面积)
+            END
+        ELSE 0
+    END as  [当前处置其中：开发受限],
+    -- 当前处置其中：停工缓建
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_停工缓建冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_停工缓建冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_停工缓建冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前临时冻结_停工缓建冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置前临时冻结_停工缓建冻结货值)  / SUM(res.处置前临时冻结_停工缓建冻结面积)
+            END
+        ELSE 0
+    END  as [当前处置其中：停工缓建],
+    -- 当前处置其中：投资未落实
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_投资未落实冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_投资未落实冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_投资未落实冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前临时冻结_投资未落实冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置前临时冻结_投资未落实冻结货值)  / SUM(res.处置前临时冻结_投资未落实冻结面积)
+            END
+        ELSE 0
+    END  as [当前处置其中：投资未落实],
+    -- 当前处置退换调转
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前退换调转剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前退换调转剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前退换调转剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前退换调转剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置前退换调转剩余货值)  / SUM(res.处置前退换调转剩余面积)
+            END
+        ELSE 0
+    END  as [当前处置退换调转],
+    -- 当前处置正常销售
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前正常销售剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前正常销售剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前正常销售剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前正常销售剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置前正常销售剩余货值)  / SUM(res.处置前正常销售剩余面积)
+            END
+        ELSE 0
+    END  as [当前处置正常销售],
+    -- 当前处置转经营 
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前转经营剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前转经营剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前转经营剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前转经营剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置前转经营剩余货值)  / SUM(res.处置前转经营剩余面积)
+            END
+        ELSE 0
+    END  as [当前处置转经营],
+    -- 处置前尾盘剩余面积
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前尾盘剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前尾盘剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前尾盘剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前尾盘剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置前尾盘剩余货值)  / SUM(res.处置前尾盘剩余面积)
+            END
+        ELSE 0
+    END as  [尾盘],
+    -- 处置后临时冻结合计
+   CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结货值合计)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结面积合计)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结套数合计)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后临时冻结面积合计) = 0 THEN 0
+                ELSE SUM(res.处置后临时冻结货值合计)  / SUM(res.处置后临时冻结面积合计)
+            END
+        ELSE 0
+    END  as  [处置后临时冻结合计],
+    -- 处置后临时冻结_合作受阻冻结面积
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_合作受阻冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_合作受阻冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_合作受阻冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后临时冻结_合作受阻冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置后临时冻结_合作受阻冻结货值)  / SUM(res.处置后临时冻结_合作受阻冻结面积)
+            END
+        ELSE 0
+    END as [处置后其中：合作受阻],
+    -- 处置后临时冻结_开发受限冻结面积
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_开发受限冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_开发受限冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_开发受限冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后临时冻结_开发受限冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置后临时冻结_开发受限冻结货值)  / SUM(res.处置后临时冻结_开发受限冻结面积)
+            END
+        ELSE 0
+    END  as [处置后其中：开发受限],
+    -- 处置后临时冻结_停工缓建冻结面积
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_停工缓建冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_停工缓建冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_停工缓建冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后临时冻结_停工缓建冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置后临时冻结_停工缓建冻结货值)  / SUM(res.处置后临时冻结_停工缓建冻结面积)
+            END
+        ELSE 0
+    END  as [处置后其中：停工缓建],
+    -- 处置后临时冻结_投资未落实冻结面积
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_投资未落实冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_投资未落实冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_投资未落实冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后临时冻结_投资未落实冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置后临时冻结_投资未落实冻结货值)  / SUM(res.处置后临时冻结_投资未落实冻结面积)
+            END
+        ELSE 0
+    END  as [处置后其中：投资未落实],
+    -- 处置后退换调转剩余
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后退换调转剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后退换调转剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后退换调转剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后退换调转剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置后退换调转剩余货值)  / SUM(res.处置后退换调转剩余面积)
+            END
+        ELSE 0
+    END  as [处置后退换调转],
+    -- 处置后正常销售剩余
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后正常销售剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后正常销售剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后正常销售剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后正常销售剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置后正常销售剩余货值)  / SUM(res.处置后正常销售剩余面积)
+            END
+        ELSE 0
+    END  as [处置后正常销售],
+    -- 处置后转经营剩余货值
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后转经营剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后转经营剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后转经营剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后转经营剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置后转经营剩余货值)  / SUM(res.处置后转经营剩余面积)
+            END
+        ELSE 0
+    END  as [处置后转经营],
+    -- 处置后尾盘
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后尾盘剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后尾盘剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后尾盘剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后尾盘剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置后尾盘剩余货值)  / SUM(res.处置后尾盘剩余面积)
+            END
+        ELSE 0
+    END  as  [处置后尾盘],
+    -- 新增 销售状态分析字段
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_已推未售剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_已推未售剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_已推未售剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.已开工剩余货量_已推未售剩余面积) = 0 THEN 0
+                ELSE SUM(res.已开工剩余货量_已推未售剩余货值)  / SUM(res.已开工剩余货量_已推未售剩余面积)
+            END
+        ELSE 0
+    END as [已开工剩余货量已推未售],
+      CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_获证待推剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_获证待推剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_获证待推剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.已开工剩余货量_获证待推剩余面积) = 0 THEN 0
+                ELSE SUM(res.已开工剩余货量_获证待推剩余货值)  / SUM(res.已开工剩余货量_获证待推剩余面积)
+            END
+        ELSE 0
+    END as [已开工剩余货量获证待推],
+      CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_达形象未取证剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_达形象未取证剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_达形象未取证剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.已开工剩余货量_达形象未取证剩余面积) = 0 THEN 0
+                ELSE SUM(res.已开工剩余货量_达形象未取证剩余货值)  / SUM(res.已开工剩余货量_达形象未取证剩余面积)
+            END
+        ELSE 0
+    END as [已开工剩余货量达形象未取证],
+      CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_正常在途剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_正常在途剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_正常在途剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.已开工剩余货量_正常在途剩余面积) = 0 THEN 0
+                ELSE SUM(res.已开工剩余货量_正常在途剩余货值)  / SUM(res.已开工剩余货量_正常在途剩余面积)
+            END
+        ELSE 0
+    END as [已开工剩余货量正常在途],
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_停工缓建在途剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_停工缓建在途剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_停工缓建在途剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.已开工剩余货量_停工缓建在途剩余面积) = 0 THEN 0
+                ELSE SUM(res.已开工剩余货量_停工缓建在途剩余货值)  / SUM(res.已开工剩余货量_停工缓建在途剩余面积)
+            END
+        ELSE 0
+    END as [已开工剩余货量停工缓建在途],
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_停工缓建剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.未开工剩余货量_停工缓建剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.未开工剩余货量_停工缓建剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.未开工剩余货量_停工缓建剩余面积) = 0 THEN 0
+                ELSE SUM(res.未开工剩余货量_停工缓建剩余货值)  / SUM(res.未开工剩余货量_停工缓建剩余面积)
+            END
+        ELSE 0
+    END as [未开工剩余货量停工缓建],
+      CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_预计三年内开工剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.未开工剩余货量_预计三年内开工剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.未开工剩余货量_预计三年内开工剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.未开工剩余货量_预计三年内开工剩余面积) = 0 THEN 0
+                ELSE SUM(res.未开工剩余货量_预计三年内开工剩余货值)  / SUM(res.未开工剩余货量_预计三年内开工剩余面积)
+            END
+        ELSE 0
+    END as [未开工剩余货量预计三年内开工],
+      CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_预计三年后开工剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.未开工剩余货量_预计三年后开工剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.未开工剩余货量_预计三年后开工剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.未开工剩余货量_预计三年后开工剩余面积) = 0 THEN 0
+                ELSE SUM(res.未开工剩余货量_预计三年后开工剩余货值)  / SUM(res.未开工剩余货量_预计三年后开工剩余面积)
+            END
+        ELSE 0
+    END as [未开工剩余货量预计三年后开工],
+    --  建设状态新增字段
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已竣备剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_已竣备剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.建设状态_已竣备剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.建设状态_已竣备剩余面积) = 0 THEN 0
+                ELSE SUM(res.建设状态_已竣备剩余货值)  / SUM(res.建设状态_已竣备剩余面积)
+            END
+        ELSE 0
+    END 已竣备,
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已达形象未达竣备剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_已达形象未达竣备剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.建设状态_已达形象未达竣备剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.建设状态_已达形象未达竣备剩余面积) = 0 THEN 0
+                ELSE SUM(res.建设状态_已达形象未达竣备剩余货值)  / SUM(res.建设状态_已达形象未达竣备剩余面积)
+            END
+        ELSE 0
+    END 形象未达竣备,
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已开工未达形象剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_已开工未达形象剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.建设状态_已开工未达形象剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.建设状态_已开工未达形象剩余面积) = 0 THEN 0
+                ELSE SUM(res.建设状态_已开工未达形象剩余货值)  / SUM(res.建设状态_已开工未达形象剩余面积)
+            END
+        ELSE 0
+    END 开工未达形象,
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_停工缓建剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_停工缓建剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.建设状态_停工缓建剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.建设状态_停工缓建剩余面积) = 0 THEN 0
+                ELSE SUM(res.建设状态_停工缓建剩余货值)  / SUM(res.建设状态_停工缓建剩余面积)
+            END
+        ELSE 0
+    END 停工缓建
+FROM
+    #baseinfo03 base
+    --LEFT JOIN s_WqBaseStatic_summary hz ON base.组织架构id = lxdw.组织架构id   
+    LEFT JOIN #lxdw03 lxdw ON base.组织架构id = lxdw.组织架构id AND base.清洗时间 = lxdw.清洗时间
+    left join dw_s_WqBaseStatic_CompanyResource  res On base.组织架构id = res.组织架构id and  base.清洗时间 =res.清洗时间
+WHERE
+    lxdw.立项货值 <> 0
+    OR lxdw.动态总资源 <> 0
+    OR lxdw.累计签约货值 <> 0
+GROUP BY
+    base.清洗时间,
+    base.统计维度,
+    base.公司,
+    base.城市,
+    base.片区,
+    base.镇街,
+    base.项目,
+    base.外键关联,
+    CASE WHEN base.组织架构类型 = 4 THEN base.组织架构名称 ELSE '汇总' END,
+    CASE WHEN base.组织架构类型 = 4 THEN base.组织架构名称 ELSE '汇总' END + base.二级科目,
+    CASE WHEN base.二级科目 = '货值' THEN NULL ELSE (CASE WHEN base.组织架构类型 = 4 THEN base.组织架构名称 ELSE '汇总' END) + '货值' END,
+    CASE WHEN base.组织架构类型 = 4 THEN 0 ELSE 1 END,
+    base.二级科目
+
+
+DROP TABLE #baseinfo03, #lxdw03, #ver03
+
 
 -------------------------0302 公司资源情况_区域
 --缓存项目的维度信息
@@ -1740,138 +2444,1298 @@ and org.清洗时间id = @date_id and org.平台公司名称 = '湾区公司'
 --清空当天数据
 delete from wqzydtBi_resourseinfo_area where datediff(dd,清洗时间,getdate()) = 0
 insert into wqzydtBi_resourseinfo_area
---汇总结果
-select 
-base.清洗时间,
-base.统计维度,
-base.外键关联,
-base.组织架构类型,
-base.组织架构名称,
-case when base.组织架构类型 = 2 then base.组织架构名称 else '汇总' end as 业态,
-case when base.二级科目 = '货值' then '货值（亿元）' when base.二级科目 = '面积' then '面积（万㎡）'
-when base.二级科目 = '套数' then '套数（套）' else '均价（元）' end  as 二级科目 ,  
-case when base.组织架构类型 = 2 then base.组织架构名称 else '汇总' end+base.二级科目  id,
-case when base.二级科目 = '货值' then null else (case when base.组织架构类型 = 2 then base.组织架构名称 else '汇总' end)+'货值' end parentid,
-
-case when base.组织架构类型 = 2 then 0 else 1 end  as 是否加背景色, --项目汇总的话，就加背景色
-case when base.二级科目 ='货值' then sum(lxdw.立项货值) when base.二级科目 ='面积' then sum(lxdw.立项总建筑面积) when base.二级科目 = '套数' then sum(lxdw.立项套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.立项总建筑面积) = 0 then 0 else sum(lxdw.立项货值)*10000.0/sum(lxdw.立项总建筑面积) end) else 0 end 立项,
-case when base.二级科目 ='货值' then sum(lxdw.定位最新版货值) when base.二级科目 ='面积' then sum(lxdw.定位最新版总建筑面积) when base.二级科目 = '套数' then sum(lxdw.定位最新版套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.定位最新版总建筑面积) = 0 then 0 else sum(lxdw.定位最新版货值)*10000.0/sum(lxdw.定位最新版总建筑面积) end) else 0 end 定位,
-case when base.二级科目 ='货值' then sum(lxdw.动态总资源) when base.二级科目 ='面积' then sum(lxdw.总货值面积) when base.二级科目 = '套数' then sum(lxdw.总货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.总货值面积) = 0 then 0 else sum(lxdw.动态总资源)*10000.0/sum(lxdw.总货值面积)  end) else 0 end  as 总货量,	
-case when base.二级科目 ='货值' then sum(lxdw.动态总货值金额_除3年不开工) when base.二级科目 ='面积' then sum(lxdw.动态总货值面积_除3年不开工) when base.二级科目 ='套数' then sum(lxdw.动态总货值套数_除3年不开工)
-when base.二级科目 ='均价' then (case when (sum(lxdw.动态总货值面积_除3年不开工)) = 0 then 0 else sum(lxdw.动态总货值金额_除3年不开工)*10000.0/sum(lxdw.动态总货值面积_除3年不开工)  end) else 0 end  as 总货量_除3年不开工,
-case when base.二级科目 ='货值' then sum(lxdw.累计签约货值) when base.二级科目 ='面积' then sum(lxdw.累计签约面积) when base.二级科目 ='套数' then sum(lxdw.累计签约套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.累计签约面积) = 0 then 0 else sum(lxdw.累计签约货值)*10000.0/sum(lxdw.累计签约面积) end) else 0 end as 已售,
-case when base.二级科目 ='货值' then sum(lxdw.当前可售货值金额) when base.二级科目 ='面积' then sum(lxdw.当前可售货值面积) when base.二级科目 ='套数' then sum(lxdw.当前可售货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.当前可售货值面积) = 0 then 0 else sum(lxdw.当前可售货值金额)*10000.0/sum(lxdw.当前可售货值面积) end) else 0 end as 存货合计,
-case when base.二级科目 ='货值' then sum(lxdw.具备条件未领证金额) when base.二级科目 ='面积' then sum(lxdw.具备条件未领证面积) when base.二级科目 ='套数' then sum(lxdw.具备条件未领证套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.具备条件未领证面积) = 0 then 0 else sum(lxdw.具备条件未领证金额)*10000.0/sum(lxdw.具备条件未领证面积) end) else 0 end as 达形象未取证剩余货量,	
-case when base.二级科目 ='货值' then sum(lxdw.获证待推金额) when base.二级科目 ='面积' then sum(lxdw.获证待推面积) when base.二级科目 ='套数' then sum(lxdw.获证待推套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.获证待推面积) = 0 then 0 else sum(lxdw.获证待推金额)*10000.0/sum(lxdw.获证待推面积)  end) else 0 end as 获证待推剩余货量,
-case when base.二级科目 ='货值' then sum(lxdw.已推未售金额) when base.二级科目 ='面积' then sum(lxdw.已推未售面积) when base.二级科目 ='套数' then sum(lxdw.已推未售套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.已推未售面积) = 0 then 0 else sum(lxdw.已推未售金额)*10000.0/sum(lxdw.已推未售面积) end) else 0 end as 已推未售,	
-case when base.二级科目 ='货值' then sum(lxdw.在途剩余货值金额) when base.二级科目 ='面积' then sum(lxdw.在途剩余货值面积) when base.二级科目 ='套数' then sum(lxdw.在途剩余货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.在途剩余货值面积) = 0 then 0 else sum(lxdw.在途剩余货值金额)*10000.0/sum(lxdw.在途剩余货值面积) end) else 0 end  as 在途,	
-case when base.二级科目 ='货值' then sum(lxdw.未开工剩余货值金额) when base.二级科目 ='面积' then sum(lxdw.未开工剩余货值面积) when base.二级科目 ='套数' then sum(lxdw.未开工剩余货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.未开工剩余货值面积) = 0 then 0 else sum(lxdw.未开工剩余货值金额)*10000.0/sum(lxdw.未开工剩余货值面积) end) else 0 end as 未开工,	
-case when base.二级科目 ='货值' then sum(lxdw.剩余货值金额_三年内不开工) when base.二级科目 ='面积' then sum(lxdw.剩余货值面积_三年内不开工) when base.二级科目 ='套数' then sum(lxdw.剩余货值套数_三年内不开工)
-when base.二级科目 ='均价' then (case when sum(lxdw.剩余货值面积_三年内不开工)= 0 then 0 else sum(lxdw.剩余货值金额_三年内不开工)*10000.0/sum(lxdw.剩余货值面积_三年内不开工)  end) else 0 end as 预计三年内不开工,
-case when base.二级科目 ='货值' then sum(lxdw.停工缓建剩余货值金额) when base.二级科目 ='面积' then sum(lxdw.停工缓建剩余货值面积)  when base.二级科目 ='套数' then sum(lxdw.停工缓建剩余货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.停工缓建剩余货值面积)= 0 then 0 else sum(lxdw.停工缓建剩余货值金额)*10000.0/sum(lxdw.停工缓建剩余货值面积)  end) else 0 end as 停工缓建剩余货值,
---新增
-case when base.二级科目 ='货值' then sum(lxdw.剩余货值金额) when base.二级科目 ='面积' then sum(lxdw.剩余货值面积)  when base.二级科目 ='套数' then sum(lxdw.剩余货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.剩余货值面积)= 0 then 0 else sum(lxdw.剩余货值金额)*10000.0/sum(lxdw.剩余货值面积)  end) else 0 end as 未售合计,
-case when base.二级科目 ='货值' then sum(lxdw.存货货值金额) when base.二级科目 ='面积' then sum(lxdw.存货货值面积)  when base.二级科目 ='套数' then sum(lxdw.存货货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.存货货值面积)= 0 then 0 else sum(lxdw.存货货值金额)*10000.0/sum(lxdw.存货货值面积)  end) else 0 end as 存货合计含停工缓建,
-case when base.二级科目 ='货值' then sum(lxdw.停工缓建剩余可售货值金额) when base.二级科目 ='面积' then sum(lxdw.停工缓建剩余可售货值面积)  when base.二级科目 ='套数' then sum(lxdw.停工缓建剩余可售货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.停工缓建剩余可售货值面积)= 0 then 0 else sum(lxdw.停工缓建剩余可售货值金额)*10000.0/sum(lxdw.停工缓建剩余可售货值面积)  end) else 0 end as 存货停工缓建,
-case when base.二级科目 ='货值' then sum(lxdw.在途货值金额合计) when base.二级科目 ='面积' then sum(lxdw.在途货值面积合计)  when base.二级科目 ='套数' then sum(lxdw.在途剩余货值套数合计)
-when base.二级科目 ='均价' then (case when sum(lxdw.在途货值面积合计)= 0 then 0 else sum(lxdw.在途货值金额合计)*10000.0/sum(lxdw.在途货值面积合计)  end) else 0 end as 在途合计, 
-case when base.二级科目 ='货值' then sum(lxdw.停工缓建在途剩余货值金额) when base.二级科目 ='面积' then sum(lxdw.停工缓建在途剩余货值面积)  when base.二级科目 ='套数' then sum(lxdw.停工缓建在途剩余货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.停工缓建在途剩余货值面积)= 0 then 0 else sum(lxdw.停工缓建在途剩余货值金额)*10000.0/sum(lxdw.停工缓建在途剩余货值面积)  end) else 0 end as 在途停工缓建,
-
-case when base.二级科目 ='货值' then sum(lxdw.三年内开工剩余货值金额) when base.二级科目 ='面积' then sum(lxdw.三年内开工剩余货值面积)  when base.二级科目 ='套数' then sum(lxdw.三年内开工剩余货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.三年内开工剩余货值面积)= 0 then 0 else sum(lxdw.三年内开工剩余货值金额)*10000.0/sum(lxdw.三年内开工剩余货值面积)  end) else 0 end as 三年内开工
-from #baseinfo03_1 base
--- left join s_WqBaseStatic_summary hz on base.组织架构id = lxdw.组织架构id   
-left join #lxdw03_1 lxdw on base.组织架构id = lxdw.组织架构id and base.清洗时间 = lxdw.清洗时间 
-where  lxdw.立项货值<>0 or lxdw.动态总资源<>0
-group by base.清洗时间,base.统计维度,
-base.外键关联,
-base.组织架构类型,
-base.组织架构名称,
-case when base.组织架构类型 = 2 then base.组织架构名称 else '汇总' end , 
-case when base.组织架构类型 = 2 then base.组织架构名称 else '汇总' end+base.二级科目,
-case when base.二级科目 = '货值' then null else (case when base.组织架构类型 = 2 then base.组织架构名称 else '汇总' end)+'货值' end,
-case when base.组织架构类型 = 2 then 0 else 1 end,
-base.二级科目
-union all
+-- 汇总结果
 select
-base.清洗时间,
-base.统计维度,
-base.外键关联,
-'1' 组织架构类型,
-'湾区公司' 组织架构名称,
-'汇总' 业态,
-case when base.二级科目 = '货值' then '货值（亿元）' when base.二级科目 = '面积' then '面积（万㎡）'
-when base.二级科目 = '套数' then '套数（套）' else '均价（元）' end as 二级科目 , 
-'汇总'+base.二级科目  id,
-case when base.二级科目 = '货值' then null else '汇总' end +'货值'  parentid,
- 1 as 是否加背景色, --项目汇总的话，就加背景色
-case when base.二级科目 ='货值' then sum(lxdw.立项货值) when base.二级科目 ='面积' then sum(lxdw.立项总建筑面积) when base.二级科目 = '套数' then sum(lxdw.立项套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.立项总建筑面积) = 0 then 0 else sum(lxdw.立项货值)*10000.0/sum(lxdw.立项总建筑面积) end) else 0 end 立项,
-case when base.二级科目 ='货值' then sum(lxdw.定位最新版货值) when base.二级科目 ='面积' then sum(lxdw.定位最新版总建筑面积) when base.二级科目 = '套数' then sum(lxdw.定位最新版套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.定位最新版总建筑面积) = 0 then 0 else sum(lxdw.定位最新版货值)*10000.0/sum(lxdw.定位最新版总建筑面积) end) else 0 end 定位,
-case when base.二级科目 ='货值' then sum(lxdw.动态总资源) when base.二级科目 ='面积' then sum(lxdw.总货值面积) when base.二级科目 = '套数' then sum(lxdw.总货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.总货值面积) = 0 then 0 else sum(lxdw.动态总资源)*10000.0/sum(lxdw.总货值面积)  end) else 0 end  as 总货量,	
-case when base.二级科目 ='货值' then sum(lxdw.动态总货值金额_除3年不开工) when base.二级科目 ='面积' then sum(lxdw.动态总货值面积_除3年不开工) when base.二级科目 ='套数' then sum(lxdw.动态总货值套数_除3年不开工)
-when base.二级科目 ='均价' then (case when (sum(lxdw.动态总货值面积_除3年不开工)) = 0 then 0 else sum(lxdw.动态总货值金额_除3年不开工)*10000.0/sum(lxdw.动态总货值面积_除3年不开工)  end) else 0 end  as 总货量_除3年不开工,
-case when base.二级科目 ='货值' then sum(lxdw.累计签约货值) when base.二级科目 ='面积' then sum(lxdw.累计签约面积) when base.二级科目 ='套数' then sum(lxdw.累计签约套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.累计签约面积) = 0 then 0 else sum(lxdw.累计签约货值)*10000.0/sum(lxdw.累计签约面积) end) else 0 end as 已售,
-case when base.二级科目 ='货值' then sum(lxdw.当前可售货值金额) when base.二级科目 ='面积' then sum(lxdw.当前可售货值面积) when base.二级科目 ='套数' then sum(lxdw.当前可售货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.当前可售货值面积) = 0 then 0 else sum(lxdw.当前可售货值金额)*10000.0/sum(lxdw.当前可售货值面积) end) else 0 end as 存货合计,
-case when base.二级科目 ='货值' then sum(lxdw.具备条件未领证金额) when base.二级科目 ='面积' then sum(lxdw.具备条件未领证面积) when base.二级科目 ='套数' then sum(lxdw.具备条件未领证套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.具备条件未领证面积) = 0 then 0 else sum(lxdw.具备条件未领证金额)*10000.0/sum(lxdw.具备条件未领证面积) end) else 0 end as 达形象未取证剩余货量,	
-case when base.二级科目 ='货值' then sum(lxdw.获证待推金额) when base.二级科目 ='面积' then sum(lxdw.获证待推面积) when base.二级科目 ='套数' then sum(lxdw.获证待推套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.获证待推面积) = 0 then 0 else sum(lxdw.获证待推金额)*10000.0/sum(lxdw.获证待推面积)  end) else 0 end as 获证待推剩余货量,
-case when base.二级科目 ='货值' then sum(lxdw.已推未售金额) when base.二级科目 ='面积' then sum(lxdw.已推未售面积) when base.二级科目 ='套数' then sum(lxdw.已推未售套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.已推未售面积) = 0 then 0 else sum(lxdw.已推未售金额)*10000.0/sum(lxdw.已推未售面积) end) else 0 end as 已推未售,	
-case when base.二级科目 ='货值' then sum(lxdw.在途剩余货值金额) when base.二级科目 ='面积' then sum(lxdw.在途剩余货值面积) when base.二级科目 ='套数' then sum(lxdw.在途剩余货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.在途剩余货值面积) = 0 then 0 else sum(lxdw.在途剩余货值金额)*10000.0/sum(lxdw.在途剩余货值面积) end) else 0 end  as 在途,	
-case when base.二级科目 ='货值' then sum(lxdw.未开工剩余货值金额) when base.二级科目 ='面积' then sum(lxdw.未开工剩余货值面积) when base.二级科目 ='套数' then sum(lxdw.未开工剩余货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.未开工剩余货值面积) = 0 then 0 else sum(lxdw.未开工剩余货值金额)*10000.0/sum(lxdw.未开工剩余货值面积) end) else 0 end as 未开工,	
-case when base.二级科目 ='货值' then sum(lxdw.剩余货值金额_三年内不开工) when base.二级科目 ='面积' then sum(lxdw.剩余货值面积_三年内不开工) when base.二级科目 ='套数' then sum(lxdw.剩余货值套数_三年内不开工)
-when base.二级科目 ='均价' then (case when sum(lxdw.剩余货值面积_三年内不开工)= 0 then 0 else sum(lxdw.剩余货值金额_三年内不开工)*10000.0/sum(lxdw.剩余货值面积_三年内不开工)  end) else 0 end as 预计三年内不开工,
-case when base.二级科目 ='货值' then sum(lxdw.停工缓建剩余货值金额) when base.二级科目 ='面积' then sum(lxdw.停工缓建剩余货值面积)  when base.二级科目 ='套数' then sum(lxdw.停工缓建剩余货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.停工缓建剩余货值面积)= 0 then 0 else sum(lxdw.停工缓建剩余货值金额)*10000.0/sum(lxdw.停工缓建剩余货值面积)  end) else 0 end as 停工缓建剩余货值,
---新增
-case when base.二级科目 ='货值' then sum(lxdw.剩余货值金额) when base.二级科目 ='面积' then sum(lxdw.剩余货值面积)  when base.二级科目 ='套数' then sum(lxdw.剩余货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.剩余货值面积)= 0 then 0 else sum(lxdw.剩余货值金额)*10000.0/sum(lxdw.剩余货值面积)  end) else 0 end as 未售合计,
-case when base.二级科目 ='货值' then sum(lxdw.存货货值金额) when base.二级科目 ='面积' then sum(lxdw.存货货值面积)  when base.二级科目 ='套数' then sum(lxdw.存货货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.存货货值面积)= 0 then 0 else sum(lxdw.存货货值金额)*10000.0/sum(lxdw.存货货值面积)  end) else 0 end as 存货合计含停工缓建,
-case when base.二级科目 ='货值' then sum(lxdw.停工缓建剩余可售货值金额) when base.二级科目 ='面积' then sum(lxdw.停工缓建剩余可售货值面积)  when base.二级科目 ='套数' then sum(lxdw.停工缓建剩余可售货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.停工缓建剩余可售货值面积)= 0 then 0 else sum(lxdw.停工缓建剩余可售货值金额)*10000.0/sum(lxdw.停工缓建剩余可售货值面积)  end) else 0 end as 存货停工缓建,
-case when base.二级科目 ='货值' then sum(lxdw.在途货值金额合计) when base.二级科目 ='面积' then sum(lxdw.在途货值面积合计)  when base.二级科目 ='套数' then sum(lxdw.在途剩余货值套数合计)
-when base.二级科目 ='均价' then (case when sum(lxdw.在途货值面积合计)= 0 then 0 else sum(lxdw.在途货值金额合计)*10000.0/sum(lxdw.在途货值面积合计)  end) else 0 end as 在途合计, 
-case when base.二级科目 ='货值' then sum(lxdw.停工缓建在途剩余货值金额) when base.二级科目 ='面积' then sum(lxdw.停工缓建在途剩余货值面积)  when base.二级科目 ='套数' then sum(lxdw.停工缓建在途剩余货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.停工缓建在途剩余货值面积)= 0 then 0 else sum(lxdw.停工缓建在途剩余货值金额)*10000.0/sum(lxdw.停工缓建在途剩余货值面积)  end) else 0 end as 在途停工缓建,
+    base.清洗时间,
+    base.统计维度,
+    base.外键关联,
+    base.组织架构类型,
+    base.组织架构名称,
+    case 
+        when base.组织架构类型 = 2 then base.组织架构名称
+        else '汇总'
+    end as 业态,
+    case
+        when base.二级科目 = '货值' then '货值（亿元）'
+        when base.二级科目 = '面积' then '面积（万㎡）'
+        when base.二级科目 = '套数' then '套数（套）'
+        else '均价（元）'
+    end as 二级科目,  
+    case 
+        when base.组织架构类型 = 2 then base.组织架构名称 
+        else '汇总'
+    end + base.二级科目 as id,
+    case 
+        when base.二级科目 = '货值' then null
+        else (case when base.组织架构类型 = 2 then base.组织架构名称 else '汇总' end) + '货值'
+    end as parentid,
+    case 
+        when base.组织架构类型 = 2 then 0
+        else 1
+    end as 是否加背景色, -- 项目汇总的话，就加背景色
 
-case when base.二级科目 ='货值' then sum(lxdw.三年内开工剩余货值金额) when base.二级科目 ='面积' then sum(lxdw.三年内开工剩余货值面积)  when base.二级科目 ='套数' then sum(lxdw.三年内开工剩余货值套数)
-when base.二级科目 ='均价' then (case when sum(lxdw.三年内开工剩余货值面积)= 0 then 0 else sum(lxdw.三年内开工剩余货值金额)*10000.0/sum(lxdw.三年内开工剩余货值面积)  end) else 0 end as 三年内开工
+    -- 立项
+    case
+        when base.二级科目 = '货值' then sum(lxdw.立项货值)
+        when base.二级科目 = '面积' then sum(lxdw.立项总建筑面积)
+        when base.二级科目 = '套数' then sum(lxdw.立项套数)
+        when base.二级科目 = '均价' then 
+            case when sum(lxdw.立项总建筑面积) = 0 then 0 else sum(lxdw.立项货值) * 10000.0 / sum(lxdw.立项总建筑面积) end
+        else 0
+    end as 立项,
+
+    -- 定位
+    case
+        when base.二级科目 = '货值' then sum(lxdw.定位最新版货值)
+        when base.二级科目 = '面积' then sum(lxdw.定位最新版总建筑面积)
+        when base.二级科目 = '套数' then sum(lxdw.定位最新版套数)
+        when base.二级科目 = '均价' then 
+            case when sum(lxdw.定位最新版总建筑面积) = 0 then 0 else sum(lxdw.定位最新版货值) * 10000.0 / sum(lxdw.定位最新版总建筑面积) end
+        else 0
+    end as 定位,
+
+    -- 总货量
+    case
+        when base.二级科目 = '货值' then sum(lxdw.动态总资源)
+        when base.二级科目 = '面积' then sum(lxdw.总货值面积)
+        when base.二级科目 = '套数' then sum(lxdw.总货值套数)
+        when base.二级科目 = '均价' then 
+            case when sum(lxdw.总货值面积) = 0 then 0 else sum(lxdw.动态总资源) * 10000.0 / sum(lxdw.总货值面积) end
+        else 0
+    end as 总货量,
+
+    -- 总货量_除3年不开工
+    case
+        when base.二级科目 = '货值' then sum(lxdw.动态总货值金额_除3年不开工)
+        when base.二级科目 = '面积' then sum(lxdw.动态总货值面积_除3年不开工)
+        when base.二级科目 = '套数' then sum(lxdw.动态总货值套数_除3年不开工)
+        when base.二级科目 = '均价' then 
+            case when sum(lxdw.动态总货值面积_除3年不开工) = 0 then 0 else sum(lxdw.动态总货值金额_除3年不开工) * 10000.0 / sum(lxdw.动态总货值面积_除3年不开工) end
+        else 0
+    end as 总货量_除3年不开工,
+
+    -- 已售
+    case
+        when base.二级科目 = '货值' then sum(lxdw.累计签约货值)
+        when base.二级科目 = '面积' then sum(lxdw.累计签约面积)
+        when base.二级科目 = '套数' then sum(lxdw.累计签约套数)
+        when base.二级科目 = '均价' then 
+            case when sum(lxdw.累计签约面积) = 0 then 0 else sum(lxdw.累计签约货值) * 10000.0 / sum(lxdw.累计签约面积) end
+        else 0
+    end as 已售,
+
+    -- 存货合计
+    case
+        when base.二级科目 = '货值' then sum(lxdw.当前可售货值金额)
+        when base.二级科目 = '面积' then sum(lxdw.当前可售货值面积)
+        when base.二级科目 = '套数' then sum(lxdw.当前可售货值套数)
+        when base.二级科目 = '均价' then 
+            case when sum(lxdw.当前可售货值面积) = 0 then 0 else sum(lxdw.当前可售货值金额) * 10000.0 / sum(lxdw.当前可售货值面积) end
+        else 0
+    end as 存货合计,
+
+    -- 达形象未取证剩余货量
+    case
+        when base.二级科目 = '货值' then sum(lxdw.具备条件未领证金额)
+        when base.二级科目 = '面积' then sum(lxdw.具备条件未领证面积)
+        when base.二级科目 = '套数' then sum(lxdw.具备条件未领证套数)
+        when base.二级科目 = '均价' then 
+            case when sum(lxdw.具备条件未领证面积) = 0 then 0 else sum(lxdw.具备条件未领证金额) * 10000.0 / sum(lxdw.具备条件未领证面积) end
+        else 0
+    end as 达形象未取证剩余货量,
+
+    -- 获证待推剩余货量
+    case
+        when base.二级科目 = '货值' then sum(lxdw.获证待推金额)
+        when base.二级科目 = '面积' then sum(lxdw.获证待推面积)
+        when base.二级科目 = '套数' then sum(lxdw.获证待推套数)
+        when base.二级科目 = '均价' then 
+            case when sum(lxdw.获证待推面积) = 0 then 0 else sum(lxdw.获证待推金额) * 10000.0 / sum(lxdw.获证待推面积) end
+        else 0
+    end as 获证待推剩余货量,
+
+    -- 已推未售
+    case
+        when base.二级科目 = '货值' then sum(lxdw.已推未售金额)
+        when base.二级科目 = '面积' then sum(lxdw.已推未售面积)
+        when base.二级科目 = '套数' then sum(lxdw.已推未售套数)
+        when base.二级科目 = '均价' then 
+            case when sum(lxdw.已推未售面积) = 0 then 0 else sum(lxdw.已推未售金额) * 10000.0 / sum(lxdw.已推未售面积) end
+        else 0
+    end as 已推未售,
+
+    -- 在途
+    case
+        when base.二级科目 = '货值' then sum(lxdw.在途剩余货值金额)
+        when base.二级科目 = '面积' then sum(lxdw.在途剩余货值面积)
+        when base.二级科目 = '套数' then sum(lxdw.在途剩余货值套数)
+        when base.二级科目 = '均价' then 
+            case when sum(lxdw.在途剩余货值面积) = 0 then 0 else sum(lxdw.在途剩余货值金额) * 10000.0 / sum(lxdw.在途剩余货值面积) end
+        else 0
+    end as 在途,
+
+    -- 未开工
+    case
+        when base.二级科目 = '货值' then sum(lxdw.未开工剩余货值金额)
+        when base.二级科目 = '面积' then sum(lxdw.未开工剩余货值面积)
+        when base.二级科目 = '套数' then sum(lxdw.未开工剩余货值套数)
+        when base.二级科目 = '均价' then 
+            case when sum(lxdw.未开工剩余货值面积) = 0 then 0 else sum(lxdw.未开工剩余货值金额) * 10000.0 / sum(lxdw.未开工剩余货值面积) end
+        else 0
+    end as 未开工,
+
+    -- 预计三年内不开工
+    case
+        when base.二级科目 = '货值' then sum(lxdw.剩余货值金额_三年内不开工)
+        when base.二级科目 = '面积' then sum(lxdw.剩余货值面积_三年内不开工)
+        when base.二级科目 = '套数' then sum(lxdw.剩余货值套数_三年内不开工)
+        when base.二级科目 = '均价' then 
+            case when sum(lxdw.剩余货值面积_三年内不开工) = 0 then 0 else sum(lxdw.剩余货值金额_三年内不开工) * 10000.0 / sum(lxdw.剩余货值面积_三年内不开工) end
+        else 0
+    end as 预计三年内不开工,
+
+    -- 停工缓建剩余货值
+    case
+        when base.二级科目 = '货值' then sum(lxdw.停工缓建剩余货值金额)
+        when base.二级科目 = '面积' then sum(lxdw.停工缓建剩余货值面积)
+        when base.二级科目 = '套数' then sum(lxdw.停工缓建剩余货值套数)
+        when base.二级科目 = '均价' then 
+            case when sum(lxdw.停工缓建剩余货值面积) = 0 then 0 else sum(lxdw.停工缓建剩余货值金额) * 10000.0 / sum(lxdw.停工缓建剩余货值面积) end
+        else 0
+    end as 停工缓建剩余货值,
+
+    -- 新增: 未售合计
+    case
+        when base.二级科目 = '货值' then sum(lxdw.剩余货值金额)
+        when base.二级科目 = '面积' then sum(lxdw.剩余货值面积)
+        when base.二级科目 = '套数' then sum(lxdw.剩余货值套数)
+        when base.二级科目 = '均价' then 
+            case when sum(lxdw.剩余货值面积) = 0 then 0 else sum(lxdw.剩余货值金额) * 10000.0 / sum(lxdw.剩余货值面积) end
+        else 0
+    end as 未售合计,
+
+    -- 存货合计含停工缓建
+    case
+        when base.二级科目 = '货值' then sum(lxdw.存货货值金额)
+        when base.二级科目 = '面积' then sum(lxdw.存货货值面积)
+        when base.二级科目 = '套数' then sum(lxdw.存货货值套数)
+        when base.二级科目 = '均价' then 
+            case when sum(lxdw.存货货值面积) = 0 then 0 else sum(lxdw.存货货值金额) * 10000.0 / sum(lxdw.存货货值面积) end
+        else 0
+    end as 存货合计含停工缓建,
+
+    -- 存货停工缓建
+    case
+        when base.二级科目 = '货值' then sum(lxdw.停工缓建剩余可售货值金额)
+        when base.二级科目 = '面积' then sum(lxdw.停工缓建剩余可售货值面积)
+        when base.二级科目 = '套数' then sum(lxdw.停工缓建剩余可售货值套数)
+        when base.二级科目 = '均价' then 
+            case when sum(lxdw.停工缓建剩余可售货值面积) = 0 then 0 else sum(lxdw.停工缓建剩余可售货值金额) * 10000.0 / sum(lxdw.停工缓建剩余可售货值面积) end
+        else 0
+    end as 存货停工缓建,
+
+    -- 在途合计
+    case
+        when base.二级科目 = '货值' then sum(lxdw.在途货值金额合计)
+        when base.二级科目 = '面积' then sum(lxdw.在途货值面积合计)
+        when base.二级科目 = '套数' then sum(lxdw.在途剩余货值套数合计)
+        when base.二级科目 = '均价' then 
+            case when sum(lxdw.在途货值面积合计) = 0 then 0 else sum(lxdw.在途货值金额合计) * 10000.0 / sum(lxdw.在途货值面积合计) end
+        else 0
+    end as 在途合计,
+
+    -- 在途停工缓建
+    case
+        when base.二级科目 = '货值' then sum(lxdw.停工缓建在途剩余货值金额)
+        when base.二级科目 = '面积' then sum(lxdw.停工缓建在途剩余货值面积)
+        when base.二级科目 = '套数' then sum(lxdw.停工缓建在途剩余货值套数)
+        when base.二级科目 = '均价' then 
+            case when sum(lxdw.停工缓建在途剩余货值面积) = 0 then 0 else sum(lxdw.停工缓建在途剩余货值金额) * 10000.0 / sum(lxdw.停工缓建在途剩余货值面积) end
+        else 0
+    end as 在途停工缓建,
+
+    -- 三年内开工
+    case
+        when base.二级科目 = '货值' then sum(lxdw.三年内开工剩余货值金额)
+        when base.二级科目 = '面积' then sum(lxdw.三年内开工剩余货值面积)
+        when base.二级科目 = '套数' then sum(lxdw.三年内开工剩余货值套数)
+        when base.二级科目 = '均价' then 
+            case when sum(lxdw.三年内开工剩余货值面积) = 0 then 0 else sum(lxdw.三年内开工剩余货值金额) * 10000.0 / sum(lxdw.三年内开工剩余货值面积) end
+        else 0
+    end as 三年内开工,
+
+    -- 2025-11-11新增字段
+    --反算总货量
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算总货量_总货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.反算总货量_总面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.反算总货量_套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.反算总货量_总面积) = 0 THEN 0
+                ELSE SUM(res.反算总货量_总货值)  / SUM(res.反算总货量_总面积)
+            END
+        ELSE 0
+    END AS 反算总货量,
+    -- 反算已开工货量
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算已开工货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.反算已开工面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.反算已开工套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.反算已开工面积) = 0 THEN 0
+                ELSE SUM(res.反算已开工货值)  / SUM(res.反算已开工面积)
+            END
+        ELSE 0
+    END AS 反算已开工货量,
+    -- 反算剩余货量
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算剩余货量_剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.反算剩余货量_剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.反算剩余货量_剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.反算剩余货量_剩余面积) = 0 THEN 0
+                ELSE SUM(res.反算剩余货量_剩余货值)  / SUM(res.反算剩余货量_剩余面积)
+            END
+        ELSE 0
+    END AS 反算剩余货量, 
+    -- 反算存货货量
+     CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算存货货量_存货货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.反算存货货量_存货面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.反算存货货量_存货套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.反算存货货量_存货面积) = 0 THEN 0
+                ELSE SUM(res.反算存货货量_存货货值)  / SUM(res.反算存货货量_存货面积)
+            END
+        ELSE 0
+    END AS 反算存货货量, 
+    -- 反算在途货量
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算在途货量_在途货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.反算在途货量_在途面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.反算在途货量_在途套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.反算在途货量_在途面积) = 0 THEN 0
+                ELSE SUM(res.反算在途货量_在途货值)  / SUM(res.反算在途货量_在途面积)
+            END
+        ELSE 0
+    END AS 反算在途货量, 
+    -- 反算未开工货量
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算未开工货量_未开工货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.反算未开工货量_未开工面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.反算未开工货量_未开工套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.反算未开工货量_未开工面积) = 0 THEN 0
+                ELSE SUM(res.反算未开工货量_未开工货值)  / SUM(res.反算未开工货量_未开工面积)
+            END
+        ELSE 0
+    END AS 反算未开工货量,
+    -- 当前处置临时冻结合计
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结货值合计)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结面积合计)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结套数合计)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前临时冻结面积合计) = 0 THEN 0
+                ELSE SUM(res.处置前临时冻结货值合计)  / SUM(res.处置前临时冻结面积合计)
+            END
+        ELSE 0
+    END  as [当前处置临时冻结合计],
+    -- 当前处置其中：合作受阻
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_合作受阻冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_合作受阻冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_合作受阻冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前临时冻结_合作受阻冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置前临时冻结_合作受阻冻结货值)  / SUM(res.处置前临时冻结_合作受阻冻结面积)
+            END
+        ELSE 0
+    END  as  [当前处置其中：合作受阻],
+  -- 开发受限
+   CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_开发受限冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_开发受限冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_开发受限冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前临时冻结_开发受限冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置前临时冻结_开发受限冻结货值)  / SUM(res.处置前临时冻结_开发受限冻结面积)
+            END
+        ELSE 0
+    END as  [当前处置其中：开发受限],
+    -- 当前处置其中：停工缓建
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_停工缓建冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_停工缓建冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_停工缓建冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前临时冻结_停工缓建冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置前临时冻结_停工缓建冻结货值)  / SUM(res.处置前临时冻结_停工缓建冻结面积)
+            END
+        ELSE 0
+    END  as [当前处置其中：停工缓建],
+    -- 当前处置其中：投资未落实
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_投资未落实冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_投资未落实冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_投资未落实冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前临时冻结_投资未落实冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置前临时冻结_投资未落实冻结货值)  / SUM(res.处置前临时冻结_投资未落实冻结面积)
+            END
+        ELSE 0
+    END  as [当前处置其中：投资未落实],
+    -- 当前处置退换调转
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前退换调转剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前退换调转剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前退换调转剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前退换调转剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置前退换调转剩余货值)  / SUM(res.处置前退换调转剩余面积)
+            END
+        ELSE 0
+    END  as [当前处置退换调转],
+    -- 当前处置正常销售
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前正常销售剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前正常销售剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前正常销售剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前正常销售剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置前正常销售剩余货值)  / SUM(res.处置前正常销售剩余面积)
+            END
+        ELSE 0
+    END  as [当前处置正常销售],
+    -- 当前处置转经营 
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前转经营剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前转经营剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前转经营剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前转经营剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置前转经营剩余货值)  / SUM(res.处置前转经营剩余面积)
+            END
+        ELSE 0
+    END  as [当前处置转经营],
+    -- 处置前尾盘剩余面积
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前尾盘剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前尾盘剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前尾盘剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前尾盘剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置前尾盘剩余货值)  / SUM(res.处置前尾盘剩余面积)
+            END
+        ELSE 0
+    END as  [尾盘],
+    -- 处置后临时冻结合计
+   CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结货值合计)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结面积合计)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结套数合计)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后临时冻结面积合计) = 0 THEN 0
+                ELSE SUM(res.处置后临时冻结货值合计)  / SUM(res.处置后临时冻结面积合计)
+            END
+        ELSE 0
+    END  as  [处置后临时冻结合计],
+    -- 处置后临时冻结_合作受阻冻结面积
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_合作受阻冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_合作受阻冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_合作受阻冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后临时冻结_合作受阻冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置后临时冻结_合作受阻冻结货值)  / SUM(res.处置后临时冻结_合作受阻冻结面积)
+            END
+        ELSE 0
+    END as [处置后其中：合作受阻],
+    -- 处置后临时冻结_开发受限冻结面积
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_开发受限冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_开发受限冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_开发受限冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后临时冻结_开发受限冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置后临时冻结_开发受限冻结货值)  / SUM(res.处置后临时冻结_开发受限冻结面积)
+            END
+        ELSE 0
+    END  as [处置后其中：开发受限],
+    -- 处置后临时冻结_停工缓建冻结面积
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_停工缓建冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_停工缓建冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_停工缓建冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后临时冻结_停工缓建冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置后临时冻结_停工缓建冻结货值)  / SUM(res.处置后临时冻结_停工缓建冻结面积)
+            END
+        ELSE 0
+    END  as [处置后其中：停工缓建],
+    -- 处置后临时冻结_投资未落实冻结面积
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_投资未落实冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_投资未落实冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_投资未落实冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后临时冻结_投资未落实冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置后临时冻结_投资未落实冻结货值)  / SUM(res.处置后临时冻结_投资未落实冻结面积)
+            END
+        ELSE 0
+    END  as [处置后其中：投资未落实],
+    -- 处置后退换调转剩余
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后退换调转剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后退换调转剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后退换调转剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后退换调转剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置后退换调转剩余货值)  / SUM(res.处置后退换调转剩余面积)
+            END
+        ELSE 0
+    END  as [处置后退换调转],
+    -- 处置后正常销售剩余
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后正常销售剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后正常销售剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后正常销售剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后正常销售剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置后正常销售剩余货值)  / SUM(res.处置后正常销售剩余面积)
+            END
+        ELSE 0
+    END  as [处置后正常销售],
+    -- 处置后转经营剩余货值
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后转经营剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后转经营剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后转经营剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后转经营剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置后转经营剩余货值)  / SUM(res.处置后转经营剩余面积)
+            END
+        ELSE 0
+    END  as [处置后转经营],
+    -- 处置后尾盘
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后尾盘剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后尾盘剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后尾盘剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后尾盘剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置后尾盘剩余货值)  / SUM(res.处置后尾盘剩余面积)
+            END
+        ELSE 0
+    END  as  [处置后尾盘],
+
+    -- 新增 销售状态分析字段
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_已推未售剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_已推未售剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_已推未售剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.已开工剩余货量_已推未售剩余面积) = 0 THEN 0
+                ELSE SUM(res.已开工剩余货量_已推未售剩余货值)  / SUM(res.已开工剩余货量_已推未售剩余面积)
+            END
+        ELSE 0
+    END as [已开工剩余货量已推未售],
+      CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_获证待推剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_获证待推剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_获证待推剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.已开工剩余货量_获证待推剩余面积) = 0 THEN 0
+                ELSE SUM(res.已开工剩余货量_获证待推剩余货值)  / SUM(res.已开工剩余货量_获证待推剩余面积)
+            END
+        ELSE 0
+    END as [已开工剩余货量获证待推],
+      CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_达形象未取证剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_达形象未取证剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_达形象未取证剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.已开工剩余货量_达形象未取证剩余面积) = 0 THEN 0
+                ELSE SUM(res.已开工剩余货量_达形象未取证剩余货值)  / SUM(res.已开工剩余货量_达形象未取证剩余面积)
+            END
+        ELSE 0
+    END as [已开工剩余货量达形象未取证],
+      CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_正常在途剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_正常在途剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_正常在途剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.已开工剩余货量_正常在途剩余面积) = 0 THEN 0
+                ELSE SUM(res.已开工剩余货量_正常在途剩余货值)  / SUM(res.已开工剩余货量_正常在途剩余面积)
+            END
+        ELSE 0
+    END as [已开工剩余货量正常在途],
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_停工缓建在途剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_停工缓建在途剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_停工缓建在途剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.已开工剩余货量_停工缓建在途剩余面积) = 0 THEN 0
+                ELSE SUM(res.已开工剩余货量_停工缓建在途剩余货值)  / SUM(res.已开工剩余货量_停工缓建在途剩余面积)
+            END
+        ELSE 0
+    END as [已开工剩余货量停工缓建在途],
+      CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_停工缓建剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.未开工剩余货量_停工缓建剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.未开工剩余货量_停工缓建剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.未开工剩余货量_停工缓建剩余面积) = 0 THEN 0
+                ELSE SUM(res.未开工剩余货量_停工缓建剩余货值)  / SUM(res.未开工剩余货量_停工缓建剩余面积)
+            END
+        ELSE 0
+    END as [未开工剩余货量停工缓建],
+      CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_预计三年内开工剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.未开工剩余货量_预计三年内开工剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.未开工剩余货量_预计三年内开工剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.未开工剩余货量_预计三年内开工剩余面积) = 0 THEN 0
+                ELSE SUM(res.未开工剩余货量_预计三年内开工剩余货值)  / SUM(res.未开工剩余货量_预计三年内开工剩余面积)
+            END
+        ELSE 0
+    END as [未开工剩余货量预计三年内开工],
+      CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_预计三年后开工剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.未开工剩余货量_预计三年后开工剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.未开工剩余货量_预计三年后开工剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.未开工剩余货量_预计三年后开工剩余面积) = 0 THEN 0
+                ELSE SUM(res.未开工剩余货量_预计三年后开工剩余货值)  / SUM(res.未开工剩余货量_预计三年后开工剩余面积)
+            END
+        ELSE 0
+    END as [未开工剩余货量预计三年后开工],
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已竣备剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_已竣备剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.建设状态_已竣备剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.建设状态_已竣备剩余面积) = 0 THEN 0
+                ELSE SUM(res.建设状态_已竣备剩余货值)  / SUM(res.建设状态_已竣备剩余面积)
+            END
+        ELSE 0
+    END 已竣备,
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已达形象未达竣备剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_已达形象未达竣备剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.建设状态_已达形象未达竣备剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.建设状态_已达形象未达竣备剩余面积) = 0 THEN 0
+                ELSE SUM(res.建设状态_已达形象未达竣备剩余货值)  / SUM(res.建设状态_已达形象未达竣备剩余面积)
+            END
+        ELSE 0
+    END 形象未达竣备,
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已开工未达形象剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_已开工未达形象剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.建设状态_已开工未达形象剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.建设状态_已开工未达形象剩余面积) = 0 THEN 0
+                ELSE SUM(res.建设状态_已开工未达形象剩余货值)  / SUM(res.建设状态_已开工未达形象剩余面积)
+            END
+        ELSE 0
+    END 开工未达形象,
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_停工缓建剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_停工缓建剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.建设状态_停工缓建剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.建设状态_停工缓建剩余面积) = 0 THEN 0
+                ELSE SUM(res.建设状态_停工缓建剩余货值)  / SUM(res.建设状态_停工缓建剩余面积)
+            END
+        ELSE 0
+    END 停工缓建
 from #baseinfo03_1 base
--- left join s_WqBaseStatic_summary hz on base.组织架构id = lxdw.组织架构id   
-left join #lxdw03_1 lxdw on base.组织架构id = lxdw.组织架构id and base.清洗时间 = lxdw.清洗时间 
-where  lxdw.立项货值<>0 or lxdw.动态总资源<>0
+left join #lxdw03_1 lxdw on  base.组织架构id = lxdw.组织架构id and base.清洗时间 = lxdw.清洗时间
+left join dw_s_WqBaseStatic_CompanyResource  res On base.组织架构id = res.组织架构id and  base.清洗时间 =res.清洗时间
+where lxdw.立项货值 <> 0 or lxdw.动态总资源 <> 0
 group by
-base.清洗时间,
-base.统计维度,
-base.外键关联,
-case when base.二级科目 = '货值' then '货值（亿元）' when base.二级科目 = '面积' then '面积（万㎡）' else '均价（元）' end  ,  --二级科目
-'汇总'+base.二级科目,   --id
-case when base.二级科目 = '货值' then null else '汇总' end +'货值', --parent id
-base.二级科目
+    base.清洗时间,
+    base.统计维度,
+    base.外键关联,
+    base.组织架构类型,
+    base.组织架构名称,
+    case when base.组织架构类型 = 2 then base.组织架构名称 else '汇总' end,
+    case when base.组织架构类型 = 2 then base.组织架构名称 else '汇总' end + base.二级科目,
+    case when base.二级科目 = '货值' then null else (case when base.组织架构类型 = 2 then base.组织架构名称 else '汇总' end) + '货值' end,
+    case when base.组织架构类型 = 2 then 0 else 1 end,
+    base.二级科目
+
+union all
+
+select
+    base.清洗时间,
+    base.统计维度,
+    base.外键关联,
+    '1' as 组织架构类型,
+    '湾区公司' as 组织架构名称,
+    '汇总' as 业态,
+    case
+        when base.二级科目 = '货值' then '货值（亿元）'
+        when base.二级科目 = '面积' then '面积（万㎡）'
+        when base.二级科目 = '套数' then '套数（套）'
+        else '均价（元）'
+    end as 二级科目, 
+    '汇总' + base.二级科目 as id,
+    case
+        when base.二级科目 = '货值' then null
+        else '汇总' end + '货值'
+    as parentid,
+    1 as 是否加背景色, -- 项目汇总的话，就加背景色
+
+    -- 立项
+    case
+        when base.二级科目 = '货值' then sum(lxdw.立项货值)
+        when base.二级科目 = '面积' then sum(lxdw.立项总建筑面积)
+        when base.二级科目 = '套数' then sum(lxdw.立项套数)
+        when base.二级科目 = '均价' then
+            case when sum(lxdw.立项总建筑面积) = 0 then 0 else sum(lxdw.立项货值) * 10000.0 / sum(lxdw.立项总建筑面积) end
+        else 0
+    end as 立项,
+    -- 定位
+    case
+        when base.二级科目 = '货值' then sum(lxdw.定位最新版货值)
+        when base.二级科目 = '面积' then sum(lxdw.定位最新版总建筑面积)
+        when base.二级科目 = '套数' then sum(lxdw.定位最新版套数)
+        when base.二级科目 = '均价' then
+            case when sum(lxdw.定位最新版总建筑面积) = 0 then 0 else sum(lxdw.定位最新版货值) * 10000.0 / sum(lxdw.定位最新版总建筑面积) end
+        else 0
+    end as 定位,
+    -- 总货量
+    case
+        when base.二级科目 = '货值' then sum(lxdw.动态总资源)
+        when base.二级科目 = '面积' then sum(lxdw.总货值面积)
+        when base.二级科目 = '套数' then sum(lxdw.总货值套数)
+        when base.二级科目 = '均价' then
+            case when sum(lxdw.总货值面积) = 0 then 0 else sum(lxdw.动态总资源) * 10000.0 / sum(lxdw.总货值面积) end
+        else 0
+    end as 总货量,
+    -- 总货量_除3年不开工
+    case
+        when base.二级科目 = '货值' then sum(lxdw.动态总货值金额_除3年不开工)
+        when base.二级科目 = '面积' then sum(lxdw.动态总货值面积_除3年不开工)
+        when base.二级科目 = '套数' then sum(lxdw.动态总货值套数_除3年不开工)
+        when base.二级科目 = '均价' then
+            case when sum(lxdw.动态总货值面积_除3年不开工) = 0 then 0 else sum(lxdw.动态总货值金额_除3年不开工) * 10000.0 / sum(lxdw.动态总货值面积_除3年不开工) end
+        else 0
+    end as 总货量_除3年不开工,
+    -- 已售
+    case
+        when base.二级科目 = '货值' then sum(lxdw.累计签约货值)
+        when base.二级科目 = '面积' then sum(lxdw.累计签约面积)
+        when base.二级科目 = '套数' then sum(lxdw.累计签约套数)
+        when base.二级科目 = '均价' then
+            case when sum(lxdw.累计签约面积) = 0 then 0 else sum(lxdw.累计签约货值) * 10000.0 / sum(lxdw.累计签约面积) end
+        else 0
+    end as 已售,
+    -- 存货合计
+    case
+        when base.二级科目 = '货值' then sum(lxdw.当前可售货值金额)
+        when base.二级科目 = '面积' then sum(lxdw.当前可售货值面积)
+        when base.二级科目 = '套数' then sum(lxdw.当前可售货值套数)
+        when base.二级科目 = '均价' then
+            case when sum(lxdw.当前可售货值面积) = 0 then 0 else sum(lxdw.当前可售货值金额) * 10000.0 / sum(lxdw.当前可售货值面积) end
+        else 0
+    end as 存货合计,
+    -- 达形象未取证剩余货量
+    case
+        when base.二级科目 = '货值' then sum(lxdw.具备条件未领证金额)
+        when base.二级科目 = '面积' then sum(lxdw.具备条件未领证面积)
+        when base.二级科目 = '套数' then sum(lxdw.具备条件未领证套数)
+        when base.二级科目 = '均价' then
+            case when sum(lxdw.具备条件未领证面积) = 0 then 0 else sum(lxdw.具备条件未领证金额) * 10000.0 / sum(lxdw.具备条件未领证面积) end
+        else 0
+    end as 达形象未取证剩余货量,
+    -- 获证待推剩余货量
+    case
+        when base.二级科目 = '货值' then sum(lxdw.获证待推金额)
+        when base.二级科目 = '面积' then sum(lxdw.获证待推面积)
+        when base.二级科目 = '套数' then sum(lxdw.获证待推套数)
+        when base.二级科目 = '均价' then
+            case when sum(lxdw.获证待推面积) = 0 then 0 else sum(lxdw.获证待推金额) * 10000.0 / sum(lxdw.获证待推面积) end
+        else 0
+    end as 获证待推剩余货量,
+    -- 已推未售
+    case
+        when base.二级科目 = '货值' then sum(lxdw.已推未售金额)
+        when base.二级科目 = '面积' then sum(lxdw.已推未售面积)
+        when base.二级科目 = '套数' then sum(lxdw.已推未售套数)
+        when base.二级科目 = '均价' then
+            case when sum(lxdw.已推未售面积) = 0 then 0 else sum(lxdw.已推未售金额) * 10000.0 / sum(lxdw.已推未售面积) end
+        else 0
+    end as 已推未售,
+    -- 在途
+    case
+        when base.二级科目 = '货值' then sum(lxdw.在途剩余货值金额)
+        when base.二级科目 = '面积' then sum(lxdw.在途剩余货值面积)
+        when base.二级科目 = '套数' then sum(lxdw.在途剩余货值套数)
+        when base.二级科目 = '均价' then
+            case when sum(lxdw.在途剩余货值面积) = 0 then 0 else sum(lxdw.在途剩余货值金额) * 10000.0 / sum(lxdw.在途剩余货值面积) end
+        else 0
+    end as 在途,
+    -- 未开工
+    case
+        when base.二级科目 = '货值' then sum(lxdw.未开工剩余货值金额)
+        when base.二级科目 = '面积' then sum(lxdw.未开工剩余货值面积)
+        when base.二级科目 = '套数' then sum(lxdw.未开工剩余货值套数)
+        when base.二级科目 = '均价' then
+            case when sum(lxdw.未开工剩余货值面积) = 0 then 0 else sum(lxdw.未开工剩余货值金额) * 10000.0 / sum(lxdw.未开工剩余货值面积) end
+        else 0
+    end as 未开工,
+    -- 预计三年内不开工
+    case
+        when base.二级科目 = '货值' then sum(lxdw.剩余货值金额_三年内不开工)
+        when base.二级科目 = '面积' then sum(lxdw.剩余货值面积_三年内不开工)
+        when base.二级科目 = '套数' then sum(lxdw.剩余货值套数_三年内不开工)
+        when base.二级科目 = '均价' then
+            case when sum(lxdw.剩余货值面积_三年内不开工) = 0 then 0 else sum(lxdw.剩余货值金额_三年内不开工) * 10000.0 / sum(lxdw.剩余货值面积_三年内不开工) end
+        else 0
+    end as 预计三年内不开工,
+    -- 停工缓建剩余货值
+    case
+        when base.二级科目 = '货值' then sum(lxdw.停工缓建剩余货值金额)
+        when base.二级科目 = '面积' then sum(lxdw.停工缓建剩余货值面积)
+        when base.二级科目 = '套数' then sum(lxdw.停工缓建剩余货值套数)
+        when base.二级科目 = '均价' then
+            case when sum(lxdw.停工缓建剩余货值面积) = 0 then 0 else sum(lxdw.停工缓建剩余货值金额) * 10000.0 / sum(lxdw.停工缓建剩余货值面积) end
+        else 0
+    end as 停工缓建剩余货值,
+    -- 新增: 未售合计
+    case
+        when base.二级科目 = '货值' then sum(lxdw.剩余货值金额)
+        when base.二级科目 = '面积' then sum(lxdw.剩余货值面积)
+        when base.二级科目 = '套数' then sum(lxdw.剩余货值套数)
+        when base.二级科目 = '均价' then
+            case when sum(lxdw.剩余货值面积) = 0 then 0 else sum(lxdw.剩余货值金额) * 10000.0 / sum(lxdw.剩余货值面积) end
+        else 0
+    end as 未售合计,
+    -- 存货合计含停工缓建
+    case
+        when base.二级科目 = '货值' then sum(lxdw.存货货值金额)
+        when base.二级科目 = '面积' then sum(lxdw.存货货值面积)
+        when base.二级科目 = '套数' then sum(lxdw.存货货值套数)
+        when base.二级科目 = '均价' then
+            case when sum(lxdw.存货货值面积) = 0 then 0 else sum(lxdw.存货货值金额) * 10000.0 / sum(lxdw.存货货值面积) end
+        else 0
+    end as 存货合计含停工缓建,
+    -- 存货停工缓建
+    case
+        when base.二级科目 = '货值' then sum(lxdw.停工缓建剩余可售货值金额)
+        when base.二级科目 = '面积' then sum(lxdw.停工缓建剩余可售货值面积)
+        when base.二级科目 = '套数' then sum(lxdw.停工缓建剩余可售货值套数)
+        when base.二级科目 = '均价' then
+            case when sum(lxdw.停工缓建剩余可售货值面积) = 0 then 0 else sum(lxdw.停工缓建剩余可售货值金额) * 10000.0 / sum(lxdw.停工缓建剩余可售货值面积) end
+        else 0
+    end as 存货停工缓建,
+    -- 在途合计
+    case
+        when base.二级科目 = '货值' then sum(lxdw.在途货值金额合计)
+        when base.二级科目 = '面积' then sum(lxdw.在途货值面积合计)
+        when base.二级科目 = '套数' then sum(lxdw.在途剩余货值套数合计)
+        when base.二级科目 = '均价' then
+            case when sum(lxdw.在途货值面积合计) = 0 then 0 else sum(lxdw.在途货值金额合计) * 10000.0 / sum(lxdw.在途货值面积合计) end
+        else 0
+    end as 在途合计,
+    -- 在途停工缓建
+    case
+        when base.二级科目 = '货值' then sum(lxdw.停工缓建在途剩余货值金额)
+        when base.二级科目 = '面积' then sum(lxdw.停工缓建在途剩余货值面积)
+        when base.二级科目 = '套数' then sum(lxdw.停工缓建在途剩余货值套数)
+        when base.二级科目 = '均价' then
+            case when sum(lxdw.停工缓建在途剩余货值面积) = 0 then 0 else sum(lxdw.停工缓建在途剩余货值金额) * 10000.0 / sum(lxdw.停工缓建在途剩余货值面积) end
+        else 0
+    end as 在途停工缓建,
+    -- 三年内开工
+    case
+        when base.二级科目 = '货值' then sum(lxdw.三年内开工剩余货值金额)
+        when base.二级科目 = '面积' then sum(lxdw.三年内开工剩余货值面积)
+        when base.二级科目 = '套数' then sum(lxdw.三年内开工剩余货值套数)
+        when base.二级科目 = '均价' then
+            case when sum(lxdw.三年内开工剩余货值面积) = 0 then 0 else sum(lxdw.三年内开工剩余货值金额) * 10000.0 / sum(lxdw.三年内开工剩余货值面积) end
+        else 0
+    end as 三年内开工,
+ -- 2025-11-11新增字段
+    --反算总货量
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算总货量_总货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.反算总货量_总面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.反算总货量_套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.反算总货量_总面积) = 0 THEN 0
+                ELSE SUM(res.反算总货量_总货值)  / SUM(res.反算总货量_总面积)
+            END
+        ELSE 0
+    END AS 反算总货量,
+    -- 反算已开工货量
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算已开工货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.反算已开工面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.反算已开工套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.反算已开工面积) = 0 THEN 0
+                ELSE SUM(res.反算已开工货值)  / SUM(res.反算已开工面积)
+            END
+        ELSE 0
+    END AS 反算已开工货量,
+    -- 反算剩余货量
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算剩余货量_剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.反算剩余货量_剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.反算剩余货量_剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.反算剩余货量_剩余面积) = 0 THEN 0
+                ELSE SUM(res.反算剩余货量_剩余货值)  / SUM(res.反算剩余货量_剩余面积)
+            END
+        ELSE 0
+    END AS 反算剩余货量, 
+    -- 反算存货货量
+     CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算存货货量_存货货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.反算存货货量_存货面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.反算存货货量_存货套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.反算存货货量_存货面积) = 0 THEN 0
+                ELSE SUM(res.反算存货货量_存货货值)  / SUM(res.反算存货货量_存货面积)
+            END
+        ELSE 0
+    END AS 反算存货货量, 
+    -- 反算在途货量
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算在途货量_在途货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.反算在途货量_在途面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.反算在途货量_在途套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.反算在途货量_在途面积) = 0 THEN 0
+                ELSE SUM(res.反算在途货量_在途货值)  / SUM(res.反算在途货量_在途面积)
+            END
+        ELSE 0
+    END AS 反算在途货量, 
+    -- 反算未开工货量
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算未开工货量_未开工货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.反算未开工货量_未开工面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.反算未开工货量_未开工套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.反算未开工货量_未开工面积) = 0 THEN 0
+                ELSE SUM(res.反算未开工货量_未开工货值)  / SUM(res.反算未开工货量_未开工面积)
+            END
+        ELSE 0
+    END AS 反算未开工货量,
+    -- 当前处置临时冻结合计
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结货值合计)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结面积合计)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结套数合计)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前临时冻结面积合计) = 0 THEN 0
+                ELSE SUM(res.处置前临时冻结货值合计)  / SUM(res.处置前临时冻结面积合计)
+            END
+        ELSE 0
+    END  as [当前处置临时冻结合计],
+    -- 当前处置其中：合作受阻
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_合作受阻冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_合作受阻冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_合作受阻冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前临时冻结_合作受阻冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置前临时冻结_合作受阻冻结货值)  / SUM(res.处置前临时冻结_合作受阻冻结面积)
+            END
+        ELSE 0
+    END  as  [当前处置其中：合作受阻],
+  -- 开发受限
+   CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_开发受限冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_开发受限冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_开发受限冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前临时冻结_开发受限冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置前临时冻结_开发受限冻结货值)  / SUM(res.处置前临时冻结_开发受限冻结面积)
+            END
+        ELSE 0
+    END as  [当前处置其中：开发受限],
+    -- 当前处置其中：停工缓建
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_停工缓建冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_停工缓建冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_停工缓建冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前临时冻结_停工缓建冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置前临时冻结_停工缓建冻结货值)  / SUM(res.处置前临时冻结_停工缓建冻结面积)
+            END
+        ELSE 0
+    END  as [当前处置其中：停工缓建],
+    -- 当前处置其中：投资未落实
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_投资未落实冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_投资未落实冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_投资未落实冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前临时冻结_投资未落实冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置前临时冻结_投资未落实冻结货值)  / SUM(res.处置前临时冻结_投资未落实冻结面积)
+            END
+        ELSE 0
+    END  as [当前处置其中：投资未落实],
+    -- 当前处置退换调转
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前退换调转剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前退换调转剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前退换调转剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前退换调转剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置前退换调转剩余货值)  / SUM(res.处置前退换调转剩余面积)
+            END
+        ELSE 0
+    END  as [当前处置退换调转],
+    -- 当前处置正常销售
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前正常销售剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前正常销售剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前正常销售剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前正常销售剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置前正常销售剩余货值)  / SUM(res.处置前正常销售剩余面积)
+            END
+        ELSE 0
+    END  as [当前处置正常销售],
+    -- 当前处置转经营 
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前转经营剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前转经营剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前转经营剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前转经营剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置前转经营剩余货值)  / SUM(res.处置前转经营剩余面积)
+            END
+        ELSE 0
+    END  as [当前处置转经营],
+    -- 处置前尾盘剩余面积
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前尾盘剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置前尾盘剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置前尾盘剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置前尾盘剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置前尾盘剩余货值)  / SUM(res.处置前尾盘剩余面积)
+            END
+        ELSE 0
+    END as  [尾盘],
+    -- 处置后临时冻结合计
+   CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结货值合计)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结面积合计)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结套数合计)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后临时冻结面积合计) = 0 THEN 0
+                ELSE SUM(res.处置后临时冻结货值合计)  / SUM(res.处置后临时冻结面积合计)
+            END
+        ELSE 0
+    END  as  [处置后临时冻结合计],
+    -- 处置后临时冻结_合作受阻冻结面积
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_合作受阻冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_合作受阻冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_合作受阻冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后临时冻结_合作受阻冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置后临时冻结_合作受阻冻结货值)  / SUM(res.处置后临时冻结_合作受阻冻结面积)
+            END
+        ELSE 0
+    END as [处置后其中：合作受阻],
+    -- 处置后临时冻结_开发受限冻结面积
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_开发受限冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_开发受限冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_开发受限冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后临时冻结_开发受限冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置后临时冻结_开发受限冻结货值)  / SUM(res.处置后临时冻结_开发受限冻结面积)
+            END
+        ELSE 0
+    END  as [处置后其中：开发受限],
+    -- 处置后临时冻结_停工缓建冻结面积
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_停工缓建冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_停工缓建冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_停工缓建冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后临时冻结_停工缓建冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置后临时冻结_停工缓建冻结货值)  / SUM(res.处置后临时冻结_停工缓建冻结面积)
+            END
+        ELSE 0
+    END  as [处置后其中：停工缓建],
+    -- 处置后临时冻结_投资未落实冻结面积
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_投资未落实冻结货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_投资未落实冻结面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_投资未落实冻结套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后临时冻结_投资未落实冻结面积) = 0 THEN 0
+                ELSE SUM(res.处置后临时冻结_投资未落实冻结货值)  / SUM(res.处置后临时冻结_投资未落实冻结面积)
+            END
+        ELSE 0
+    END  as [处置后其中：投资未落实],
+    -- 处置后退换调转剩余
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后退换调转剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后退换调转剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后退换调转剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后退换调转剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置后退换调转剩余货值)  / SUM(res.处置后退换调转剩余面积)
+            END
+        ELSE 0
+    END  as [处置后退换调转],
+    -- 处置后正常销售剩余
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后正常销售剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后正常销售剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后正常销售剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后正常销售剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置后正常销售剩余货值)  / SUM(res.处置后正常销售剩余面积)
+            END
+        ELSE 0
+    END  as [处置后正常销售],
+    -- 处置后转经营剩余货值
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后转经营剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后转经营剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后转经营剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后转经营剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置后转经营剩余货值)  / SUM(res.处置后转经营剩余面积)
+            END
+        ELSE 0
+    END  as [处置后转经营],
+    -- 处置后尾盘
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后尾盘剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.处置后尾盘剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.处置后尾盘剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.处置后尾盘剩余面积) = 0 THEN 0
+                ELSE SUM(res.处置后尾盘剩余货值)  / SUM(res.处置后尾盘剩余面积)
+            END
+        ELSE 0
+    END  as  [处置后尾盘],
+
+    -- 新增 销售状态分析字段
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_已推未售剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_已推未售剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_已推未售剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.已开工剩余货量_已推未售剩余面积) = 0 THEN 0
+                ELSE SUM(res.已开工剩余货量_已推未售剩余货值)  / SUM(res.已开工剩余货量_已推未售剩余面积)
+            END
+        ELSE 0
+    END as [已开工剩余货量已推未售],
+      CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_获证待推剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_获证待推剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_获证待推剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.已开工剩余货量_获证待推剩余面积) = 0 THEN 0
+                ELSE SUM(res.已开工剩余货量_获证待推剩余货值)  / SUM(res.已开工剩余货量_获证待推剩余面积)
+            END
+        ELSE 0
+    END as [已开工剩余货量获证待推],
+      CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_达形象未取证剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_达形象未取证剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_达形象未取证剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.已开工剩余货量_达形象未取证剩余面积) = 0 THEN 0
+                ELSE SUM(res.已开工剩余货量_达形象未取证剩余货值)  / SUM(res.已开工剩余货量_达形象未取证剩余面积)
+            END
+        ELSE 0
+    END as [已开工剩余货量达形象未取证],
+      CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_正常在途剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_正常在途剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_正常在途剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.已开工剩余货量_正常在途剩余面积) = 0 THEN 0
+                ELSE SUM(res.已开工剩余货量_正常在途剩余货值)  / SUM(res.已开工剩余货量_正常在途剩余面积)
+            END
+        ELSE 0
+    END as [已开工剩余货量正常在途],
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_停工缓建在途剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_停工缓建在途剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_停工缓建在途剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.已开工剩余货量_停工缓建在途剩余面积) = 0 THEN 0
+                ELSE SUM(res.已开工剩余货量_停工缓建在途剩余货值)  / SUM(res.已开工剩余货量_停工缓建在途剩余面积)
+            END
+        ELSE 0
+    END as [已开工剩余货量停工缓建在途],
+      CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_停工缓建剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.未开工剩余货量_停工缓建剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.未开工剩余货量_停工缓建剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.未开工剩余货量_停工缓建剩余面积) = 0 THEN 0
+                ELSE SUM(res.未开工剩余货量_停工缓建剩余货值)  / SUM(res.未开工剩余货量_停工缓建剩余面积)
+            END
+        ELSE 0
+    END as [未开工剩余货量停工缓建],
+      CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_预计三年内开工剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.未开工剩余货量_预计三年内开工剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.未开工剩余货量_预计三年内开工剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.未开工剩余货量_预计三年内开工剩余面积) = 0 THEN 0
+                ELSE SUM(res.未开工剩余货量_预计三年内开工剩余货值)  / SUM(res.未开工剩余货量_预计三年内开工剩余面积)
+            END
+        ELSE 0
+    END as [未开工剩余货量预计三年内开工],
+      CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_预计三年后开工剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.未开工剩余货量_预计三年后开工剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.未开工剩余货量_预计三年后开工剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.未开工剩余货量_预计三年后开工剩余面积) = 0 THEN 0
+                ELSE SUM(res.未开工剩余货量_预计三年后开工剩余货值)  / SUM(res.未开工剩余货量_预计三年后开工剩余面积)
+            END
+        ELSE 0
+    END as [未开工剩余货量预计三年后开工],
+    -- 建设状态信息字段
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已竣备剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_已竣备剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.建设状态_已竣备剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.建设状态_已竣备剩余面积) = 0 THEN 0
+                ELSE SUM(res.建设状态_已竣备剩余货值)  / SUM(res.建设状态_已竣备剩余面积)
+            END
+        ELSE 0
+    END 已竣备,
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已达形象未达竣备剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_已达形象未达竣备剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.建设状态_已达形象未达竣备剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.建设状态_已达形象未达竣备剩余面积) = 0 THEN 0
+                ELSE SUM(res.建设状态_已达形象未达竣备剩余货值)  / SUM(res.建设状态_已达形象未达竣备剩余面积)
+            END
+        ELSE 0
+    END 形象未达竣备,
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已开工未达形象剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_已开工未达形象剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.建设状态_已开工未达形象剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.建设状态_已开工未达形象剩余面积) = 0 THEN 0
+                ELSE SUM(res.建设状态_已开工未达形象剩余货值)  / SUM(res.建设状态_已开工未达形象剩余面积)
+            END
+        ELSE 0
+    END 开工未达形象,
+    CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_停工缓建剩余货值)
+        WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_停工缓建剩余面积)
+        WHEN base.二级科目 = '套数' THEN sum(res.建设状态_停工缓建剩余套数)
+        WHEN base.二级科目 = '均价' THEN
+            CASE
+                WHEN SUM(res.建设状态_停工缓建剩余面积) = 0 THEN 0
+                ELSE SUM(res.建设状态_停工缓建剩余货值)  / SUM(res.建设状态_停工缓建剩余面积)
+            END
+        ELSE 0
+    END 停工缓建
+FROM  #baseinfo03_1 base
+left join #lxdw03_1 lxdw on base.组织架构id = lxdw.组织架构id and base.清洗时间 = lxdw.清洗时间
+left join dw_s_WqBaseStatic_CompanyResource  res On base.组织架构id = res.组织架构id and  base.清洗时间 =res.清洗时间
+where lxdw.立项货值 <> 0 or lxdw.动态总资源 <> 0
+group by
+    base.清洗时间,
+    base.统计维度,
+    base.外键关联,
+    case
+        when base.二级科目 = '货值' then '货值（亿元）'
+        when base.二级科目 = '面积' then '面积（万㎡）'
+        else '均价（元）'
+    end,
+    '汇总' + base.二级科目,
+    case when base.二级科目 = '货值' then null else '汇总' end + '货值',
+    base.二级科目
  
 drop table #baseinfo03_1,#lxdw03_1,#ver02_1,#ver03_1
 
@@ -4375,6 +6239,7 @@ AS (SELECT ParentGUID AS 项目GUID,
         WHERE p.Level = 3
     ) t
     GROUP BY ParentGUID)
+    
 SELECT org.清洗时间id,
        org.清洗时间,
        org.项目guid,
@@ -4458,37 +6323,37 @@ WHERE org.平台公司名称 = '湾区公司'
 
 --整合维度跟业务数据: 每个看板都是业态合计-业态层级
 select 
-b.清洗时间, 
-b.统计维度,
-b.公司,
-b.城市,
-b.片区,
-b.镇街,
-b.项目,
-b.外键关联id,
-b.外键关联父级id,
-b.外键关联,
-t.id,
-t.pid,
-t.项目名称,
-t.业态,
-t.立项总建筑面积,
-t.立项建筑单方, 
-t.定位总建筑面积,
-t.定位总投资,
-t.定位建筑单方,
-t.车位分摊口径,
-t.综合单方_不含税,
-t.营业成本单方,
-t.土地款单方,
-t.除地价外直投单方,
-t.开发间接费单方,
-t.资本化利息单方,
-t.营销费用单方,
-t.综合管理费单方,
-t.税金单方,
-t.获取时间,
-rank() over(partition by b.清洗时间 
+    b.清洗时间, 
+    b.统计维度,
+    b.公司,
+    b.城市,
+    b.片区,
+    b.镇街,
+    b.项目,
+    b.外键关联id,
+    b.外键关联父级id,
+    b.外键关联,
+    t.id,
+    t.pid,
+    t.项目名称,
+    t.业态,
+    t.立项总建筑面积,
+    t.立项建筑单方, 
+    t.定位总建筑面积,
+    t.定位总投资,
+    t.定位建筑单方,
+    t.车位分摊口径,
+    t.综合单方_不含税,
+    t.营业成本单方,
+    t.土地款单方,
+    t.除地价外直投单方,
+    t.开发间接费单方,
+    t.资本化利息单方,
+    t.营销费用单方,
+    t.综合管理费单方,
+    t.税金单方,
+    t.获取时间,
+    rank() over(partition by b.清洗时间 
 order by  获取时间 desc) as 排序
 into #res_df01
 from #base_df01 b

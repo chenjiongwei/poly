@@ -1,5 +1,8 @@
+USE [HighData_prod]
+GO
+
 -- 现金流指标清洗存储过程
-CREATE OR ALTER PROC usp_zb_jyjhtjkb_CashFlow
+CREATE  or  ALTER   PROC [dbo].[usp_zb_jyjhtjkb_CashFlow]
 AS
 BEGIN
     /**************************************************************
@@ -83,7 +86,9 @@ BEGIN
         p.BeginDate AS 项目获取时间,                     -- 项目获取时间
         f076.立项全投资IRR,                              -- 全投资IRR（立项版）
         f076.立项全投资现金流回正时间,                   -- 立项全投资现金流回正时间
-        f076.动态全投资现金流回正,                       -- 动态全投资现金流回正时间
+        f076.动态全投资现金流回正,                       -- 动态全投资现金流回正时间 
+        f076.全投资IRR计划口径,
+        DATEDIFF(MONTH, p.BeginDate, f076.动态全投资现金流回正) as [现金流回正时长一盘一策版],
         DATEDIFF(MONTH, p.BeginDate, f076.立项全投资现金流回正时间) AS 现金流回正时长立项版,   -- 立项版现金流回正时长（月）
         DATEDIFF(MONTH, p.BeginDate, f076.动态全投资现金流回正) AS 现金流回正时长动态版         -- 动态版现金流回正时长（月）
     INTO #FullIRR_lx
@@ -100,7 +105,8 @@ BEGIN
     * 6. 删除当天已存在的数据，避免重复插入
     ***************************************************************/
     DELETE FROM zb_jyjhtjkb_CashFlow
-    WHERE DATEDIFF(DAY, 清洗日期, GETDATE()) = 0;
+     WHERE DATEDIFF(DAY, 清洗日期, GETDATE()) = 0;
+
 
     /**************************************************************
     * 7. 汇总各项数据，插入现金流指标表
@@ -122,7 +128,10 @@ BEGIN
         [股东投资峰值_动态版],             -- 股东投资峰值_动态版
         [机会成本损失],                   -- 机会成本损失
         [机会成本损失对应单方成本],         -- 机会成本损失对应单方成本
-        [项目获取日期]
+        [项目获取日期],
+        [全投资IRR-一盘一策版],
+        [现金流回正时间-一盘一策版],
+        [现金流回正时长-一盘一策版]
     )
     SELECT
         p.buguid AS [buguid],                                -- 事业部GUID
@@ -139,7 +148,10 @@ BEGIN
         tb.[股东投资峰值_动态版] AS [股东投资峰值_动态版],              -- 股东投资峰值_动态版
         tb.[机会成本损失] AS [机会成本损失],                          -- 机会成本损失
         tb.[机会成本损失对应单方成本] AS [机会成本损失对应单方成本],      -- 机会成本损失对应单方成本
-        irr_lx.项目获取时间 AS [项目获取日期]
+        irr_lx.项目获取时间 AS [项目获取日期],
+        irr_lx.全投资IRR计划口径 as [全投资IRR-一盘一策版],
+        irr_lx.动态全投资现金流回正 as [现金流回正时间-一盘一策版],
+        irr_lx.现金流回正时长一盘一策版 as [现金流回正时长-一盘一策版]
     FROM data_wide_dws_mdm_Project p
         LEFT JOIN #FullIRR_dt irr_dt ON irr_dt.ProjGUID = p.projguid
         LEFT JOIN #FullIRR_lx irr_lx ON irr_lx.项目GUID = p.projguid
@@ -165,7 +177,10 @@ BEGIN
         [股东投资峰值_动态版],
         [机会成本损失],
         [机会成本损失对应单方成本],
-        [项目获取日期]
+        [项目获取日期],
+        [全投资IRR-一盘一策版],
+        [现金流回正时间-一盘一策版],
+        [现金流回正时长-一盘一策版]
     FROM zb_jyjhtjkb_CashFlow
     WHERE DATEDIFF(DAY, 清洗日期, GETDATE()) = 0;
 
@@ -181,62 +196,40 @@ END
 
 
 
-SELECT
-    [buguid],
-    [projguid],
-    [清洗日期],
-    [项目获取日期],
-    isnull(lczy.[全投资IRR-动态版], cf.[全投资IRR_动态版] ) as  [全投资IRR_动态版],
-    [全投资IRR_立项版],
-    CASE 
-        WHEN [全投资IRR_立项版] IS NOT NULL 
-             AND isnull(lczy.[全投资IRR-动态版], cf.[全投资IRR_动态版] ) IS NOT NULL
-        THEN  isnull(lczy.[全投资IRR-动态版], cf.[全投资IRR_动态版] ) - ISNULL([全投资IRR_立项版], 0) 
-    END AS [全投资IRR偏差],
-    CONVERT(VARCHAR(10), [现金流回正时间_立项版], 121) AS [现金流回正时间_立项版],
-    CONVERT(VARCHAR(10),  isnull(lczy.[现金流回正时间-动态版], cf.[现金流回正时间_动态版] ), 121) AS [现金流回正时间_动态版],
-    [现金流回正时长_立项版],
-    -- isnull(lczy.[现金流回正时长-动态版], cf.[现金流回正时长_动态版] ) as [现金流回正时长_动态版],
-    datediff(month,cf.[项目获取日期],isnull(lczy.[现金流回正时间-动态版],cf.[现金流回正时间_立项版])) as [现金流回正时长_动态版],
-    CASE 
-        WHEN [现金流回正时长_立项版] IS NOT NULL 
-             AND datediff(month,cf.[项目获取日期],isnull(lczy.[现金流回正时间-动态版],cf.[现金流回正时间_立项版]))  IS NOT NULL
-        THEN datediff(month,cf.[项目获取日期],isnull(lczy.[现金流回正时间-动态版],cf.[现金流回正时间_立项版])) - ISNULL([现金流回正时长_立项版], 0)    
-    END AS [现金流回正时长偏差],
-    [截止目前经营性现金流余额],
-    [股东投资峰值_立项版],
-    [股东投资峰值_动态版],
-    CASE 
-        WHEN [股东投资峰值_立项版] IS NOT NULL 
-             AND [股东投资峰值_动态版] IS NOT NULL
-        THEN ISNULL([股东投资峰值_动态版], 0) -ISNULL([股东投资峰值_立项版], 0) 
-    END AS [股东投资峰值偏差],
-    [机会成本损失],
-    [机会成本损失对应单方成本]
-FROM
-    zb_jyjhtjkb_CashFlow cf
-    left join  data_tb_ylss_lczy lczy on cf.projguid =lczy.项目GUID
-WHERE
-    DATEDIFF(DAY, [清洗日期], ${qxDate} ) = 0
-
--- -- data_tb_ylss_lczy
-
-
--- 住宅总货值金额
--- 车位总货值金额
--- 总货值-动态版
--- 除地价外直投本月拍照版
--- 除地价外直投可售单方成本-动态版
--- 财务费用(单利)截止本月
--- 营销费用-动态版
--- 管理费用-动态版
--- 总投资-动态版
--- 增值税及附加-动态版
--- 税前成本利润率-动态版
--- 税前利润-动态版
--- 销售净利率-动态版
--- 税后利润-动态版
--- 税后现金利润-动态版
--- 全投资IRR-动态版
--- 现金流回正时间-动态版
--- 现金流回正时长-动态版
+-- SELECT
+--     [buguid],
+--     [projguid],
+--     [清洗日期],
+--     [项目获取日期],
+--     isnull(lczy.[全投资IRR-动态版], cf.[全投资IRR_动态版] ) as  [全投资IRR_动态版],
+--     [全投资IRR_立项版],
+--     CASE 
+--         WHEN [全投资IRR_立项版] IS NOT NULL 
+--              AND isnull(lczy.[全投资IRR-动态版], cf.[全投资IRR_动态版] ) IS NOT NULL
+--         THEN  isnull(lczy.[全投资IRR-动态版], cf.[全投资IRR_动态版] ) - ISNULL([全投资IRR_立项版], 0) 
+--     END AS [全投资IRR偏差],
+--     CONVERT(VARCHAR(10), [现金流回正时间_立项版], 121) AS [现金流回正时间_立项版],
+--     CONVERT(VARCHAR(10),  isnull(lczy.[现金流回正时间-动态版], cf.[现金流回正时间_动态版] ), 121) AS [现金流回正时间_动态版],
+--     [现金流回正时长_立项版],
+--     -- isnull(lczy.[现金流回正时长-动态版], cf.[现金流回正时长_动态版] ) as [现金流回正时长_动态版],
+--     datediff(month,cf.[项目获取日期],isnull(lczy.[现金流回正时间-动态版],cf.[现金流回正时间_立项版])) as [现金流回正时长_动态版],
+--     CASE 
+--         WHEN [现金流回正时长_立项版] IS NOT NULL 
+--              AND datediff(month,cf.[项目获取日期],isnull(lczy.[现金流回正时间-动态版],cf.[现金流回正时间_立项版]))  IS NOT NULL
+--         THEN datediff(month,cf.[项目获取日期],isnull(lczy.[现金流回正时间-动态版],cf.[现金流回正时间_立项版])) - ISNULL([现金流回正时长_立项版], 0)    
+--     END AS [现金流回正时长偏差],
+--     [截止目前经营性现金流余额],
+--     [股东投资峰值_立项版],
+--     [股东投资峰值_动态版],
+--     CASE 
+--         WHEN [股东投资峰值_立项版] IS NOT NULL 
+--              AND [股东投资峰值_动态版] IS NOT NULL
+--         THEN ISNULL([股东投资峰值_动态版], 0) -ISNULL([股东投资峰值_立项版], 0) 
+--     END AS [股东投资峰值偏差],
+--     [机会成本损失],
+--     [机会成本损失对应单方成本]
+-- FROM
+--     zb_jyjhtjkb_CashFlow cf
+--     left join  data_tb_ylss_lczy lczy on cf.projguid =lczy.项目GUID
+-- WHERE
+--     DATEDIFF(DAY, [清洗日期], ${qxDate} ) = 0

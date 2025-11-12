@@ -1,0 +1,361 @@
+--=======352库执行
+
+--======第一步：备份数据
+----备份表
+--基础数据
+--SELECT * INTO md_project_bak20251101 FROM md_project;
+--SELECT * INTO md_GCBuild_bak20251101 FROM dbo.md_GCBuild;
+--SELECT * INTO md_GCBuild_Work_bak20251101 FROM dbo.md_GCBuild_Work;
+--SELECT * INTO md_product_Work_bak20251101 FROM dbo.md_product_Work;
+--SELECT * INTO md_product_bak20251101 FROM dbo.md_product;
+--SELECT * INTO md_ProductDtl_Work_bak20251101 FROM dbo.md_ProductDtl_Work;
+--SELECT * INTO md_ProductDtl_bak20251101 FROM dbo.md_ProductDtl;
+--SELECT * INTO md_ProductBuild_Work_bak20251101 FROM dbo.md_ProductBuild_Work;
+--SELECT * INTO md_ProductBuild_bak20251101 FROM dbo.md_ProductBuild;
+
+--SELECT * INTO md_BuildHoldRate_bak20251101 FROM md_BuildHoldRate;
+--SELECT * INTO md_BuildZxRate_bak20251101 FROM md_BuildZxRate;
+--SELECT * INTO md_BuildIndex_bak20251101 FROM md_BuildIndex;
+--SELECT * INTO md_BuildZSArea_bak20251101 FROM md_BuildZSArea;
+--POM系统
+ --SELECT * INTO p_HkbBiddingSectionWork_bak20251101 FROM  p_HkbBiddingSectionWork;
+ --SELECT * INTO p_HkbBiddingBuildingWork_bak20251101 FROM p_HkbBiddingBuildingWork ;
+ --SELECT * INTO p_HkbBiddingBuilding2BuildingWork_bak20251101 FROM p_HkbBiddingBuilding2BuildingWork;
+ --计划系统
+ --SELECT * INTO p_BiddingBuilding_bak20251101 FROM p_BiddingBuilding;
+ --SELECT * INTO p_BiddingSection_bak20251101 FROM p_BiddingSection;
+ --SELECT * INTO ys_SpecialBusinessUnit_bak20251101 FROM ys_SpecialBusinessUnit;
+
+--SELECT * INTO jd_ProjectPlanCompile_bak20251101 FROM dbo.jd_ProjectPlanCompile;
+--SELECT * INTO jd_ProjectPlanExecute_bak20251101 FROM dbo.jd_ProjectPlanExecute;
+--SELECT * INTO jd_ProjectPlanExecuteHistory_bak20251101 FROM dbo.jd_ProjectPlanExecuteHistory;
+
+--SELECT * INTO jd_ProjectPlanTaskCompile_bak20251101 FROM dbo.jd_ProjectPlanTaskCompile;   
+--SELECT * INTO jd_ProjectPlanTaskExecute_bak20251101 FROM dbo.jd_ProjectPlanTaskExecute;
+--SELECT * INTO jd_ProjectPlanTaskExecuteHistory_bak20251101 FROM dbo.jd_ProjectPlanTaskExecuteHistory;
+
+--SELECT * INTO jd_TaskReport_bak20251101 FROM dbo.jd_TaskReport;
+
+--SELECT * INTO cb_Contract_bak20251101 FROM cb_Contract;
+
+
+
+
+
+--========第二步：数据准备
+--获取新旧分期对比表
+CREATE TABLE #tmp_ProjectDZ(
+	old_ProjGUID UNIQUEIDENTIFIER,  --项目GUID(迁移前)
+	old_VersionGUID UNIQUEIDENTIFIER, --版本GUID（迁移前） 
+	old_ProjName  VARCHAR(50),       --项目名称(迁移前)	
+	old_BldGUID UNIQUEIDENTIFIER,   --工程楼栋GUID（迁移前）
+	old_ProductBldGUID UNIQUEIDENTIFIER, --产品楼栋GUID（迁移前） 
+	old_bldname VARCHAR(300),            --工程楼栋名称（迁移前）
+	new_ProjGUID UNIQUEIDENTIFIER,  --项目GUID(迁移后)
+	new_VersionGUID UNIQUEIDENTIFIER,  --版本GUID（迁移后） 
+	new_ProjNamew VARCHAR(50)        --项目名称(迁移后)
+) 
+
+--因为一期是原分期不需要调整
+--二期、三期是新建分期，需要进行迁移，要写入到表中
+--新版本采用新添加的定位版的分期版本
+--原版本采用最新的已审核的版本数据（部分楼栋在预售查丈，部分在建规证）
+INSERT INTO #tmp_ProjectDZ(old_ProjGUID,old_VersionGUID , old_ProjName, old_BldGUID, old_ProductBldGUID, old_bldname,new_ProjGUID, new_VersionGUID, new_ProjNamew)
+VALUES
+-- 三期数据 (new_ProjCode = '371034.003')
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969', '杓袁7号地', 'ED6D5D2E-A36B-4D97-A497-BE944BE5BC06', '8CDAA00E-C8C8-4EE6-8D4B-CC4E985D43FA', '杓袁7号地-22号楼','7E9A29A0-2E74-4686-82D7-1F2E15262222','7E9A29A0-2E74-4686-82D7-1F2E15262222', ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969', '杓袁7号地', '994E86F5-43D4-4C2C-92D0-2CA37194AD5B', '81175FFD-632B-4A96-80BD-E2A7856CF80F', '杓袁7号地-23号楼','7E9A29A0-2E74-4686-82D7-1F2E15262222','7E9A29A0-2E74-4686-82D7-1F2E15262222', ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969', '杓袁7号地', '27BF90E7-5A9D-4C45-ADA7-4D07F25BD296', '662B0CF8-73C6-432F-8AD5-2DAB399C813C', '杓袁7号地-24号楼','7E9A29A0-2E74-4686-82D7-1F2E15262222','7E9A29A0-2E74-4686-82D7-1F2E15262222', ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969', '杓袁7号地', '85E3CD64-7904-4680-9AE4-1108D507B48C', '7CB0007F-C81F-4CC3-9E78-F5D010A60538', '杓袁7号地-25号楼','7E9A29A0-2E74-4686-82D7-1F2E15262222','7E9A29A0-2E74-4686-82D7-1F2E15262222', ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969', '杓袁7号地', '2866A4B9-B899-42DB-B4FB-3168B4201549', 'A5E1B144-F2FC-4325-9D66-E1A4A51BA062', '杓袁7号地-26号楼','7E9A29A0-2E74-4686-82D7-1F2E15262222','7E9A29A0-2E74-4686-82D7-1F2E15262222', ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969', '杓袁7号地', 'EC2936F8-DEBC-4C78-9F21-5B6DB70991AF', 'D9F15062-2692-483F-822D-27B743B2E81C', '杓袁7号地-27号楼','7E9A29A0-2E74-4686-82D7-1F2E15262222','7E9A29A0-2E74-4686-82D7-1F2E15262222', ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969', '杓袁7号地', '1982B203-7204-47A0-A58F-6DB1AB8B8E91', '4DB62A06-9138-411A-B4E9-495F432B6565', '杓袁7号地-28号楼','7E9A29A0-2E74-4686-82D7-1F2E15262222','7E9A29A0-2E74-4686-82D7-1F2E15262222', ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969', '杓袁7号地', 'D4FD24BE-B6BB-4951-B5BF-B082B93F53A6', 'F4F82FC7-0878-460B-B0B2-50D0696C18D2', '杓袁7号地-29号楼','7E9A29A0-2E74-4686-82D7-1F2E15262222','7E9A29A0-2E74-4686-82D7-1F2E15262222', ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969', '杓袁7号地', '326F04C9-D3A2-4474-A3AF-269FEDA1E2B3', '7220C4FD-FF79-47B6-8783-4E61FBAB10AB', '杓袁7号地-30号楼','7E9A29A0-2E74-4686-82D7-1F2E15262222','7E9A29A0-2E74-4686-82D7-1F2E15262222', ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969', '杓袁7号地', '7FBF2327-48FD-425C-A52A-D52DED30112E', '7CBFF3D8-CB43-4D2F-94C5-84C4247588B0', '杓袁7号地-31号楼','7E9A29A0-2E74-4686-82D7-1F2E15262222','7E9A29A0-2E74-4686-82D7-1F2E15262222', ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969', '杓袁7号地', '8EBC1384-221A-4E82-9C31-C81899C2B6E1', '7449FAB2-B0A0-434A-AB8B-9F6B1E879A46', '杓袁7号地-32号楼','7E9A29A0-2E74-4686-82D7-1F2E15262222','7E9A29A0-2E74-4686-82D7-1F2E15262222', ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969', '杓袁7号地', '7E6895F0-3BC8-45A7-9364-0A7DD352BB18', '3F40E986-9D61-4E38-874C-F241E8D9E64A', '杓袁7号地-33号楼','7E9A29A0-2E74-4686-82D7-1F2E15262222','7E9A29A0-2E74-4686-82D7-1F2E15262222', ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969', '杓袁7号地', '73AAD447-5712-47CB-96B1-BCA266F61D1B', 'B1137C35-B41B-4E7C-966E-3EE9F2327DD1', '杓袁7号地-34号楼','7E9A29A0-2E74-4686-82D7-1F2E15262222','7E9A29A0-2E74-4686-82D7-1F2E15262222', ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969', '杓袁7号地', '709EB878-E201-49B6-8263-5E0AD6FFBD4E', '547651C2-0BDB-433D-98D6-8BCB1712C16C', '杓袁7号地-普通地下车库-三期','7E9A29A0-2E74-4686-82D7-1F2E15262222','7E9A29A0-2E74-4686-82D7-1F2E15262222', ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969', '杓袁7号地', '9336307D-94A6-4B58-8FC0-A0AF24C8DC7D', 'E952D962-E47F-4280-B501-2A6ADE8855A2', '杓袁7号地-商业-三期','7E9A29A0-2E74-4686-82D7-1F2E15262222','7E9A29A0-2E74-4686-82D7-1F2E15262222', ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969', '杓袁7号地', 'E1F3ED80-286D-447C-B71D-038E4FEFB770', 'F11CC7C4-3283-463E-AB88-BC8F47D80057', '杓袁7号地-其它公建配套-三期','7E9A29A0-2E74-4686-82D7-1F2E15262222','7E9A29A0-2E74-4686-82D7-1F2E15262222', ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969', '杓袁7号地', 'AE28C9EF-3BDE-4E5C-A7BF-6B304A7B4887', 'B21B717F-CC08-455D-895A-78F327D8A9BC', '杓袁7号地-普通地下车库-车位（非)-三期','7E9A29A0-2E74-4686-82D7-1F2E15262222','7E9A29A0-2E74-4686-82D7-1F2E15262222', ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969', '杓袁7号地', '8C17CC6D-CAB9-4830-AA94-04E213B4C4F8', 'B774E077-D76F-46A2-9296-57D910B8AFDC', '杓袁7号地-便民店-三期','7E9A29A0-2E74-4686-82D7-1F2E15262222','7E9A29A0-2E74-4686-82D7-1F2E15262222', ''),
+
+-- 二期数据 (new_ProjCode = '371034.002')
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969',  '杓袁7号地', '13060C89-17F9-4F3F-A82C-2112C8355B64', 'BE4F5E1A-8EB3-4DAA-832B-92314C7A2B86', '杓袁7号地-35号楼', '75FF507F-46A0-4288-951B-4A02A48C7AD4','75FF507F-46A0-4288-951B-4A02A48C7AD4',  ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969',  '杓袁7号地', 'AD37B292-9FBF-4C29-9831-B205D5D6AA64', 'A73F7346-5C55-4FCC-A250-6CBD922269F7', '杓袁7号地-36号楼', '75FF507F-46A0-4288-951B-4A02A48C7AD4','75FF507F-46A0-4288-951B-4A02A48C7AD4',  ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969',  '杓袁7号地', '8BABD9AC-1A07-4A75-99DA-F5FF6D9523C3', 'ED50DDFE-E29F-4DB2-8BEE-C9834A026883', '杓袁7号地-37号楼', '75FF507F-46A0-4288-951B-4A02A48C7AD4','75FF507F-46A0-4288-951B-4A02A48C7AD4',  ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969',  '杓袁7号地', '7ADE2608-8904-412F-B77F-E84762AF0CAE', '26F590B7-BAC0-4BEC-8921-31B242C9A748', '杓袁7号地-38号楼', '75FF507F-46A0-4288-951B-4A02A48C7AD4','75FF507F-46A0-4288-951B-4A02A48C7AD4',  ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969',  '杓袁7号地', '07E87EE9-5E33-477C-8B9D-F51DC62AB0B2', 'A2F648DF-40B1-4FC9-842E-804DDF4EDB7A', '杓袁7号地-39号楼', '75FF507F-46A0-4288-951B-4A02A48C7AD4','75FF507F-46A0-4288-951B-4A02A48C7AD4',  ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969',  '杓袁7号地', 'B9A01628-627A-4B43-AFB1-642A545D635B', '49A474BE-33CC-4EDF-A926-D52A8E2C0BD4', '杓袁7号地-40号楼', '75FF507F-46A0-4288-951B-4A02A48C7AD4','75FF507F-46A0-4288-951B-4A02A48C7AD4',  ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969',  '杓袁7号地', '0D16FB7C-62C2-4B20-8281-716CDD6B9A05', '97E8676E-0271-495E-AFC7-99C287D17CFE', '杓袁7号地-41号楼', '75FF507F-46A0-4288-951B-4A02A48C7AD4','75FF507F-46A0-4288-951B-4A02A48C7AD4',  ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969',  '杓袁7号地', '6974F9C0-94A5-43A3-BC85-BB4B0501557F', 'AB3E8108-FB4F-4D87-B145-D05B97C3EB25', '杓袁7号地-42号楼', '75FF507F-46A0-4288-951B-4A02A48C7AD4','75FF507F-46A0-4288-951B-4A02A48C7AD4',  ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969',  '杓袁7号地', '940A92E4-D428-4B80-BB00-52803EBBA4D0', '3A480023-2065-4524-9FB0-68BD6B68C38A', '杓袁7号地-普通地下车库-二期', '75FF507F-46A0-4288-951B-4A02A48C7AD4','75FF507F-46A0-4288-951B-4A02A48C7AD4',  ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969',  '杓袁7号地', '85D35CEE-4ACB-4E30-9E5F-E259C3F839EF', '84574C14-9165-49D3-8222-AAEBC69E2614', '杓袁7号地-人防车库-二期', '75FF507F-46A0-4288-951B-4A02A48C7AD4','75FF507F-46A0-4288-951B-4A02A48C7AD4',   ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969',  '杓袁7号地', '0E581B53-05F9-4E4B-9B3E-87F93990291E', '2291EE97-B0BD-4C1F-8E3F-EA1BD4301EB3', '杓袁7号地-便民店-二期37S5', '75FF507F-46A0-4288-951B-4A02A48C7AD4','75FF507F-46A0-4288-951B-4A02A48C7AD4',   ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969',  '杓袁7号地', '74870DB6-81AE-4FB3-9D21-98064578E00A', '277F8CAC-CDAA-4623-ADE8-A4AB2BFA4E84', '杓袁7号地-43号楼', '75FF507F-46A0-4288-951B-4A02A48C7AD4','75FF507F-46A0-4288-951B-4A02A48C7AD4',   ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969',  '杓袁7号地', '61BE2294-70E2-4CC3-BCDF-0164DF659FF9', '0BADF4BC-B31E-415F-A578-220129FB47C7', '杓袁7号地-商业-二期', '75FF507F-46A0-4288-951B-4A02A48C7AD4','75FF507F-46A0-4288-951B-4A02A48C7AD4',  ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969',  '杓袁7号地', '6EA516C2-2769-4355-8E8B-AD11777A4669', '2C8F4349-EB91-496F-847C-74270381378F', '杓袁7号地-普通地下车库-车位（非)-二期', '75FF507F-46A0-4288-951B-4A02A48C7AD4','75FF507F-46A0-4288-951B-4A02A48C7AD4',  ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969',  '杓袁7号地', 'A6BC9573-842D-420C-A2FD-0A60661A1304', 'C15C693A-978C-44E6-B829-2D0F8252B829', '杓袁7号地-其它公建配套-二期3741', '75FF507F-46A0-4288-951B-4A02A48C7AD4','75FF507F-46A0-4288-951B-4A02A48C7AD4',  ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969',  '杓袁7号地', 'BE1B5073-C9C9-4FEB-8E4E-780F5F86CB8E', '99323C8A-BB52-43E8-90A3-B02394077B58', '杓袁7号地-其它公建配套-二期3', '75FF507F-46A0-4288-951B-4A02A48C7AD4','75FF507F-46A0-4288-951B-4A02A48C7AD4',  ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969',  '杓袁7号地', '4F5A31C7-8306-46EC-B253-62E58A40D9A8', '6F79C36A-FEB2-4A7B-8650-3E13908C980B', '杓袁7号地-其它公建配套-二期35', '75FF507F-46A0-4288-951B-4A02A48C7AD4','75FF507F-46A0-4288-951B-4A02A48C7AD4',  ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969',  '杓袁7号地', '75676DCE-1A80-45D8-9C9E-354EABDE517D', 'C2D4355B-C760-4CC0-B670-E2110661A14B', '杓袁7号地-便民店-二期2', '75FF507F-46A0-4288-951B-4A02A48C7AD4','75FF507F-46A0-4288-951B-4A02A48C7AD4',  ''),
+('0E63E1AD-4703-4A95-B661-9E8E415E041F','33D55E17-879A-F011-B3A7-F40270D39969',  '杓袁7号地', 'B9AAEA73-F93B-4DA5-9D22-4DBE31DDD809', '72D9BBC6-75B7-4896-831C-64FC5E2BCBBD', '杓袁7号地-地下设备用房-二期2', '75FF507F-46A0-4288-951B-4A02A48C7AD4','75FF507F-46A0-4288-951B-4A02A48C7AD4',  '');
+
+-----====测试用的对照数据
+--INSERT INTO #tmp_ProjectDZ(old_ProjGUID, old_VersionGUID, old_ProjName, old_BldGUID, old_ProductBldGUID, old_bldname,new_ProjGUID,new_VersionGUID,  new_ProjNamew)
+--VALUES
+---- 三期数据 (new_ProjCode = '371034.003')
+--('5f4a536b-d813-e911-80bf-e61f13c57837','C4F43217-C585-ED11-B3A2-F40270D39969', '杓袁7号地', '4B2B4291-8D30-4653-95BE-03A3E3D9F019', '314D8A0E-C120-428F-993C-2799F22B5857', '杓袁7号地-22号楼','2df7f1ee-8e5b-ea11-80b8-0a94ef7517dd','75FF507F-46A0-4288-951B-4A02A48C7AD4', ''),
+--('5f4a536b-d813-e911-80bf-e61f13c57837','C4F43217-C585-ED11-B3A2-F40270D39969', '杓袁7号地', 'BF700612-80DA-4A20-B56C-25D2D5E6D9EA', '91221979-AF52-4AAC-A546-CDC01E474B32', '杓袁7号地-23号楼','2df7f1ee-8e5b-ea11-80b8-0a94ef7517dd','75FF507F-46A0-4288-951B-4A02A48C7AD4', '')
+
+
+select * from  #tmp_ProjectDZ 
+
+
+---先删除客户做的分期下的楼栋数据
+
+CREATE TABLE #tmp_del(
+	VersionGUID UNIQUEIDENTIFIER,
+	ProjGUID   UNIQUEIDENTIFIER
+)
+
+INSERT INTO #tmp_del(VersionGUID,ProjGUID) VALUES('75FF507F-46A0-4288-951B-4A02A48C7AD4','75FF507F-46A0-4288-951B-4A02A48C7AD4');
+INSERT INTO #tmp_del(VersionGUID,ProjGUID) VALUES('7E9A29A0-2E74-4686-82D7-1F2E15262222','7E9A29A0-2E74-4686-82D7-1F2E15262222');
+INSERT INTO #tmp_del(VersionGUID,ProjGUID) VALUES('BDE2C122-201D-4F72-8D9F-7B683682769B','1B176F3B-ABB0-F011-B3A7-F40270D39969');
+
+--====删除基础数据现有分期下的数据
+DELETE A FROM dbo.md_GCBuild A INNER JOIN #tmp_del B ON A.VersionGUID=B.VersionGUID AND A.ProjGUID=B.ProjGUID
+DELETE A FROM dbo.md_Product A INNER JOIN #tmp_del B ON A.VersionGUID=B.VersionGUID AND A.ProjGUID=B.ProjGUID
+DELETE A FROM dbo.md_ProductDtl A INNER JOIN #tmp_del B ON A.VersionGUID=B.VersionGUID AND A.ProjGUID=B.ProjGUID
+DELETE A FROM dbo.md_ProductBuild A INNER JOIN #tmp_del B ON A.VersionGUID=B.VersionGUID AND A.ProjGUID=B.ProjGUID
+DELETE A FROM dbo.md_BuildIndex A INNER JOIN #tmp_del B ON A.VersionGUID=B.VersionGUID AND A.ProjGUID=B.ProjGUID
+DELETE A FROM dbo.md_BuildHoldRate A INNER JOIN #tmp_del B ON A.VersionGUID=B.VersionGUID AND A.ProjGUID=B.ProjGUID
+DELETE A FROM dbo.md_BuildZxRate A INNER JOIN #tmp_del B ON A.VersionGUID=B.VersionGUID AND A.ProjGUID=B.ProjGUID
+DELETE A FROM dbo.md_BuildZSArea A INNER JOIN #tmp_del B ON A.VersionGUID=B.VersionGUID AND A.ProjGUID=B.ProjGUID
+delete a from  md_Project a where VersionGUID ='BDE2C122-201D-4F72-8D9F-7B683682769B'
+ 
+
+--========第三步：处理数据
+--刷新楼栋
+
+--==== 基础数据
+--=========================================
+--一期直接改项目GUID，不改分期GUID
+--二期、三期新增定位版的分期
+--将需要迁移到二期、三期的最新一版版本楼栋的数据，刷新到新建的定位版二期、三期上
+--删除一期下需要迁移到二期、三期的楼栋的数据
+--=========================================
+
+--1、工程楼栋（md_GCBuild）
+--根据对照表找到对应工程楼栋写入到新的版本下
+INSERT INTO  md_GCBuild(BldKeyGUID, BldGUID, VersionGUID, CurVersion, IsActive, InValidReason, CreateDate, ProjGUID, BldName,
+ BldCode, UpNum, DownNum, BldProperty, CellarCode, RelaBldGUID, No, SumBuildArea, SumUpArea, SumDownArea, SumJrArea, SumSaleArea,
+ Xpos_Stage, Ypos_Stage, Xpos_Proj, Ypos_Proj, UpdateTime, isCertification, RefreshMark)
+SELECT NEWID(), a.BldGUID, b.new_VersionGUID, p.CurVersion,1 AS IsActive, a.InValidReason, a.CreateDate, b.new_ProjGUID, a.BldName,
+ a.BldCode, a.UpNum, a.DownNum, a.BldProperty, a.CellarCode, a.RelaBldGUID, a.No, a.SumBuildArea, a.SumUpArea, a.SumDownArea, 
+ a.SumJrArea, a.SumSaleArea, a.Xpos_Stage, a.Ypos_Stage, a.Xpos_Proj, a.Ypos_Proj, a.UpdateTime, a.isCertification, a.RefreshMark 
+FROM dbo.vmd_GCBuild_work a 
+INNER JOIN #tmp_ProjectDZ b ON a.VersionGUID=b.old_VersionGUID AND a.BldGUID=b.old_BldGUID
+INNER JOIN dbo.md_Project p ON p.VersionGUID=b.new_VersionGUID 
+WHERE NOT EXISTS(SELECT 1 FROM md_GCBuild gc WHERE gc.BldGUID=a.BldGUID AND b.new_VersionGUID=gc.VersionGUID)
+
+
+--2、产品（md_product）
+---因部分楼栋在预售查账，这里可能会有重复的产品
+INSERT INTO md_product(ProductKeyGUID, ProductGUID, VersionGUID, ProjGUID, No, ProductType, ProductName, BusinessType, 
+IsSale, IsVolume, YtCode, HoldRate, IsCost, ZxRate, mdmProductGUIDList, LxYtName)
+SELECT NEWID(),d.ProductGUID,d.new_VersionGUID,d.new_ProjGUID,d.No,d.ProductType,d.ProductName,d.BusinessType,d.IsSale,
+       d.IsVolume,d.YtCode,d.HoldRate,d.IsCost,d.ZxRate,d.mdmProductGUIDList,d.LxYtName 
+FROM (
+	SELECT DISTINCT  a.ProductGUID, c.new_VersionGUID , c.new_ProjGUID, a.No, a.ProductType, a.ProductName, a.BusinessType, 
+	a.IsSale, a.IsVolume, a.YtCode, a.HoldRate, a.IsCost, a.ZxRate, a.mdmProductGUIDList, a.LxYtName 
+	FROM vmd_Product_Work a 
+	INNER JOIN dbo.vmd_ProductBuild_work b ON a.ProductGUID=b.ProductGUID AND a.VersionGUID=b.VersionGUID
+	INNER JOIN #tmp_ProjectDZ c ON c.old_ProductBldGUID=b.ProductBuildGUID AND c.old_VersionGUID=b.VersionGUID
+	)d
+ WHERE NOT EXISTS (SELECT 1 FROM md_product pd WHERE pd.VersionGUID=d.new_VersionGUID AND pd.ProductGUID=d.ProductGUID)
+
+--3、产品明细（md_ProductDtl）
+INSERT INTO md_ProductDtl(ProductDtlGUID, ProductKeyGUID, ProductGUID, VersionGUID, ProjGUID, FbtRatio, FloorNum, 
+YdArea, JzArea, DsArea, DxArea, JrArea, VolumeRate, KsArea, HbgNum, HbgArea, ProductRate, Remark)
+SELECT NEWID(), d.ProductKeyGUID,d.ProductGUID,d.new_VersionGUID,d.new_ProjGUID,d.FbtRatio,d.FloorNum,d.YdArea,d.JzArea,
+                d.DsArea,d.DxArea,d.JrArea,d.VolumeRate,d.KsArea,d.HbgNum,d.HbgArea,d.ProductRate,d.Remark 
+FROM (
+	SELECT DISTINCT pd.ProductKeyGUID, a.ProductGUID, c.new_VersionGUID, c.new_ProjGUID, a.FbtRatio, a.FloorNum, 
+	a.YdArea, a.JzArea, a.DsArea, a.DxArea, a.JrArea, a.VolumeRate, a.KsArea, a.HbgNum, a.HbgArea, a.ProductRate, a.Remark 
+	FROM vmd_ProductDtl_Work a
+	INNER JOIN dbo.vmd_ProductBuild_work b ON a.ProductGUID=b.ProductGUID AND a.VersionGUID=b.VersionGUID
+	INNER JOIN #tmp_ProjectDZ c ON c.old_ProductBldGUID=b.ProductBuildGUID AND c.old_VersionGUID=b.VersionGUID
+	LEFT JOIN md_product pd ON pd.ProductGUID=a.ProductGUID AND pd.VersionGUID=a.VersionGUID 
+)d
+ WHERE NOT EXISTS (SELECT 1 FROM md_ProductDtl dtl WHERE dtl.VersionGUID=d.new_VersionGUID AND dtl.ProductGUID=d.ProductGUID)
+
+--因部分楼栋迁移出去，其他版本的产品是否需要汇总，待定
+
+--4、产品楼栋（md_ProductBuild）
+INSERT INTO md_ProductBuild(ProductBuildKeyGUID, ProductBuildGUID, VersionGUID, ProductKeyGUID, BldKeyGUID, 
+ProductGUID, BldGUID, ProjGUID, BldName, BldCode, Zxbz, BuildArea, UpArea, DownArea, SaleArea, HbgNum, JrArea,
+ SaleBldName, IsHold, IsSale, JkcArea, ZSArea, DownNum, UpNum, QHRate, QHRateRemarks, IsVirtualbld, 
+ SpecialRemarks, IsZMCW, IsWXCW, ZMCWS, ZMCWRDXS, ZMCWZSS, WXCWS, WXCWRDXS, WXCWZSS, ZSHZFRDCWS, JXCWRDXS,
+ IsGetYCBG, FloorHeight, IsHavaGas, BuildStarLogo)
+SELECT NEWID() AS  ProductBuildKeyGUID, a.ProductBuildGUID, b.new_VersionGUID AS VersionGUID,  
+pdw.ProductKeyGUID AS  ProductKeyGUID,gcw.BldKeyGUID AS  BldKeyGUID, 
+a.ProductGUID, a.BldGUID, b.new_ProjGUID AS  ProjGUID, a.BldName, a.BldCode, a.Zxbz, a.BuildArea, a.UpArea, 
+a.DownArea, a.SaleArea, a.HbgNum, a.JrArea,a.SaleBldName, a.IsHold, a.IsSale, a.JkcArea, a.ZSArea, a.DownNum, 
+a.UpNum, a.QHRate, a.QHRateRemarks, a.IsVirtualbld,a.SpecialRemarks, a.IsZMCW, a.IsWXCW, a.ZMCWS, a.ZMCWRDXS, 
+a.ZMCWZSS, a.WXCWS, a.WXCWRDXS, a.WXCWZSS, a.ZSHZFRDCWS, a.JXCWRDXS,a.IsGetYCBG, a.FloorHeight, a.IsHavaGas, 
+a.BuildStarLogo 
+FROM dbo.vmd_ProductBuild_work a 
+INNER JOIN #tmp_ProjectDZ b ON a.ProductBuildGUID=b.old_ProductBldGUID AND a.VersionGUID=b.old_VersionGUID
+INNER JOIN dbo.vmd_Product_Work pdw ON pdw.ProductGUID=a.ProductGUID AND pdw.VersionGUID=b.new_VersionGUID
+INNER JOIN dbo.vmd_GCBuild_work gcw ON gcw.BldGUID=a.BldGUID AND gcw.VersionGUID=b.new_VersionGUID
+WHERE NOT EXISTS (SELECT * FROM md_ProductBuild pb WHERE pb.ProductBuildGUID=a.ProductBuildGUID AND pb.VersionGUID=b.new_VersionGUID)
+
+
+
+--5、持有比例表 （md_BuildHoldRate）
+INSERT INTO md_BuildHoldRate(BuildHoldRateGUID, VersionGUID, ProductKeyGUID, BldKeyGUID, ProductGUID, BldGUID, 
+ProjGUID, HoldRate, HoldArea)
+SELECT NEWID() AS  BuildHoldRateGUID, VersionGUID, ProductKeyGUID, BldKeyGUID, ProductGUID, BldGUID, 
+ProjGUID,0 HoldRate,0 HoldArea 
+FROM md_ProductBuild pb  
+INNER JOIN #tmp_ProjectDZ dz ON pb.ProductBuildGUID=dz.old_ProductBldGUID AND pb.VersionGUID=dz.new_VersionGUID
+
+--6、装修比例表（md_BuildZxRate）
+INSERT INTO md_BuildZxRate(BuildZxRateGUID, VersionGUID, ProductKeyGUID, BldKeyGUID, ProductGUID, BldGUID, 
+ProjGUID, ZxRate, BuildArea)
+SELECT NEWID() AS BuildZxRateGUID, VersionGUID, ProductKeyGUID, BldKeyGUID, ProductGUID, BldGUID, 
+ProjGUID,0 ZxRate,0 BuildArea 
+FROM md_ProductBuild pb 
+INNER JOIN #tmp_ProjectDZ dz ON pb.ProductBuildGUID=dz.old_ProductBldGUID AND pb.VersionGUID=dz.new_VersionGUID;
+
+--7、基础数据楼栋指标表（md_BuildIndex）
+INSERT INTO md_BuildIndex(BuildIndexGUID, VersionGUID, ProductKeyGUID, ProductGUID, BldKeyGUID, BldGUID, 
+ProjGUID, Dimension, DimensionValue, Remark)
+SELECT NEWID() AS  BuildIndexGUID,b.new_VersionGUID AS VersionGUID,pd.ProductKeyGUID AS  ProductKeyGUID,
+a.ProductGUID,pd.BldKeyGUID AS  BldKeyGUID, a.BldGUID, 
+pd.ProjGUID, a.Dimension, a.DimensionValue, a.Remark 
+FROM md_BuildIndex a 
+INNER JOIN #tmp_ProjectDZ b ON a.VersionGUID=b.old_VersionGUID AND a.BldGUID=b.old_BldGUID
+INNER JOIN dbo.md_ProductBuild pd ON pd.VersionGUID=b.new_VersionGUID AND pd.BldGUID = a.BldGUID AND pd.ProductGUID = a.ProductGUID
+
+--8、基础数据楼栋赠送面积表（md_BuildZSArea）
+INSERT INTO md_BuildZSArea(BuildAreaGUID, VersionGUID, ProductKeyGUID, BldKeyGUID, ProductGUID, BldGUID, ProjGUID, ZSArea)
+SELECT NEWID() AS  BuildAreaGUID,dz.new_VersionGUID AS VersionGUID,pb.ProductKeyGUID AS  ProductKeyGUID, 
+pb.BldKeyGUID AS  BldKeyGUID, a.ProductGUID, a.BldGUID, pb.ProjGUID AS ProjGUID, a.ZSArea
+FROM md_BuildZSArea a 
+INNER JOIN dbo.md_ProductBuild pb ON a.BldGUID=pb.BldGUID AND a.ProductGUID=pb.ProductGUID AND a.VersionGUID=pb.VersionGUID
+INNER JOIN #tmp_ProjectDZ dz ON dz.old_VersionGUID=pb.VersionGUID
+
+--9、房间表（md_Room）---迁移的楼栋没有房间，无需迁移
+
+
+
+--定位版数据不会在work表，删除这部分楼栋数据（删除迁移出去的部分楼栋）
+DELETE a 
+FROM dbo.md_GCBuild_Work a 
+WHERE EXISTS (SELECT 1 FROM #tmp_ProjectDZ b WHERE b.old_BldGUID=a.BldGUID AND b.old_VersionGUID=a.VersionGUID);
+
+--删除已审核最新版楼栋
+DELETE a 
+
+FROM dbo.md_GCBuild a 
+WHERE EXISTS (SELECT 1 FROM #tmp_ProjectDZ b WHERE a.BldGUID=b.old_BldGUID AND a.VersionGUID=b.old_VersionGUID);
+
+
+--删除md_ProductBuild_work
+DELETE a  
+FROM md_ProductBuild_work a 
+WHERE EXISTS (SELECT * FROM #tmp_ProjectDZ b WHERE a.VersionGUID=b.old_VersionGUID AND a.ProductBuildGUID=b.old_ProductBldGUID )
+
+--删除md_ProductBuild 
+DELETE a  
+FROM md_ProductBuild a 
+WHERE EXISTS (SELECT * FROM #tmp_ProjectDZ b WHERE a.VersionGUID=b.old_VersionGUID AND a.ProductBuildGUID=b.old_ProductBldGUID )
+
+
+
+--==== POM系统  标段客户自行维护(需要删除  原杓袁7号地块下的标段)
+DELETE a 
+FROM p_HkbBiddingBuilding2BuildingWork a
+INNER JOIN p_HkbBiddingBuildingWork b ON a.BudGUID=b.BuildGUID
+INNER JOIN p_HkbBiddingSectionWork c ON c.BidGUID=b.BidGUID
+WHERE EXISTS (SELECT 1 FROM #tmp_ProjectDZ dz WHERE dz.old_ProjGUID=c.ProjGUID);
+
+DELETE b 
+FROM   p_HkbBiddingBuildingWork b  
+INNER JOIN p_HkbBiddingSectionWork c ON c.BidGUID=b.BidGUID
+WHERE EXISTS (SELECT 1 FROM #tmp_ProjectDZ dz WHERE dz.old_ProjGUID=c.ProjGUID);
+
+DELETE p_HkbBiddingSectionWork 
+WHERE EXISTS (SELECT 1 FROM #tmp_ProjectDZ dz WHERE dz.old_ProjGUID=p_HkbBiddingSectionWork.ProjGUID);
+
+
+--==== 进度计划管理 与松宸沟通确认 客户针对新项目和分期自行维护计划（需要删除原杓袁7号地块下的楼栋计划）
+DELETE pb
+FROM p_BiddingBuilding pb      
+inner JOIN p_BiddingSection pbb ON pb.BidGUID=pbb.BidGUID  
+WHERE  EXISTS (SELECT 1 FROM #tmp_ProjectDZ dz WHERE dz.old_ProjGUID=pbb.ProjGUID);
+
+DELETE p_BiddingSection 
+WHERE  EXISTS (SELECT 1 FROM #tmp_ProjectDZ dz WHERE dz.old_ProjGUID=p_BiddingSection.ProjGUID);
+
+
+DELETE a 
+FROM jd_ProjectPlanTaskCompile a 
+INNER JOIN dbo.jd_ProjectPlanCompile b  ON a.PlanID=b.ID
+WHERE  EXISTS (SELECT 1 FROM #tmp_ProjectDZ dz WHERE dz.old_ProjGUID=b.ProjGUID);
+ 
+DELETE a 
+FROM jd_ProjectPlanTaskExecute a 
+INNER JOIN dbo.jd_ProjectPlanExecute b  ON a.PlanID=b.ID
+WHERE  EXISTS (SELECT 1 FROM #tmp_ProjectDZ dz WHERE dz.old_ProjGUID=b.ProjGUID);
+
+--DELETE a 
+--select * 
+--FROM jd_ProjectPlanTaskExecuteHistory a 
+--INNER JOIN dbo.jd_ProjectPlanExecuteHistory b  ON a.PlanID=b.ID
+--WHERE  EXISTS (SELECT 1 FROM #tmp_ProjectDZ dz WHERE dz.old_ProjGUID=b.ProjGUID);
+
+DELETE dbo.jd_ProjectPlanCompile
+WHERE  EXISTS (SELECT 1 FROM #tmp_ProjectDZ dz WHERE dz.old_ProjGUID=jd_ProjectPlanCompile.ProjGUID);
+ 
+DELETE dbo.jd_ProjectPlanExecute
+WHERE  EXISTS (SELECT 1 FROM #tmp_ProjectDZ dz WHERE dz.old_ProjGUID=jd_ProjectPlanExecute.ProjGUID);
+
+--DELETE dbo.jd_ProjectPlanExecuteHistory
+--select * from  jd_ProjectPlanExecuteHistory
+--WHERE  EXISTS (SELECT 1 FROM #tmp_ProjectDZ dz WHERE dz.old_ProjGUID=jd_ProjectPlanExecuteHistory.ProjGUID);
+
+--=============待跨预算主体的合同处理完毕再刷新
+
+--=== 费用系统  
+--刷新预算主体
+UPDATE  ys_SpecialBusinessUnit 
+SET ProjectListName='郑州市三村杓袁7号地项目-杓袁7号地',
+ProjGUID='B5393568-BEAF-F011-B3A7-F40270D39969'
+WHERE ProjGUID='B956D877-F0D7-E811-80BF-E61F13C57837' and SpecialUnitName='郑州杓袁项目7号地'
+
+
+
+--根据合同所属分期，刷新合同的ProjectCodeList，ProjectNameList
+ UPDATE con
+ set con.ProjectCodeList = p.ProjCode ,con.ProjectNameList =p.ProjName
+ FROM dbo.cb_Contract con 
+ INNER JOIN (
+	SELECT DISTINCT ft.ContractGUID 
+	FROM fy_Contract_FtDetail_Period ft 
+	INNER JOIN ys_SpecialBusinessUnit sp ON ft.DeptGUID=sp.SpecialUnitGUID
+	WHERE  sp.ProjGUID='B5393568-BEAF-F011-B3A7-F40270D39969' and sp.SpecialUnitName='郑州杓袁项目7号地'
+ ) t ON con.ContractGUID=t.ContractGUID
+ INNER JOIN dbo.cb_ContractProj cp ON cp.ContractGUID=con.ContractGUID
+ INNER JOIN p_project p ON p.ProjGUID=cp.ProjGUID
+ WHERE con.IsFyControl=1
+ 
+
+
+
+ DROP TABLE #tmp_ProjectDZ;
+ DROP TABLE #tmp_del;

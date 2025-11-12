@@ -1,0 +1,5 @@
+--25数据库
+--禁用触发器
+ALTER TABLE mdm_GCBuild DISABLE TRIGGER ALL;
+ALTER TABLE p_Building DISABLE TRIGGER ALL;
+ 

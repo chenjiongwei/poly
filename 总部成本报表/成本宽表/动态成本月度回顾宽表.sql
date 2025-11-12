@@ -1,3 +1,6 @@
+-- 目标成本存储过程 usp_cb_GetFirstProjTargetStageCost_New  项目 
+-- 目标成本分期存储过程 usp_cb_GetTargetStageCost_New 分期
+
 SELECT  dtDetails.RecollectDetailsGUID AS MonthlyReviewGUID , --月度回顾明细GUID 
 		dtDetails.RecollectDetailsGUID, --月度回顾明细GUID 
         dtDetails.RecollectGUID AS ReviewGUID , --RecollectGUID字段       

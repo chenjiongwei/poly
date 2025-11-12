@@ -1,90 +1,8 @@
-USE ERP25;
-GO
-
-/*
-数据迁移范围：浙南合并进浙江，齐鲁合并进山东，大连合并进辽宁，淮海合并进江苏
-*/
-
--- 注意替换数据库名称
---DROP TABLE dqy_proj_20240613;
-
--- 将CompanyJoin表的公司名称改成保利里城
-
--- UPDATE a
--- SET DevelopmentCompanyName = '保利里城',
---     buname = '保利里城'
--- FROM ERP25.dbo.companyjoin a
--- WHERE buname = '中航里城';
 
 
--- UPDATE a
--- SET DevelopmentCompanyName = '保利里城',
---     buname = '保利里城'
--- FROM MyCost_Erp352.dbo.CompanyJoin a
--- WHERE buname = '中航里城';
+--DROP TABLE dqy_proj_20251027
 
-
---确认合约包模板是否需要迁移，如果合约包名称不一致的，可通过直接复制一份原有公司的模板到新公司，如果模板名称是一致的话，那么就判断新公司合约包是否涵盖了原有公司的合约包，如果是的话，那就不需要迁移模板
---需要迁移模板：qytype = 0
---不需要迁移模板：qytype = 1
-
-SELECT  dc.DevelopmentCompanyName AS 平台公司,
-        mp.ProjName AS 项目名称,
-        mp.SpreadName AS 推广名称,
-        mp.ProjCode AS 项目代码,
-        mp.ProjStatus AS 项目状态,
-        mp.SaleStatus AS 销售状态,
-        city.ParamValue AS 所在城市,
-        '山东公司' AS 所属新公司
-FROM    mdm_Project mp
-        INNER JOIN p_DevelopmentCompany dc 
-            ON mp.DevelopmentCompanyGUID = dc.DevelopmentCompanyGUID
-        LEFT JOIN (
-            SELECT  ParamGUID,
-                    ParamCode,
-                    ParamValue
-            FROM    myBizParamOption
-            WHERE   ParamName = 'td_City'
-        ) city 
-            ON city.ParamGUID = mp.CityGUID
-WHERE   dc.DevelopmentCompanyName = '齐鲁公司' AND mp.Level = 2
-
---- /////////////////2025年1月21日 创建新的组织架构调整待迁移项目清单///////////////////////////------------------------------
-
-
--- 修改companyjoin表中名称不一致的问题
-use ERP25
--- 查询公司名称不一致的
-SELECT a.buname,a.buguid,bu.BUName,bu.BUGUID 
-FROM companyjoin a
-INNER JOIN mybusinessunit bu ON a.buguid = bu.buguid
-WHERE bu.buname<> a.buname
-
--- 修改
-UPDATE a
-SET a.buname = bu.BUName
-FROM companyjoin a
-INNER JOIN mybusinessunit bu ON a.buguid = bu.buguid
-WHERE bu.buname<> a.buname
-
-use MyCost_Erp352
--- 查询公司名称不一致的
-SELECT a.buname,a.buguid,bu.BUName,bu.BUGUID 
-FROM companyjoin a
-INNER JOIN mybusinessunit bu ON a.buguid = bu.buguid
-WHERE bu.buname<> a.buname
-
--- 修改
-UPDATE a
-SET a.buname = bu.BUName
-FROM companyjoin a
-INNER JOIN mybusinessunit bu ON a.buguid = bu.buguid
-WHERE bu.buname<> a.buname
-
---浙南合并进浙江，齐鲁合并进山东，大连合并进辽宁，淮海合并进江苏
--- 创建新的组织架构调整待迁移项目清单
---2、齐鲁合并进山东
-CREATE TABLE dqy_proj_20250411
+CREATE TABLE dqy_proj_20251027
 (
     NewDevelopmentCompanyGUID UNIQUEIDENTIFIER, --迁移后平台公司guid
     NewBuguid UNIQUEIDENTIFIER,                 --迁移后公司guid,
@@ -96,6 +14,11 @@ CREATE TABLE dqy_proj_20250411
     OldProjName VARCHAR(200),                   --老项目名称
     projcode25 VARCHAR(200),
     projcode352 VARCHAR(200),
+    OldParentprojguid UNIQUEIDENTIFIER,
+    OldParentprojCode352 VARCHAR(200),
+    NewParentprojguid UNIQUEIDENTIFIER,
+    NewParentprojCode25 VARCHAR(200),
+    NewParentprojCode352 VARCHAR(200),
     项目分类 VARCHAR(20),
     qytype INT
 );
@@ -105,13 +28,15 @@ DECLARE @NewBuguid UNIQUEIDENTIFIER
 DECLARE @NewBuname VARCHAR(20)
 
 SELECT @NewDevelopmentCompanyGUID = DevelopmentCompanyGUID,
-       @NewBuguid = buguid,
-       @NewBuname = buname 
+       @NewBuguid = bu.buguid,
+       @NewBuname = bu.buname 
 FROM companyjoin 
-WHERE buname = '山东公司'
+INNER JOIN  dbo.myBusinessUnit  bu ON bu.BUGUID =companyjoin.buguid AND  bu.IsEndCompany =1
+WHERE bu.buname = '河南公司'
 
 
-INSERT INTO dqy_proj_20250411
+
+INSERT INTO dqy_proj_20251027
 --分期
 SELECT @NewDevelopmentCompanyGUID AS NewDevelopmentCompanyGUID,
        @NewBuguid newbuguid,
@@ -119,10 +44,31 @@ SELECT @NewDevelopmentCompanyGUID AS NewDevelopmentCompanyGUID,
        pj.DevelopmentCompanyGUID AS OldDevelopmentCompanyGUID,
        bu.buguid AS oldbuguid,
        bu.buname AS oldbuname,
-       pj.ProjGUID AS oldprojguid,
+       pj.ProjGUID AS oldprojguid, 
        SpreadName AS oldprojname, -- 推广名
        pj.ProjCode projcode25,
        p352.ProjCode projcode352,
+       pj.ParentProjGUID AS OldParentprojguid,   
+       (
+                select
+                        top 1 projcode
+                from
+                        MyCost_Erp352.dbo.p_Project 
+                where
+                        level = 2
+                        and projguid =pj.ParentProjGUID
+        )  as OldParentprojCode352,
+        'b5393568-beaf-f011-b3a7-f40270d39969'  AS NewParentprojguid, -- 郑州市高新区文广二期66亩
+       '0371034' as NewParentprojCode25, -- 投管和基础数据项目代码
+       (
+                select
+                        top 1 projcode
+                from
+                        MyCost_Erp352.dbo.p_Project 
+                where
+                        level = 2
+                        and projguid ='b5393568-beaf-f011-b3a7-f40270d39969'
+        ) as NewParentprojCode352,-- 成本系统项目代码
        CASE
            WHEN pj.Level = 2 THEN
                '一级项目'
@@ -130,7 +76,7 @@ SELECT @NewDevelopmentCompanyGUID AS NewDevelopmentCompanyGUID,
                '分期'
        END AS 项目类别,
        1 AS qytype                --  默认为0
-FROM ERP25.dbo.mdm_Project pj
+FROM erp25.dbo.mdm_Project pj
     LEFT JOIN
     (
         SELECT DISTINCT
@@ -139,50 +85,20 @@ FROM ERP25.dbo.mdm_Project pj
                BUGUID
         FROM MyCost_Erp352.dbo.p_Project p
     ) p352  ON pj.ProjGUID = p352.ProjGUID
-    INNER JOIN ERP25.dbo.companyjoin bu  ON bu.DevelopmentCompanyGUID = pj.DevelopmentCompanyGUID
-WHERE pj.Level =3 and  bu.buname = '齐鲁公司'
-UNION ALL
--- 一级项目
-SELECT @NewDevelopmentCompanyGUID AS NewDevelopmentCompanyGUID,
-       @NewBuguid newbuguid,
-       @NewBuname AS newbuname,
-       pj.DevelopmentCompanyGUID AS OldDevelopmentCompanyGUID,
-       bu.buguid AS oldbuguid,
-       bu.buname AS oldbuname,
-       pj.ProjGUID AS oldprojguid,
-       SpreadName AS oldprojname, -- 推广名
-       pj.ProjCode projcode25,
-       p352.ProjCode projcode352,
-       CASE
-           WHEN pj.Level = 2 THEN
-               '一级项目'
-           ELSE
-               '分期'
-       END AS 项目类别,
-       1 AS qytype
-FROM ERP25.dbo.mdm_Project pj
-    LEFT JOIN
-    (
-        SELECT DISTINCT
-               ProjGUID,
-               ProjCode,
-               BUGUID
-        FROM MyCost_Erp352.dbo.p_Project p
-    ) p352 ON pj.ProjGUID = p352.ProjGUID
-    INNER JOIN ERP25.dbo.companyjoin bu  ON bu.DevelopmentCompanyGUID = pj.DevelopmentCompanyGUID
-WHERE  pj.Level =2 and  bu.buname = '齐鲁公司'
+    INNER JOIN erp25.dbo.companyjoin bu  ON bu.DevelopmentCompanyGUID = pj.DevelopmentCompanyGUID
+    INNER JOIN  MyCost_Erp352.dbo.myBusinessUnit  unit ON bu.BUGUID =unit.buguid AND  unit.IsEndCompany =1
+WHERE pj.Level =3 
+-- and pj.projguid ='5F4A536B-D813-E911-80BF-E61F13C57837' -- 杓苑3号地
+and  pj.ProjGUID ='0e63e1ad-4703-4a95-b661-9e8e415e041f' -- 杓袁7号地
 
 
 
+-- http://172.16.8.131/PubProject/Project/Project_Form.aspx?mode=2&funcid=01010102&oid=b5393568-beaf-f011-b3a7-f40270d39969&isshare=0&Type=0&level=1&WorkMode=1
 -- 查询待迁移项目清单
 SELECT 
-    CASE 
-        WHEN p.level = 3 THEN pp.projname 
-        ELSE p.projname 
-    END AS ParentProjName, 
     a.*
 FROM 
-     erp25.dbo.dqy_proj_20250411 a
+     erp25.dbo.dqy_proj_20251027 a
 INNER JOIN 
     erp25.dbo.mdm_project p ON a.OldProjGuid = p.projguid
 LEFT JOIN 
@@ -193,5 +109,3 @@ ORDER BY
         ELSE p.projname 
     END, 
     projcode25;
-
-

@@ -11,4 +11,4 @@ select
        END AS 流程状态
 from  myWorkflowProcessEntity a
 inner join mybusinessunit bu on a.buguid =bu.BuGUID
- where bu.BUName ='齐鲁公司' and  ProcessStatus in (0,1)
+ where bu.BUName ='河南公司' and  ProcessStatus in (0,1) and ProcessName like '%杓袁项目%'

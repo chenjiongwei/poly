@@ -1,25 +1,12 @@
-USE [erp25]
+USE [ERP25]
+GO
+/****** Object:  StoredProcedure [dbo].[usp_s_ProjectMove]    Script Date: 2025/10/27 20:28:44 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
 GO
 
-/****** Object:  StoredProcedure [dbo].[usp_s_ProjectMove]    Script Date: 2024/6/13 18:36:30 ******/
-SET ANSI_NULLS ON;
-GO
-
-SET QUOTED_IDENTIFIER ON;
-
-
-/*2025年组织架构调整影响的表更新
--- s_BizParamAdjustApplyProduct	业务参数申请产品类型
--- s_CelProjectSaleInfo	
--- s_CelProjectSaleInfo_Msg	
--- s_CelProjectSaleInfo_User	业绩简讯的发送用户设置表
--- s_Contract_Pre	
--- s_HTExtendedFieldData	合同拓展字段表
--- s_SaleModiApplyBatch	批量变更申请表
-*/
-GO
-
-alter PROC [dbo].[usp_s_ProjectMove](@OldBUName VARCHAR(MAX) ,
+ALTER PROC [dbo].[usp_s_ProjectMove](@OldBUName VARCHAR(MAX) ,
                                      @TopProjGUID VARCHAR(MAX) ,    --一级项目GUID
                                      @NewBUName VARCHAR(MAX))
 AS 
@@ -106,7 +93,8 @@ GO
                               SELECT    p1.ProjGUID
                               FROM  p_Project p1
                                     LEFT JOIN p_Project p2 ON p1.ParentCode = p2.ProjCode
-                              WHERE p1.Level = 3 AND p2.ProjGUID IN(SELECT  Value FROM  [dbo].[fn_Split2](@TopProjGUID, ',') )) AND p.ApplySys LIKE '%,0101,%';
+                              WHERE p1.Level = 3 AND p2.ProjGUID IN(SELECT  Value FROM  [dbo].[fn_Split2](@TopProjGUID, ',') )) 
+                              AND p.ApplySys LIKE '%,0101,%';
 
         SELECT  * FROM  #Pro;
 

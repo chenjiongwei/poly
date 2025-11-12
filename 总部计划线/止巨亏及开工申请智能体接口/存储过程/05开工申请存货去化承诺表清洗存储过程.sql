@@ -1,6 +1,6 @@
 USE [HighData_prod]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_s_集团开工申请存货去化承诺表智能体数据提取]    Script Date: 2025/9/25 14:54:14 ******/
+/****** Object:  StoredProcedure [dbo].[usp_s_集团开工申请存货去化承诺表智能体数据提取]    Script Date: 2025/11/5 11:24:25 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -15,7 +15,7 @@ ALTER   PROC [dbo].[usp_s_集团开工申请存货去化承诺表智能体数据
 AS
 BEGIN
     -- 执行明细表存储过程
-    -- exec usp_s_集团开工申请存货去化承诺跟踪明细表智能体数据提取;
+    exec usp_s_集团开工申请存货去化承诺跟踪明细表智能体数据提取;
 
          -- M002表的成本单方数据
         SELECT 

@@ -35,12 +35,25 @@
 SELECT  *
 INTO    #proj
 FROM    (
-        SELECT  ProjGUID,
-                ProjName,
-                Level
-        FROM    ERP25.dbo.mdm_Project
-        INNER JOIN ERP25.dbo.p_DevelopmentCompany dc ON mdm_Project.DevelopmentCompanyGUID = dc.DevelopmentCompanyGUID
-        WHERE   dc.DevelopmentCompanyName = '齐鲁公司'
+        SELECT 
+            ProjGUID,
+            ProjName,
+            [Level]
+        FROM 
+            ERP25.dbo.mdm_Project mp
+        WHERE 
+            mp.ProjGUID = 'b956d877-f0d7-e811-80bf-e61f13c57837'
+        
+        UNION ALL
+        
+        SELECT 
+            ProjGUID,
+            ProjName,
+            [Level]
+        FROM 
+            ERP25.dbo.mdm_Project mp
+        WHERE 
+            mp.ParentProjGUID = 'b956d877-f0d7-e811-80bf-e61f13c57837'
     ) t;
 
 --创建临时表

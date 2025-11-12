@@ -1,6 +1,9 @@
+USE [HighData_prod]
+GO
+
 -- 2025-09-20 chenjw 用于总部计划经营看板的 总投资指标存储过程
 
-CREATE OR ALTER   PROC [dbo].[usp_zb_jyjhtjkb_TotalInvestment]
+CREATE  or  ALTER   PROC [dbo].[usp_zb_jyjhtjkb_TotalInvestment]
 AS
 BEGIN
     ----------------------------------------------------------------------
@@ -27,7 +30,7 @@ BEGIN
     --     [红线内配套费_立项版] DECIMAL(32, 10),                -- 立项版红线内配套费
 
     --     -- 财务费用相关
-    --     [财务费用(单利)_立项版] DECIMAL(32, 10),              -- 立项版财务费用（单利）
+    --     [财务费用(单利)_立项版] DECIMAL(32, 10),              -- 立项版财务费用（单利）Ww
     --     [财务费用(单利)截止本月] DECIMAL(32, 10),             -- 截止本月财务费用（单利）
     --     [财务费用(复利)可售单方_截止本月] DECIMAL(32, 10),    -- 复利可售单方（截止本月）
     --     [财务费用(复利）_截止本月] DECIMAL(32, 10),           -- 复利（截止本月）
@@ -189,6 +192,33 @@ BEGIN
     )t 
     group by t.projguid,CurVersion,版本,rn
 	
+    -- 填报数据
+    SELECT 
+        jytb.项目GUID,
+        jytb.财务费用_复利_一盘一策版
+    INTO #JyjhtjkbTb
+    FROM data_wide_dws_qt_Jyjhtjkb jytb
+    WHERE jytb.FillHistoryGUID IN (
+        SELECT TOP 1 FillHistoryGUID
+        FROM data_wide_dws_qt_Jyjhtjkb
+        ORDER BY FillDate DESC
+    )
+
+select 
+    f076.项目GUID, 
+    f076.立项除地价外直投 as [除地价外直投-一盘一策版],
+    null as  [土地费用-一盘一策版],
+    f076.财务费用计划口径 as [财务费用(单利)-一盘一策版],
+    f076.营销费用 as [营销费用-一盘一策版],
+    f076.立项管理费用 as [管理费用-一盘一策版]
+INTO #f076
+FROM data_wide_dws_qt_nmap_s_F076项目运营情况跟进表 f076
+INNER JOIN data_wide_dws_mdm_Project p ON f076.项目GUID = p.projguid AND p.level = 2
+WHERE versionguid IN (
+    SELECT TOP 1 versionguid
+    FROM data_wide_dws_qt_nmap_s_F076项目运营情况跟进表
+    ORDER BY EndTime DESC)
+
     --手工补录版
     insert into #cb
     select t.projguid,
@@ -265,7 +295,18 @@ BEGIN
         [已发生增值税及附加-动态版],
         [待发生增值税及附加-动态版],
         [增值税及附加_立项版],
-        [增值税及附加_动态版]
+        [增值税及附加_动态版],
+        [除地价外直投-一盘一策版],
+        [土地费用-一盘一策版],
+        [财务费用(单利)-一盘一策版],
+        [财务费用(复利)-一盘一策版],
+        [营销费用-一盘一策版],
+        [管理费用-一盘一策版],
+        [总投资-一盘一策版],
+        [增值税及附加-一盘一策版],
+        [已发生土地费用],
+        [已支付土地费用],
+        [待发生土地费用]
     )
     SELECT
         p.buguid AS [buguid],                -- 事业部GUID
@@ -311,7 +352,18 @@ BEGIN
         NULL AS [已发生增值税及附加-动态版], -- 可以取数
         NULL AS [待发生增值税及附加-动态版],
         lx.立项增值税及附加 AS [增值税及附加_立项版],
-        ylgh.增值税下附加税/100000000 AS [增值税及附加_动态版]
+        ylgh.增值税下附加税/100000000 AS [增值税及附加_动态版],
+        f076.除地价外直投含税 as [除地价外直投-一盘一策版],
+        f076.土地费用 as [土地费用-一盘一策版],
+        f076.财务费用计划口径 as [财务费用(单利)-一盘一策版],
+        jb.财务费用_复利_一盘一策版 as [财务费用(复利)-一盘一策版],
+        f076.营销费用 as [营销费用-一盘一策版],
+        f076.综合管理费协议口径 as [管理费用-一盘一策版],
+        f076.总成本含税计划口径 as [总投资-一盘一策版],
+        ylgh.增值税下附加税/100000000 as [增值税及附加-一盘一策版],
+        td.LandCostTotal as [已发生土地费用],
+        td.LandCostTotal as [已支付土地费用],
+        isnull(f076.土地费用,0) - isnull(td.LandCostTotal,0) as [待发生土地费用]
     FROM data_wide_dws_mdm_Project p
     LEFT JOIN (
         select p.ParentGUID,
@@ -330,7 +382,13 @@ BEGIN
           SELECT 
             f076.项目GUID,                                   -- 项目GUID
             f076.立项除地价外直投,
-            f076.财务费用计划口径
+            f076.除地价外直投含税,
+            f076.总成本含税计划口径,
+            isnull(f076.总成本含税计划口径,0) - isnull(f076.除地价外直投含税,0) - isnull(f076.财务费用计划口径,0) - isnull(f076.营销费用,0) 
+              - isnull(f076.综合管理费协议口径,0) as 土地费用,
+            f076.财务费用计划口径,
+            f076.营销费用,
+            f076.综合管理费协议口径
         FROM data_wide_dws_qt_nmap_s_F076项目运营情况跟进表 f076
         INNER JOIN data_wide_dws_mdm_Project p ON f076.项目GUID = p.projguid AND p.level = 2
         WHERE versionguid IN (
@@ -339,6 +397,14 @@ BEGIN
             ORDER BY EndTime DESC
         )
     ) f076 on f076.项目GUID = p.projguid
+    left join (
+        SELECT 
+        ProjGUID,
+        projname,
+        LandCostTotal/10000 as LandCostTotal  
+    FROM data_wide_dws_ys_ys_DssCashFlowData
+    WHERE isbase = 1
+    ) td on td.ProjGUID = p.projguid
     LEFT JOIN (
         SELECT  
             t.projguid,                                       -- 项目GUID
@@ -401,6 +467,8 @@ BEGIN
         from data_wide_dws_cb_cxf 
         group by 项目GUID
     ) cz on cz.项目GUID = p.projguid
+        LEFT JOIN #JyjhtjkbTb jb  
+            ON jb.项目GUID = p.projguid
     WHERE p.level = 2; -- 只统计二级项目
 
     ----------------------------------------------------------------------
@@ -423,7 +491,7 @@ BEGIN
         [政府收费及不可预见费_立项版],
         [财务费用(单利)_立项版],
         [财务费用(单利)截止本月],
-        财务费用(复利)可售单方_截止本月,
+        [财务费用(复利)可售单方_截止本月],
         [财务费用(复利）_截止本月],
         [财务费用(复利）_截止上月],
         [应付未付股东借款利息],
@@ -442,7 +510,18 @@ BEGIN
         [已发生增值税及附加-动态版],
         [待发生增值税及附加-动态版],
         [增值税及附加_立项版],
-        [增值税及附加_动态版]
+        [增值税及附加_动态版],
+        [除地价外直投-一盘一策版],
+        [土地费用-一盘一策版],
+        [财务费用(单利)-一盘一策版],
+        [财务费用(复利)-一盘一策版],
+        [营销费用-一盘一策版],
+        [管理费用-一盘一策版],
+        [总投资-一盘一策版],
+        [增值税及附加-一盘一策版],
+        [已发生土地费用],
+        [已支付土地费用],
+        [待发生土地费用]
     FROM zb_jyjhtjkb_TotalInvestment
     WHERE DATEDIFF(DAY, 清洗日期, GETDATE()) = 0;
 

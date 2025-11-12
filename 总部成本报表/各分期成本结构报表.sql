@@ -1,10 +1,12 @@
 USE [MyCost_Erp352]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_rpt_cb_CostStructureReport]    Script Date: 2025/8/14 12:45:54 ******/
+/****** Object:  StoredProcedure [dbo].[usp_rpt_cb_CostStructureReport]    Script Date: 2025/11/11 11:10:34 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
+
+
 
 
 /*
@@ -590,8 +592,8 @@ left join (
 			sum(case when year(ht.SignDate) = year(getdate()) then isnull(ht.djHtCfAmount,0) end) AS CurYeardjHtCfAmount,
 
 			 --停工缓建的分期，对应合约规划数量和金额（不去重），剔除已结算的合同
-            count(case when ht.jsState not in ('结算','结算中') then a.WorkingBudgetGUID end) AS tghjHyghCount,
-            sum(case when ht.jsState not in ('结算','结算中') then ex.BudgetAmount else 0 end) AS tghjHyghAmount
+            count(case when isnull(ht.jsState,'') not in ('结算','结算中') then a.WorkingBudgetGUID end) AS tghjHyghCount,
+            sum(case when isnull(ht.jsState,'') not in ('结算','结算中') then ex.BudgetAmount else 0 end) AS tghjHyghAmount
         FROM dbo.cb_Budget_Working a WITH(NOLOCK)
         inner JOIN dbo.cb_Budget_Executing ex WITH(NOLOCK) ON ex.ExecutingBudgetGUID=a.WorkingBudgetGUID
         LEFT JOIN dbo.cb_HtType b WITH(NOLOCK) ON a.BigHTTypeGUID = b.HtTypeGUID
@@ -648,7 +650,7 @@ LEFT JOIN (
                 OR c.HtTypeCode LIKE '03%'
                 OR c.HtTypeCode LIKE '05%'
             )
-        AND c.htclass NOT LIKE '%非合同%'
+       -- AND c.htclass NOT LIKE '%非合同%'
     group by p.ProjGUID
 ) pay on pay.projguid = p.ProjGUID
 --停工缓建标识
@@ -675,18 +677,18 @@ LEFT JOIN (
 LEFT JOIN (
     SELECT 
         p.ProjGUID,
-        COUNT(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND MONTH(my.FinishDatetime) = MONTH(GETDATE())-1 AND htb.ApproveState ='已审核' THEN htb.HTBalanceGUID END) AS 本月完成合同结算份数,
-        sum(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND MONTH(my.FinishDatetime) = MONTH(GETDATE())-1 AND htb.ApproveState ='已审核' THEN htb.BalanceAmount ELSE 0 END) AS 本月完成合同结算金额,
-        sum(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND MONTH(my.FinishDatetime) = MONTH(GETDATE())-1 AND htb.ApproveState ='已审核' THEN htb.SsAmountBz ELSE 0 END) AS 本月完成合同结算送审金额,
-        sum(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND MONTH(my.FinishDatetime) = MONTH(GETDATE())-1 AND htb.ApproveState ='已审核' THEN case when ISNULL(htb.YsAmountBz,0) = 0 then htb.SsAmountBz else htb.YsAmountBz end
+        COUNT(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND MONTH(my.FinishDatetime) = MONTH(GETDATE()) AND htb.ApproveState ='已审核' THEN htb.HTBalanceGUID END) AS 本月完成合同结算份数,
+        sum(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND MONTH(my.FinishDatetime) = MONTH(GETDATE()) AND htb.ApproveState ='已审核' THEN htb.BalanceAmount ELSE 0 END) AS 本月完成合同结算金额,
+        sum(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND MONTH(my.FinishDatetime) = MONTH(GETDATE()) AND htb.ApproveState ='已审核' THEN htb.SsAmountBz ELSE 0 END) AS 本月完成合同结算送审金额,
+        sum(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND MONTH(my.FinishDatetime) = MONTH(GETDATE()) AND htb.ApproveState ='已审核' THEN case when ISNULL(htb.YsAmountBz,0) = 0 then htb.SsAmountBz else htb.YsAmountBz end
 		ELSE 0 END) AS 本月完成合同结算一审金额,
-        sum(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND MONTH(my.FinishDatetime) = MONTH(GETDATE())-1 AND htb.ApproveState ='已审核' AND (ISNULL(htb.Sfbxes,'无需二审') IN ('子公司二审','总部二审') OR ISNULL(htb.Sfkdes,'否')<>'是') THEN 
+        sum(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND MONTH(my.FinishDatetime) = MONTH(GETDATE()) AND htb.ApproveState ='已审核' AND (ISNULL(htb.Sfbxes,'无需二审') IN ('子公司二审','总部二审') OR ISNULL(htb.Sfkdes,'否')<>'是') THEN 
 				case when isnull(htb.YsAmountBz,0) = 0 then htb.SsAmountBz else htb.YsAmountBz end 
 			ELSE 0 END) AS 本月完成合同结算需二审的一审金额,
-        sum(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND MONTH(my.FinishDatetime) = MONTH(GETDATE())-1 AND htb.ApproveState ='已审核' AND (ISNULL(htb.Sfbxes,'无需二审')IN ('子公司二审','总部二审') OR ISNULL(htb.Sfkdes,'否')<>'是') THEN 
+        sum(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND MONTH(my.FinishDatetime) = MONTH(GETDATE()) AND htb.ApproveState ='已审核' AND (ISNULL(htb.Sfbxes,'无需二审')IN ('子公司二审','总部二审') OR ISNULL(htb.Sfkdes,'否')<>'是') THEN 
 			case when isnull(htb.EsAmountBz,0) = 0 then htb.BalanceAmount else htb.EsAmountBz end 
 		ELSE 0 END) AS 本月完成合同结算二审金额,
-        SUM(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND MONTH(my.FinishDatetime) = MONTH(GETDATE())-1 AND htb.ApproveState ='已审核' THEN datediff(dd,my.InitiateDatetime,my.FinishDatetime) END) AS 本月完成合同结算审批时长,
+        SUM(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND MONTH(my.FinishDatetime) = MONTH(GETDATE()) AND htb.ApproveState ='已审核' THEN datediff(dd,my.InitiateDatetime,my.FinishDatetime) END) AS 本月完成合同结算审批时长,
         COUNT(CASE WHEN htb.ApproveState ='审核中' AND (ISNULL(htb.Sfbxes,'无需二审') <>'无需二审' OR ISNULL(htb.Sfkdes,'否')<>'否') THEN htb.HTBalanceGUID END) AS 在途合同结算二审审核中份数,
 		--sum(case when YEAR(htb.BalanceDate) = YEAR(GETDATE()) AND htb.ApproveState ='已审核' THEN htb.BalanceAmount ELSE 0 END) AS 本年完成合同结算金额,
 		sum(case when YEAR(my.FinishDatetime) = YEAR(GETDATE()) AND htb.ApproveState ='已审核' THEN htb.BalanceAmount ELSE 0 END) AS 本年完成合同结算金额
@@ -862,6 +864,9 @@ END
 --         AND (2=2)
 -- ) a
 -- ORDER BY ApproveDate DESC
+
+
+
 
 
 

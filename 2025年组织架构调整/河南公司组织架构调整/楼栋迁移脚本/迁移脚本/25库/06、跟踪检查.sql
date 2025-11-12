@@ -1,0 +1,10 @@
+﻿--25库
+--跟踪检查
+IF((SELECT ISNULL( CHANGE_TRACKING_MIN_VALID_VERSION( OBJECT_ID('mdm_GCBuild')),0))=0 ) 
+BEGIN  SELECT  'mdm_GCBuild'+'CT未开启'  END; 
+
+IF((SELECT ISNULL( CHANGE_TRACKING_MIN_VALID_VERSION( OBJECT_ID('p_Building')),0))=0 ) 
+BEGIN  SELECT  'p_Building'+'CT未开启'  END; 
+
+IF((SELECT ISNULL( CHANGE_TRACKING_MIN_VALID_VERSION( OBJECT_ID('k_ProviderProjectConstru')),0))=0 ) 
+BEGIN  SELECT  'k_ProviderProjectConstru'+'CT未开启'  END; 

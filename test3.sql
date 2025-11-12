@@ -1,131 +1,108 @@
+--缓存产品楼栋
+SELECT  ms.SaleBldGUID ,
+        '华南公司' buname ,
+        p1.spreadname ,
+        gc.GCBldGUID ,
+        ms.BldCode ,
+        gc.BldName gcBldName ,
+        ISNULL(ms.UpBuildArea, 0) + ISNULL(ms.DownBuildArea, 0) zjm ,
+        ms.UpBuildArea dsjm ,
+        ms.DownBuildArea dxjm ,
+        pr.ProductType ,
+        pr.ProductName ,
+        pr.BusinessType ,
+        pr.IsSale ,
+        pr.IsHold ,
+        pr.STANDARD ,
+        ms.UpNum ,
+        ms.DownNum ,
+        c.*
+INTO    #ms
+FROM    dbo.mdm_SaleBuild ms
+        INNER JOIN mdm_Product pr ON pr.ProductGUID = ms.ProductGUID
+        INNER JOIN mdm_GCBuild gc ON gc.GCBldGUID = ms.GCBldGUID
+        LEFT JOIN mdm_project p ON gc.projguid = p.projguid
+        LEFT JOIN mdm_project p1 ON p.parentprojguid = p1.projguid
+        LEFT JOIN MyCost_Erp352.dbo.p_HkbBiddingBuilding2BuildingWork b ON ms.GCBldGUID = b.BuildingGUID
+        LEFT JOIN MyCost_Erp352.dbo.jd_PlanTaskExecuteObjectForReport c ON b.budguid = c.ztguid
+WHERE   p.developmentcompanyguid = 'AADC0FA7-9546-49C9-B64B-825056C828ED' 
+and  isnull(c.是否停工,'') not in ('停工','缓建')
 
--- 动态经营结果显示
--- 总收入
-select projguid, '总收入' as '分项',  [总货值-立项版] as '立项', isnull(lczy.[总货值-动态版], sale.[总货值-动态版]) as '动态', isnull(已售货值,0) as '已实现', 
-    case when  isnull(lczy.[总货值-动态版], sale.[总货值-动态版])  =0  then  0 else  isnull(已售货值,0) / isnull(lczy.[总货值-动态版], sale.[总货值-动态版])  end  as '已实现比例', 
-    isnull(lczy.[总货值-动态版], sale.[总货值-动态版]) -  isnull(已售货值,0)   as '未来实现'
-from zb_jyjhtjkb_SaleIncome sale
-left join  data_tb_ylss_lczy lczy on  sale.projguid =lczy.项目GUID
-WHERE DATEDIFF(DAY, 清洗日期, ${qxDate} ) = 0
-union all
--- 价格：住宅
-select projguid, '价格：住宅' as '分项', sale.[住宅销售均价-立项版] as '立项', 
-     case when isnull(lczy.[住宅总可售面积], sale.[住宅总可售面积]) =0  then 0 else  isnull(lczy.[住宅总货值金额],sale.[住宅总货值金额]) *10000.0  / isnull(lczy.[住宅总可售面积], sale.[住宅总可售面积]) end  as '动态',
-    isnull(lczy.[住宅截止本月已售均价], sale.[住宅截止本月已售均价])  as '已实现', null as '已实现比例', null as '未来实现'
-from zb_jyjhtjkb_SaleIncome sale
-left join  data_tb_ylss_lczy lczy on  sale.projguid =lczy.项目GUID
-WHERE DATEDIFF(DAY, 清洗日期, ${qxDate}) = 0
-union all
--- 价格：办公
-select projguid, '价格：办公' as '分项', [商办销售均价-立项版] as '立项',
-   case when isnull([商办总可售面积],0) =0  then 0 else  isnull([商办总货值金额],0)  *10000.0 / isnull([商办总可售面积],0) end  as '动态', 
-   [商办截止本月已售均价] as '已实现', null as '已实现比例', null as '未来实现'
-from zb_jyjhtjkb_SaleIncome
-WHERE DATEDIFF(DAY, 清洗日期, ${qxDate}) = 0
-union all
--- 价格：商业
-select projguid, '价格：商业' as '分项', [商办销售均价-立项版] as '立项',
-   case when isnull([商办总可售面积],0) =0  then 0 else  isnull([商办总货值金额],0)  *10000.0 / isnull([商办总可售面积],0) end  as '动态', 
-   [商办截止本月已售均价] as '已实现', null as '已实现比例', null as '未来实现'
-from zb_jyjhtjkb_SaleIncome
-WHERE DATEDIFF(DAY, 清洗日期, ${qxDate}) = 0
-union all
--- 车位/个
-select projguid, '车位/个' as '分项', [车位销售均价-立项版] /10000.0 as '立项',
-    case when  isnull([车位总可售套数],0) =0 then 0  else  isnull([车位总货值金额],0) *10000.0 / isnull([车位总可售套数],0) end as '动态', 
-    [车位截止本月已售均价] /10000.0 as '已实现', 
-    null as '已实现比例', null as '未来实现'
-from zb_jyjhtjkb_SaleIncome
-WHERE DATEDIFF(DAY, 清洗日期, ${qxDate}) = 0
-union all
--- 总投资
-select projguid, '总投资' as '分项', [总投资_立项版] as '立项',isnull(lczy.[总投资-动态版], ti.[总投资_动态版]) as '动态', 
-    isnull(lczy.[已发生总投资_动态版], ti.[已发生总投资_动态版]) as '已实现', 
-  case when  isnull(lczy.[总投资-动态版], ti.[总投资_动态版]) =0 then 0 
-       else isnull(lczy.[已发生总投资_动态版], ti.[已发生总投资_动态版]) / isnull(lczy.[总投资-动态版], ti.[总投资_动态版]) end  as '已实现比例', 
-    isnull(lczy.[总投资-动态版], ti.[总投资_动态版]) - isnull(lczy.[已发生总投资_动态版], ti.[已发生总投资_动态版]) as '未来实现'
-from zb_jyjhtjkb_TotalInvestment ti
-left join   data_tb_ylss_lczy lczy on  Ti.projguid =lczy.项目GUID
-WHERE DATEDIFF(DAY, 清洗日期, ${qxDate}) = 0
-union all
--- 除地价外直投
-select projguid, '除地价外直投' as '分项', [除地价外直投_立项版] as '立项',isnull(lczy.[除地价外直投本月拍照版],ti.[除地价外直投本月拍照版] ) as '动态',
- isnull(lczy.[已发生除地价外直投], ti.[已发生除地价外直投]) as '已实现', 
-case when  isnull(lczy.[除地价外直投本月拍照版],ti.[除地价外直投本月拍照版] )  = 0 then 0  
-   else  isnull(lczy.[已发生除地价外直投], ti.[已发生除地价外直投]) / isnull(lczy.[除地价外直投本月拍照版],ti.[除地价外直投本月拍照版] )  end  as '已实现比例',
-    isnull(lczy.[除地价外直投本月拍照版],ti.[除地价外直投本月拍照版] )  - isnull(lczy.[已发生除地价外直投], ti.[已发生除地价外直投])  as '未来实现'
-from zb_jyjhtjkb_TotalInvestment Ti
-left join   data_tb_ylss_lczy lczy on  Ti.projguid =lczy.项目GUID
-WHERE DATEDIFF(DAY, 清洗日期, ${qxDate}) = 0
-union all
--- 财务费用(单利)
-select projguid, '财务费用(单利)' as '分项', [财务费用(单利)_立项版] as '立项',isnull(lczy.[财务费用(单利)截止本月], ti.[财务费用(单利)截止本月] ) as '动态',
-  isnull(lczy.[已发生财务费用（单利）],ti.[已发生财务费用（单利）]) as '已实现', 
-  case when  isnull(lczy.[财务费用(单利)截止本月], ti.[财务费用(单利)截止本月] )  = 0  then  0  else   
-     isnull(lczy.[已发生财务费用（单利）],ti.[已发生财务费用（单利）]) / isnull(lczy.[财务费用(单利)截止本月], ti.[财务费用(单利)截止本月] )  end as '已实现比例', 
-    isnull(lczy.[财务费用(单利)截止本月], ti.[财务费用(单利)截止本月] ) - isnull(lczy.[已发生财务费用（单利）],ti.[已发生财务费用（单利）])  as '未来实现'
-from zb_jyjhtjkb_TotalInvestment  Ti
-left join   data_tb_ylss_lczy lczy on  Ti.projguid =lczy.项目GUID
-WHERE DATEDIFF(DAY, 清洗日期, ${qxDate}) = 0
-union all
--- 营销费用
-select projguid, '营销费用' as '分项', [营销费用_立项版] as '立项',isnull(lczy.[营销费用-动态版], ti.[营销费用_动态版]) as '动态', 
-  isnull(lczy.[已发生营销费用], ti.[已发生营销费用]) as '已实现', 
-  case when  isnull(lczy.[营销费用-动态版], ti.[营销费用_动态版]) =0  then  0  else isnull(lczy.[已发生营销费用], ti.[已发生营销费用]) / isnull(lczy.[营销费用-动态版], ti.[营销费用_动态版]) end  as '已实现比例', 
-  isnull(lczy.[营销费用-动态版], ti.[营销费用_动态版])- isnull(lczy.[已发生营销费用], ti.[已发生营销费用])   as '未来实现'
-from zb_jyjhtjkb_TotalInvestment Ti
-left join   data_tb_ylss_lczy lczy on  Ti.projguid =lczy.项目GUID
-WHERE DATEDIFF(DAY, 清洗日期, ${qxDate}) = 0
-union all
--- 管理费用
-select projguid, '管理费用' as '分项',[管理费用_立项版] as '立项', isnull(lczy.[管理费用-动态版], ti.[管理费用_动态版]) as '动态',
-   isnull(lczy.[已发生管理费用], ti.[已发生管理费用]) as '已实现', 
-   case when  isnull(lczy.[管理费用-动态版],ti.[管理费用_动态版])  =0  then  0  else isnull(lczy.[已发生管理费用], ti.[已发生管理费用]) / isnull(lczy.[管理费用-动态版],ti.[管理费用_动态版])  end as '已实现比例', 
-   isnull(lczy.[管理费用-动态版],ti.[管理费用_动态版]) - isnull(lczy.[已发生管理费用], ti.[已发生管理费用])   as '未来实现'
-from zb_jyjhtjkb_TotalInvestment Ti
-left join   data_tb_ylss_lczy lczy on  Ti.projguid =lczy.项目GUID
-WHERE DATEDIFF(DAY, 清洗日期, ${qxDate}) = 0
-union all
--- 增值税及附加
-select projguid, '增值税及附加' as '分项', [增值税及附加_立项版] as '立项',isnull(lczy.[增值税及附加-动态版], ti.[增值税及附加_动态版] ) as '动态', 
-    isnull(lczy.[已发生增值税及附加-动态版], ti.[已发生增值税及附加-动态版])  as '已实现', 
-    case when  isnull(lczy.[增值税及附加-动态版], ti.[增值税及附加_动态版])  =0  then  0  
-      else isnull(lczy.[已发生增值税及附加-动态版], ti.[已发生增值税及附加-动态版]) / isnull(lczy.[增值税及附加-动态版], ti.[增值税及附加_动态版])  end as '已实现比例', 
-    isnull(lczy.[待发生增值税及附加-动态版], ti.[待发生增值税及附加-动态版]) as '未来实现'
-from zb_jyjhtjkb_TotalInvestment ti
-left join data_tb_ylss_lczy lczy on ti.projguid =lczy.项目GUID
-WHERE DATEDIFF(DAY, 清洗日期, ${qxDate}) = 0
-union all
--- 税前成本利润率
-select projguid, '税前成本利润率' as '分项', [税前成本利润率_立项版] as '立项', isnull(lczy.[税前成本利润率-动态版], pf.[税前成本利润率_动态版] )  as '动态', null as '已实现', null as '已实现比例', null as '未来实现'
-from zb_jyjhtjkb_Profit pf
-left join   data_tb_ylss_lczy lczy on  pf.projguid =lczy.项目GUID
-WHERE DATEDIFF(DAY, 清洗日期, ${qxDate}) = 0
-union all
--- 税后利润
-select projguid, '税后利润' as '分项', [税后现金利润_立项版] as '立项',isnull(lczy.[税后利润-动态版], pf.[税后利润_动态版]) as '动态', [已实现税后利润_动态版] as '已实现', 
-    case when  isnull(lczy.[税后利润-动态版], pf.[税后利润_动态版])  =0  then  0  else isnull([已实现税后利润_动态版],0) / isnull(lczy.[税后利润-动态版], pf.[税后利润_动态版])  end as  '已实现比例', 
-   isnull(lczy.[税后利润-动态版], pf.[税后利润_动态版]) - isnull([已实现税后利润_动态版],0) as '未来实现'
-from zb_jyjhtjkb_Profit pf
-left join   data_tb_ylss_lczy lczy on  pf.projguid =lczy.项目GUID
-WHERE DATEDIFF(DAY, 清洗日期, ${qxDate}) = 0
-union all
--- 税后现金利润
-select pf.projguid, '税后现金利润' as '分项',[税后现金利润_立项版]  as '立项',isnull(lczy.[税后现金利润-动态版], pf.[税后现金利润_动态版] ) as '动态', 
-   isnull(pf.[已实现税后利润_动态版],0) - isnull(zc.[留存资产],0)  as '已实现', 
-   case when  isnull(lczy.[税后现金利润-动态版], pf.[税后现金利润_动态版] )  =0 then 0 else  isnull(pf.[已实现税后利润_动态版],0) - isnull(zc.[留存资产],0) /  isnull(lczy.[税后现金利润-动态版], pf.[税后现金利润_动态版] )  end  as '已实现比例', 
-   isnull(lczy.[税后现金利润-动态版], pf.[税后现金利润_动态版] ) - isnull(pf.[已实现税后利润_动态版],0) - isnull(zc.[留存资产],0) as '未来实现'
-from zb_jyjhtjkb_Profit pf
-left join   data_tb_ylss_lczy lczy on  pf.projguid =lczy.项目GUID
-left join  zb_jyjhtjkb_BalanceSheet zc on pf.projguid = zc.projguid and datediff(day,pf.清洗日期,zc.清洗日期) =0
-WHERE DATEDIFF(DAY, pf.清洗日期, ${qxDate}) = 0
-union all
--- 税后现金利润
-select pf.projguid, '持有资产' as '分项',[税后现金利润_立项版]  as '立项',isnull(lczy.[税后现金利润-动态版], pf.[税后现金利润_动态版] ) as '动态', 
-   isnull(pf.[已实现税后利润_动态版],0) - isnull(zc.[留存资产],0)  as '已实现', 
-   case when  isnull(lczy.[税后现金利润-动态版], pf.[税后现金利润_动态版] )  =0 then 0 else  isnull(pf.[已实现税后利润_动态版],0) - isnull(zc.[留存资产],0) /  isnull(lczy.[税后现金利润-动态版], pf.[税后现金利润_动态版] )  end  as '已实现比例', 
-   isnull(lczy.[税后现金利润-动态版], pf.[税后现金利润_动态版] ) - isnull(pf.[已实现税后利润_动态版],0) - isnull(zc.[留存资产],0) as '未来实现'
-from zb_jyjhtjkb_Profit pf
-left join   data_tb_ylss_lczy lczy on  pf.projguid =lczy.项目GUID
-left join  zb_jyjhtjkb_BalanceSheet zc on pf.projguid = zc.projguid and datediff(day,pf.清洗日期,zc.清洗日期) =0
-WHERE DATEDIFF(DAY, pf.清洗日期, ${qxDate}) = 0
+----竣备
+--SELECT DISTINCT buname,
+--       投管项目名称 + '-' + 关联工程楼栋 楼栋,
+--       竣工备案计划完成时间,
+--       CONVERT(CHAR, DATEDIFF(mm, 竣工备案计划完成时间, GETDATE())) 月,
+--       ISNULL(竣工备案预计完成时间, 竣工备案计划完成时间) 预计,
+--       ISNULL(集中交付实际完成时间, 集中交付计划完成时间) 交付,
+--       spreadname + '-' + 关联工程楼栋 + '竣备：原节点' + 竣工备案计划完成时间 + '，已逾期超' + CONVERT(VARCHAR(2), DATEDIFF(mm, 竣工备案计划完成时间, GETDATE()))
+--       + '个月'+ ';' 合并
+--       --投管项目名称 + '-' + 关联工程楼栋 + '竣备：原节点' + 竣工备案计划完成时间 + '，已逾期超' + CONVERT(CHAR, DATEDIFF(mm, 竣工备案计划完成时间, GETDATE()))
+--       --+ '个月，预计' + ISNULL(竣工备案预计完成时间, 竣工备案计划完成时间) + '完成；交付' + ISNULL(集中交付实际完成时间, 集中交付计划完成时间) + ';' 合并
+--	   INTO #jb
+--FROM #ms a
+--WHERE DATEDIFF(dd, 竣工备案计划完成时间, GETDATE()) > 0
+--      AND 竣工备案实际完成时间 IS NULL;
+
+--SELECT b.buname,
+--       竣备 = STUFF(
+--            (
+--                SELECT ',' + 合并 FROM #jb t WHERE t.buname = b.buname FOR XML PATH('')
+--            ),
+--            1,
+--            1,
+--            ''
+--                 )
+--INTO #jbresult
+--FROM mybusinessunit a
+--     INNER JOIN #jb b ON a.buname = b.buname
+--GROUP BY b.buname;
+--drop  table   #gc 
+-- 剔除掉以下楼栋的逾期交付批次
+select  
+   GCBldGUID,BldCode,BldName
+into   #gc
+from  mdm_GCBuild where GCBldGUID in (
+    '037F8327-F90F-40C9-9735-849DEF13C4F0',
+    'C39487D5-87A4-4396-82EA-344816B9CF01',
+    'FDA6DBC9-75E4-4E0B-ACC3-731AED8FA0B8', 
+    '8B4550AF-6825-FBC0-AD8C-2AB8029558E9',
+    '6059B7F0-59B5-4287-828A-80EAB382058F',
+    '00A09357-2BA9-4A26-97CF-E9D5135C7AEC',
+    '7F741580-3B80-46E0-9106-F5C4D91E8888'
+)
+
+SELECT  buname 公司名称 ,spreadname,gcBldName,
+        --展示区
+        SUM(CASE WHEN DATEDIFF(yy, 售楼部展示区正式开放计划完成时间, GETDATE()) = 0 THEN 1 ELSE 0 END) AS  '24年计划展示区' ,
+        SUM(CASE WHEN DATEDIFF(yy, 售楼部展示区正式开放计划完成时间, GETDATE()) = 0 AND   售楼部展示区正式开放实际完成时间 IS NOT NULL THEN 1 ELSE 0 END) AS  '24年已完工展示区' ,
+        CASE WHEN SUM(CASE WHEN YEAR(售楼部展示区正式开放计划完成时间) = 2024 THEN 1 ELSE 0 END) > 0 THEN
+                 SUM(CASE WHEN DATEDIFF(yy, 售楼部展示区正式开放计划完成时间, GETDATE()) = 0 AND 售楼部展示区正式开放实际完成时间 IS NOT NULL THEN 1 ELSE 0 END) *1.0 / 
+				 SUM(CASE WHEN DATEDIFF(yy, 售楼部展示区正式开放计划完成时间, GETDATE()) = 0 THEN 1 ELSE 0 END)
+        END '24年计划展示区完成率' ,
+        SUM(CASE WHEN DATEDIFF(mm, 售楼部展示区正式开放计划完成时间, GETDATE()) = 0 THEN 1 ELSE 0 END) AS  '24年7月计划展示区' ,
+        SUM(CASE WHEN DATEDIFF(mm, 售楼部展示区正式开放计划完成时间, GETDATE()) = 0 AND   售楼部展示区正式开放实际完成时间 IS NOT NULL THEN 1 ELSE 0 END) AS  '24年7月已完工展示区' ,
+        SUM(CASE WHEN DATEDIFF(mm, 售楼部展示区正式开放计划完成时间, GETDATE()) = 0 AND   售楼部展示区正式开放实际完成时间 IS NULL THEN 1 ELSE 0 END) AS  '24年7月逾期展示区' ,
+        CASE WHEN SUM(CASE WHEN DATEDIFF(mm, 售楼部展示区正式开放计划完成时间, GETDATE()) = 0 THEN 1 ELSE 0 END) > 0 THEN
+                 SUM(CASE WHEN DATEDIFF(mm, 售楼部展示区正式开放计划完成时间, GETDATE()) = 0 AND 售楼部展示区正式开放实际完成时间 IS NOT NULL THEN 1 ELSE 0 END) *1.0 / 
+				 SUM(CASE WHEN DATEDIFF(mm, 售楼部展示区正式开放计划完成时间, GETDATE()) = 0 THEN 1 ELSE 0 END)
+        END '24年7月展示区完成率' ,
+     
+        --开工
+        SUM(CASE WHEN DATEDIFF(yy, 实际开工计划完成时间, GETDATE()) = 0 THEN zjm ELSE 0 END) / 10000 '24年计划开工' ,
+        SUM(CASE WHEN DATEDIFF(yy, 实际开工计划完成时间, GETDATE()) = 0 AND   实际开工实际完成时间 IS NOT NULL THEN zjm ELSE 0 END) / 10000 '24年已开工' ,
+        CASE WHEN SUM(CASE WHEN YEAR(实际开工计划完成时间) = 2024 THEN zjm ELSE 0 END) > 0 THEN
+                 SUM(CASE WHEN DATEDIFF(yy, 实际开工计划完成时间, GETDATE()) = 0 AND 实际开工实际完成时间 IS NOT NULL THEN zjm ELSE 0 END) 
+				 / SUM(CASE WHEN DATEDIFF(yy, 实际开工计划完成时间, GETDATE()) = 0 THEN zjm ELSE 0 END)
+        END '24年计划开工完成率' ,
+        SUM(CASE WHEN DATEDIFF(mm, 实际开工计划完成时间, GETDATE()) = 0 THEN zjm ELSE 0 END) / 10000 '24年7月计划开工' ,
+        SUM(CASE WHEN DATEDIFF(mm, 实际开工计划完成时间, GETDATE()) = 0 AND   实际开工实际完成时间 IS NOT NULL THEN zjm ELSE 0 END) / 10000 '24年7月已开工' ,
+        SUM(CASE WHEN DATEDIFF(mm, 实际开工计划完成时间, GETDATE()) = 0 AND   实际开工实际完成时间 IS NULL THEN zjm ELSE 0 END) / 10000 '24年7月逾期未开工' ,
+        CASE WHEN SUM(CASE WHEN DATEDIFF(mm, 实际开工计划完成时间, GETDATE()) = 0 THEN zjm ELSE 0 END) > 0 THEN
+                 SUM(CASE WHEN DATEDIFF(mm, 实际开工计划完成时间, GETDATE()) = 0 AND 实际开工实际完成时间 IS NOT NULL THEN zjm ELSE 0 END) 
+				 / SUM(CASE WHEN DATEDIFF(mm, 实际开工计划完成时间, GETDATE()) = 0 THEN zjm ELSE 0 END)
+        END '24年7月开工完成率' 
+FROM    #ms a
+left join #gc b on a.GCBldGUID = b.GCBldGUID
+GROUP BY buname,spreadname,gcBldName
+

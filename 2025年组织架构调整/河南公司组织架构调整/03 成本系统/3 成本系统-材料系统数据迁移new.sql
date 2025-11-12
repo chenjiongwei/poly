@@ -1,6 +1,27 @@
 USE MyCost_Erp352
 GO
 
+SELECT sys.objects.name AS 表名,
+       sys.columns.name AS 字段名称,
+       sys.types.name AS 数据类型,
+       sys.columns.max_length AS 长度,
+       sys.objects.create_date AS 创建日期
+FROM   sys.objects
+LEFT JOIN sys.columns ON sys.objects.object_id = sys.columns.object_id
+LEFT JOIN sys.types ON sys.types.system_type_id = sys.columns.system_type_id
+WHERE (
+          sys.columns.name = 'projcode'        -- 项目编码
+       OR sys.columns.name = 'ParentProjGUID'  -- 父级项目GUID
+       OR sys.columns.name = 'ParentGUID'      -- 父级GUID（可能是项目或其他）
+       OR sys.columns.name = 'ParentName'      -- 父级名称
+       OR sys.columns.name = 'ParentCode'      -- 父级编码
+       OR sys.columns.name LIKE '%FullName'    -- 层级全路径
+       OR sys.columns.name = 'HierarchyCode'   -- 层级编码
+     )
+     AND sys.objects.type = 'U'
+     AND sys.objects.name LIKE 'cl_%'
+ORDER BY sys.objects.name, sys.columns.column_id
+
 
 /*172.16.4.129 erp352库*/
 

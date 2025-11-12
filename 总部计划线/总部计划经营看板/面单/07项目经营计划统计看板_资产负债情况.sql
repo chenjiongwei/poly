@@ -1,8 +1,10 @@
+USE [HighData_prod]
+GO
 
 -- 资产负债情况统计存储过程
 -- 用于清洗并汇总各项目的资产负债相关数据，最终写入zb_jyjhtjkb_BalanceSheet表
 
-CREATE or  alter  PROC [dbo].[usp_zb_jyjhtjkb_BalanceSheet]
+CREATE  or  ALTER   PROC [dbo].[usp_zb_jyjhtjkb_BalanceSheet]
 AS
 BEGIN
     /********************************************************************
@@ -284,7 +286,10 @@ BEGIN
         货币资金,
         未开工占压地价,
         已开工未售占压成本,
-        留存资产
+        留存资产,
+        已签订合同金额,
+        未转固合同金额
+
     )
     SELECT 
         p.buguid AS [buguid],                                    -- 事业部GUID
@@ -301,7 +306,9 @@ BEGIN
         jhx.期末账面资金余额  AS [货币资金],                                      -- 项目大屏-账面资金余额
         wkg.未开工占压地价 AS [未开工占压地价],                                -- M002土地单方成本*未开工计容面积
         F056.已开工未售占压成本 AS [已开工未售占压成本],                            -- F056已开工未售占压成本
-        F056.留存资产 AS [留存资产]                                       -- F056持有面积对应占压成本
+        F056.留存资产 AS [留存资产],                                       -- F056持有面积对应占压成本
+        null as 已签订合同金额,
+        null as 未转固合同金额
     FROM data_wide_dws_mdm_Project p
         LEFT JOIN #Shareholder_investment si ON si.projguid = p.projguid
         LEFT JOIN #DssCashFlowData cf ON cf.ProjGUID = p.projguid

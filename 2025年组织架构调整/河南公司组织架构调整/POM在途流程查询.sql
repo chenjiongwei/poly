@@ -1,49 +1,28 @@
---SELECT BusinessType, COUNT(1) 
---FROM dbo.myWorkflowProcessEntity 
---WHERE ProcessStatus IN (0,1)
---AND BUGUID = '248B1E17-AACB-E511-80B8-E41F13C51836'
---GROUP BY BusinessType
---ORDER BY COUNT(1) DESC
-
--- 费用非单独执行合同审批 OK
--- 终止动态成本月度回顾 OK
--- 合同预呈批审批 OK
--- 合同变更审批 OK
--- 付款申请审批 OK
--- 合同结算审批 OK
--- 动态成本月度回顾审批 OK
--- 合同审批 OK
--- 费用申请单审批 OK
--- 完工确认审批 OK
--- 部门计划工作汇报审批 OK
--- 部门费用月度计划审批
--- 费用合同结算审批
--- 非单独执行合同审批
--- 费用付款申请审批
--- 费用非合同审批
--- 设计变更审批
--- 楼栋计划工作汇报审批
--- 项目年度预算客服类审批
--- 非合同审批
--- 费用合同审批
--- 修改结算金额审批
--- 采购方案审批
-
---定义查询项目范围临时表
---DROP TABLE #proj
-
 declare @buguid uniqueidentifier
-set @buguid = '289A694A-E5D1-4F02-BFEF-8510E4B6C6A0' -- 齐鲁公司
+set @buguid = 'EE94E591-2916-4400-AD9B-9073B36FCD03' -- 河南公司
 
 SELECT *
 INTO #proj
 FROM (
-    SELECT ProjGUID,
-           ProjName,
-           Level
-    FROM ERP25.dbo.mdm_Project
-    INNER JOIN ERP25.dbo.p_DevelopmentCompany dc ON mdm_Project.DevelopmentCompanyGUID = dc.DevelopmentCompanyGUID
-    WHERE   dc.DevelopmentCompanyName = '齐鲁公司'
+      SELECT 
+            ProjGUID,
+            ProjName,
+            [Level]
+        FROM 
+            ERP25.dbo.mdm_Project mp
+        WHERE 
+            mp.ProjGUID = 'b956d877-f0d7-e811-80bf-e61f13c57837'
+        
+        UNION ALL
+        
+        SELECT 
+            ProjGUID,
+            ProjName,
+            [Level]
+        FROM 
+            ERP25.dbo.mdm_Project mp
+        WHERE 
+            mp.ParentProjGUID = 'b956d877-f0d7-e811-80bf-e61f13c57837'
 ) t;
 
 --创建临时表
@@ -239,7 +218,7 @@ SELECT p.projname,
 FROM  vfy_Apply  cb
   INNER JOIN dbo.myWorkflowProcessEntity pe2 ON cb.ApplyGUID = pe2.BusinessGUID  
   left join dbo.p_Project p on charindex(p.ProjCode,cb.ProjectCodeList) > 0
-WHERE cb.buguid = @buguid -- p.ProjGUID IN (SELECT ProjGUID FROM #proj)
+WHERE  p.ProjGUID IN (SELECT ProjGUID FROM #proj)
 AND pe2.ProcessStatus IN (0, 1);
 
 
@@ -261,7 +240,7 @@ from  [dbo].[jd_ProjectPlanTaskExecute] cb
      left join jd_TaskReport  rpt on cb.ID = rpt.taskid
      left join jd_Report_To_WF  wf on rpt.ID = wf.Reportid
      inner join myWorkflowProcessEntity pe2 on wf.BusinessGUID =pe2.BusinessGUID  
-WHERE d.buguid = @buguid -- p.ProjGUID IN (SELECT ProjGUID FROM #proj)
+WHERE e.ProjGUID IN (SELECT ProjGUID FROM #proj)
 AND pe2.ProcessStatus IN (0, 1);
 
 
@@ -297,6 +276,7 @@ from  myWorkflowProcessEntity pe2
 where  pe2.buguid = @buguid 
 and pe2.ProcessStatus IN (0, 1)
 and  pe2.BusinessType in ('部门费用月度计划审批','部门计划工作汇报审批','采购方案审批','项目年度预算客服类审批','修改结算金额审批')
+and pe2.ProcessName like '%杓袁项目%'
 
 
 -- 查询结果
