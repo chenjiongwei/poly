@@ -1,5 +1,11 @@
 USE [ERP25]
 GO
+/****** Object:  StoredProcedure [dbo].[usp_ylgh_ProjBLdContractInfo]    Script Date: 2025/11/18 17:58:04 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
 
 /*********************************************************************
  功能：盈利规划楼栋签约数据楼栋维度调用接口,传递项目分期GUID，返回产品楼栋签约表（楼栋维度）
@@ -7,7 +13,7 @@ GO
 exec usp_ylgh_ProjBLdContractInfo '7e0636d1-b649-eb11-b398-f40270d39969', '2025-10'
  --18409189-6E34-EF11-B3A4-F40270D39969 --合肥龙川瑧悦
 **********************************************************************/
-create or  ALTER proc  [dbo].[usp_ylgh_ProjBLdContractInfo](
+ALTER    proc  [dbo].[usp_ylgh_ProjBLdContractInfo](
    @var_projguid varchar(max),  -- 项目GUID，多个项目用,号分隔
    @var_tqrq varchar(7)  -- 统计截止月份，格式如YYYY-MM
 )
@@ -47,7 +53,6 @@ Begin
                 FROM [MyCost_Erp352].dbo.md_Project  WITH(NOLOCK)
                 WHERE IsActive = 1
         ) a 
-        --[MyCost_Erp352].dbo.md_ProductBuild AS ProductBuild WITH(NOLOCK)
         inner join MyCost_Erp352.dbo.md_GCBuild  gcnew on gcnew.IsActive = 1 and gcnew.ProjGUID = a.ProjGUID and  a.rowno = 1
         inner join MyCost_Erp352.dbo.md_ProductBuild ProductBuild  on ProductBuild.BldKeyGUID =gcnew.BldKeyGUID 
         where a.ParentProjGUID IN (SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ','))
@@ -56,7 +61,7 @@ Begin
       SELECT a.*
         INTO #data_wide_dws_mdm_Project
         FROM [172.16.4.161].[HighData_prod].dbo.data_wide_dws_mdm_Project a
-       WHERE a.ParentGUID IN (SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ','))
+       WHERE a.ParentGUID IN (SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ',')) or  a.projguid IN (SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ','))
 
        -- #data_wide_s_SaleHsData
        select a.* into #data_wide_s_SaleHsData
@@ -680,9 +685,9 @@ Begin
 
         -- 返回结果数据集
         SELECT
-                项目名称            AS [项目名称],
+                mp.SpreadName            AS [项目名称],
                 LOWER(项目GUID)           AS [项目GUID],
-                分期名称            AS [分期名称],
+                mp.SpreadName + '-' + 分期名称    AS [分期名称],
                 LOWER(分期GUID)           AS [分期GUID],
                 isnull( ProductBuild.BldName,产品楼栋名称)        AS [产品楼栋名称], -- 取基础数据楼栋名称
                 --ProductBuild.BldName        AS [产品楼栋名称],
@@ -695,19 +700,20 @@ Begin
                 年份                AS [年份],
                 月份                AS [月份],
                 年月                as [年月],
-                SUM(ISNULL([本月销售面积（签约）], 0)) AS [本月销售面积（签约）],
-                SUM(ISNULL([本月销售金额（签约）], 0)) /10000.0 AS [本月销售金额（签约）], -- 万元
+                SUM(ISNULL([本月销售面积], 0)) AS [本月销售面积],
+                SUM(ISNULL([本月销售金额], 0)) /10000.0 AS [本月销售金额], -- 万元
                 CASE
-                        WHEN SUM(ISNULL([本月销售面积（签约）], 0)) = 0 THEN 0
-                        ELSE SUM(ISNULL([本月销售金额（签约）], 0)) / SUM(ISNULL([本月销售面积（签约）], 0))
-                END AS [本月销售均价（签约）], -- 等于“本月销售金额（签约）”/“本月销售面积（签约）”
+                        WHEN SUM(ISNULL([本月销售面积], 0)) = 0 THEN 0
+                        ELSE SUM(ISNULL([本月销售金额], 0)) / SUM(ISNULL([本月销售面积], 0))
+                END AS [本月销售均价], -- 等于“本月销售金额”/“本月销售面积”
                 SUM(ISNULL([本月签约套数], 0)) AS [本月签约套数]
        --  into #SaleInfo
         FROM (
                 SELECT
-                        sf.ParentProjName         AS [项目名称],
+                        -- sf.ParentProjName         AS [项目名称],
                         sf.ParentProjGUID         AS [项目GUID],
-                        sf.ParentProjName +'-'+ sf.ProjName   AS [分期名称],
+                       -- sf.ParentProjName +'-'+ sf.ProjName   AS [分期名称],
+					    sf.ProjName   AS [分期名称],
                         sf.ProjGUID               AS [分期GUID],
                         sf.BldName                AS [产品楼栋名称],
                         sf.BldGUID                AS [产品楼栋GUID],
@@ -729,8 +735,8 @@ Begin
                         case when YEAR(StatisticalDate) < year(@tqrq) then year(@tqrq)-1 else  year(@tqrq) end AS [年份],
                         case when YEAR(StatisticalDate) < year(@tqrq) then 12 else  MONTH(StatisticalDate) end AS [月份],
                         case when YEAR(StatisticalDate) < year(@tqrq) then convert(varchar(4),year(@tqrq)-1)+'-12' else  convert(varchar(7),StatisticalDate,121) end as [年月],
-                        ISNULL(CNetArea, 0) + ISNULL(SpecialCNetArea, 0) AS [本月销售面积（签约）],
-                        ISNULL(CNetAmount, 0) + ISNULL(SpecialCNetAmount, 0) AS [本月销售金额（签约）],
+                        ISNULL(CNetArea, 0) + ISNULL(SpecialCNetArea, 0) AS [本月销售面积],
+                        ISNULL(CNetAmount, 0) + ISNULL(SpecialCNetAmount, 0) AS [本月销售金额],
                         ISNULL(CNetCount, 0) + ISNULL(SpecialCNetCount, 0) AS [本月签约套数] -- 套
                 FROM
                         data_wide_dws_s_SalesPerf sf
@@ -738,12 +744,13 @@ Begin
                 WHERE
                         sf.ParentProjGUID IN (SELECT [Value] FROM dbo.fn_Split1(@var_projguid, ','))
         ) slae
+        inner join  mdm_project  mp on slae.[项目GUID]=mp.ProjGUID
         left join #ProductBuildInfo ProductBuild on slae.产品楼栋GUID = ProductBuild.ProductBuildGUID
         WHERE 年份< year(@tqrq) or (年份=year(@tqrq) and 月份<=month(@tqrq) )  or 年份 is null 
         GROUP BY
-                项目名称,
+                mp.SpreadName,
                 LOWER(项目GUID),
-                分期名称,
+                mp.SpreadName + '-' + 分期名称,
                 LOWER(分期GUID),
                 isnull( ProductBuild.BldName,产品楼栋名称)  ,
                 LOWER(产品楼栋GUID),

@@ -41,7 +41,7 @@ begin
 	END
 
 
-	-- 若当前版本有数据的话，不刷新组织架构
+	-- -- 若当前版本有数据的话，不刷新组织架构
 	SELECT @COUNTNUM = COUNT(1) 
 	FROM nmap_F_本次新推价量承诺表 
 	WHERE ISNULL(项目GUID,'') <> '' 
@@ -85,48 +85,49 @@ begin
 		a.projguid AS [项目GUID],
 		a.projname AS [项目名称],
         flg.推广名 AS [推广名称],
-		CASE WHEN d.[承诺时间] IS NOT NULL THEN d.[承诺时间] ELSE NULL END AS [承诺时间],
-		CASE WHEN d.[产品楼栋编码] IS NOT NULL THEN d.[产品楼栋编码] ELSE NULL END AS [产品楼栋编码],
-		CASE WHEN d.[产品楼栋名称] IS NOT NULL THEN d.[产品楼栋名称] ELSE NULL END AS [产品楼栋名称],
-		CASE WHEN d.[本批开工可售面积] IS NOT NULL THEN d.[本批开工可售面积] ELSE NULL END AS [本批开工可售面积],
-		CASE WHEN d.[本批开工货值] IS NOT NULL THEN d.[本批开工货值] ELSE NULL END AS [本批开工货值],
-		CASE WHEN d.[供货周期] IS NOT NULL THEN d.[供货周期] ELSE NULL END AS [供货周期],
-		CASE WHEN d.[去化周期] IS NOT NULL THEN d.[去化周期] ELSE NULL END AS [去化周期],
-		CASE WHEN d.[本批开工后的项目累计签约回笼] IS NOT NULL THEN d.[本批开工后的项目累计签约回笼] ELSE NULL END AS [本批开工后的项目累计签约回笼],
-		CASE WHEN d.[本批开工后的项目累计除地价外直投及费用] IS NOT NULL THEN d.[本批开工后的项目累计除地价外直投及费用] ELSE NULL END AS [本批开工后的项目累计除地价外直投及费用],
-		CASE WHEN d.[本批开工后的项目累计贡献现金流] IS NOT NULL THEN d.[本批开工后的项目累计贡献现金流] ELSE NULL END AS [本批开工后的项目累计贡献现金流],
-		CASE WHEN d.[本批开工后的一年内实现签约] IS NOT NULL THEN d.[本批开工后的一年内实现签约] ELSE NULL END AS [本批开工后的一年内实现签约],
-		CASE WHEN d.[本批开工后的一年内实现回笼] IS NOT NULL THEN d.[本批开工后的一年内实现回笼] ELSE NULL END AS [本批开工后的一年内实现回笼],
-		CASE WHEN d.[本批开工后的一年内除地价外直投及费用] IS NOT NULL THEN d.[本批开工后的一年内除地价外直投及费用] ELSE NULL END AS [本批开工后的一年内除地价外直投及费用],
-		CASE WHEN d.[本批开工后的一年内贡献现金流] IS NOT NULL THEN d.[本批开工后的一年内贡献现金流] ELSE NULL END AS [本批开工后的一年内贡献现金流],
-		CASE WHEN d.[未开工楼栋地价] IS NOT NULL THEN d.[未开工楼栋地价] ELSE NULL END AS [未开工楼栋地价],
-		CASE WHEN d.[本次开工可收回地价] IS NOT NULL THEN d.[本次开工可收回地价] ELSE NULL END AS [本次开工可收回地价],
-		CASE WHEN d.[回收股东占压资金] IS NOT NULL THEN d.[回收股东占压资金] ELSE NULL END AS [回收股东占压资金],
-		CASE WHEN d.[本批开工的销售均价] IS NOT NULL THEN d.[本批开工的销售均价] ELSE NULL END AS [本批开工的销售均价],
-		CASE WHEN d.[本批开工的可售单方成本] IS NOT NULL THEN d.[本批开工的可售单方成本] ELSE NULL END AS [本批开工的可售单方成本],
-		CASE WHEN d.[本批开工的税后净利润] IS NOT NULL THEN d.[本批开工的税后净利润] ELSE NULL END AS [本批开工的税后净利润],
-		CASE WHEN d.[本批开工的销净率] IS NOT NULL THEN d.[本批开工的销净率] ELSE NULL END AS [本批开工的销净率],
-		NEWID() AS [本次新推量价承诺ID],
-		CASE WHEN d.[新开类型] IS NOT NULL THEN d.[新开类型] ELSE NULL END AS [新开类型],
-		CASE WHEN d.[被动开工原因] IS NOT NULL THEN d.[被动开工原因] ELSE NULL END AS [被动开工原因],
-		CASE WHEN d.[开工后整盘销净率] IS NOT NULL THEN d.[开工后整盘销净率] ELSE NULL END AS [开工后整盘销净率],
-		CASE WHEN d.[新开焕新力数量] IS NOT NULL THEN d.[新开焕新力数量] ELSE NULL END AS [新开焕新力数量],
-		CASE WHEN d.[新开焕新力数量内容] IS NOT NULL THEN d.[新开焕新力数量内容] ELSE NULL END AS [新开焕新力数量内容],
-		CASE WHEN d.[最后导入人] IS NOT NULL THEN d.[最后导入人] ELSE NULL END AS [最后导入人],
-		CASE WHEN d.[最后导入时间] IS NOT NULL THEN d.[最后导入时间] ELSE GETDATE() END AS [最后导入时间],
-		NULL AS [RowID]
+        NEWID() AS [本次新推量价承诺ID]
+		-- CASE WHEN d.[承诺时间] IS NOT NULL THEN d.[承诺时间] ELSE NULL END AS [承诺时间],
+		-- CASE WHEN d.[产品楼栋编码] IS NOT NULL THEN d.[产品楼栋编码] ELSE NULL END AS [产品楼栋编码],
+		-- CASE WHEN d.[产品楼栋名称] IS NOT NULL THEN d.[产品楼栋名称] ELSE NULL END AS [产品楼栋名称],
+		-- CASE WHEN d.[本批开工可售面积] IS NOT NULL THEN d.[本批开工可售面积] ELSE NULL END AS [本批开工可售面积],
+		-- CASE WHEN d.[本批开工货值] IS NOT NULL THEN d.[本批开工货值] ELSE NULL END AS [本批开工货值],
+		-- CASE WHEN d.[供货周期] IS NOT NULL THEN d.[供货周期] ELSE NULL END AS [供货周期],
+		-- CASE WHEN d.[去化周期] IS NOT NULL THEN d.[去化周期] ELSE NULL END AS [去化周期],
+		-- CASE WHEN d.[本批开工后的项目累计签约回笼] IS NOT NULL THEN d.[本批开工后的项目累计签约回笼] ELSE NULL END AS [本批开工后的项目累计签约回笼],
+		-- CASE WHEN d.[本批开工后的项目累计除地价外直投及费用] IS NOT NULL THEN d.[本批开工后的项目累计除地价外直投及费用] ELSE NULL END AS [本批开工后的项目累计除地价外直投及费用],
+		-- CASE WHEN d.[本批开工后的项目累计贡献现金流] IS NOT NULL THEN d.[本批开工后的项目累计贡献现金流] ELSE NULL END AS [本批开工后的项目累计贡献现金流],
+		-- CASE WHEN d.[本批开工后的一年内实现签约] IS NOT NULL THEN d.[本批开工后的一年内实现签约] ELSE NULL END AS [本批开工后的一年内实现签约],
+		-- CASE WHEN d.[本批开工后的一年内实现回笼] IS NOT NULL THEN d.[本批开工后的一年内实现回笼] ELSE NULL END AS [本批开工后的一年内实现回笼],
+		-- CASE WHEN d.[本批开工后的一年内除地价外直投及费用] IS NOT NULL THEN d.[本批开工后的一年内除地价外直投及费用] ELSE NULL END AS [本批开工后的一年内除地价外直投及费用],
+		-- CASE WHEN d.[本批开工后的一年内贡献现金流] IS NOT NULL THEN d.[本批开工后的一年内贡献现金流] ELSE NULL END AS [本批开工后的一年内贡献现金流],
+		-- CASE WHEN d.[未开工楼栋地价] IS NOT NULL THEN d.[未开工楼栋地价] ELSE NULL END AS [未开工楼栋地价],
+		-- CASE WHEN d.[本次开工可收回地价] IS NOT NULL THEN d.[本次开工可收回地价] ELSE NULL END AS [本次开工可收回地价],
+		-- CASE WHEN d.[回收股东占压资金] IS NOT NULL THEN d.[回收股东占压资金] ELSE NULL END AS [回收股东占压资金],
+		-- CASE WHEN d.[本批开工的销售均价] IS NOT NULL THEN d.[本批开工的销售均价] ELSE NULL END AS [本批开工的销售均价],
+		-- CASE WHEN d.[本批开工的可售单方成本] IS NOT NULL THEN d.[本批开工的可售单方成本] ELSE NULL END AS [本批开工的可售单方成本],
+		-- CASE WHEN d.[本批开工的税后净利润] IS NOT NULL THEN d.[本批开工的税后净利润] ELSE NULL END AS [本批开工的税后净利润],
+		-- CASE WHEN d.[本批开工的销净率] IS NOT NULL THEN d.[本批开工的销净率] ELSE NULL END AS [本批开工的销净率],
+
+		-- CASE WHEN d.[新开类型] IS NOT NULL THEN d.[新开类型] ELSE NULL END AS [新开类型],
+		-- CASE WHEN d.[被动开工原因] IS NOT NULL THEN d.[被动开工原因] ELSE NULL END AS [被动开工原因],
+		-- CASE WHEN d.[开工后整盘销净率] IS NOT NULL THEN d.[开工后整盘销净率] ELSE NULL END AS [开工后整盘销净率],
+		-- CASE WHEN d.[新开焕新力数量] IS NOT NULL THEN d.[新开焕新力数量] ELSE NULL END AS [新开焕新力数量],
+		-- CASE WHEN d.[新开焕新力数量内容] IS NOT NULL THEN d.[新开焕新力数量内容] ELSE NULL END AS [新开焕新力数量内容],
+		-- CASE WHEN d.[最后导入人] IS NOT NULL THEN d.[最后导入人] ELSE NULL END AS [最后导入人],
+		-- CASE WHEN d.[最后导入时间] IS NOT NULL THEN d.[最后导入时间] ELSE GETDATE() END AS [最后导入时间],
+		-- NULL AS [RowID]
 	INTO #TempData
 	FROM erp25.dbo.mdm_project a
 		LEFT JOIN erp25.dbo.vmdm_projectFlagnew flg ON a.projguid = flg.projguid
 		INNER JOIN erp25.dbo.p_DevelopmentCompany b ON a.DevelopmentCompanyGUID = b.DevelopmentCompanyGUID
 		INNER JOIN nmap_N_CompanyToTerraceBusiness c2b ON b.DevelopmentCompanyGUID = c2b.DevelopmentCompanyGUID
 		INNER JOIN nmap_N_Company c ON c2b.CompanyGUID = c.CompanyGUID
-		-- 查询上一版的数据进行继承
-		LEFT JOIN (
-			SELECT DISTINCT *
-			FROM nmap_F_本次新推价量承诺表
-			WHERE FILLHISTORYGUID = @FILLHISTORYGUIDLAST AND ISNULL(项目GUID,'') <> ''
-		) d ON a.ProjGUID = d.[项目GUID]
+		-- -- 查询上一版的数据进行继承
+		-- LEFT JOIN (
+		-- 	SELECT DISTINCT *
+		-- 	FROM nmap_F_本次新推价量承诺表
+		-- 	WHERE FILLHISTORYGUID = @FILLHISTORYGUIDLAST AND ISNULL(项目GUID,'') <> ''
+		-- ) d ON a.ProjGUID = d.[项目GUID]
 	WHERE a.level = 2
 
 
@@ -138,7 +139,7 @@ begin
 
 	 -- 将数据插入到当前版本
 	INSERT INTO nmap_F_本次新推价量承诺表 (
-	    [本次新推价量承诺表GUID]
+	   [本次新推价量承诺表GUID]
       ,[FillHistoryGUID]
       ,[BusinessGUID]
       ,[公司简称]
@@ -146,36 +147,37 @@ begin
       ,[项目名称]
       ,[项目GUID]
       ,[推广名称]
-      ,[承诺时间]
-      ,[产品楼栋编码]
-      ,[产品楼栋名称]
-      ,[本批开工可售面积]
-      ,[本批开工货值]
-      ,[供货周期]
-      ,[去化周期]
-      ,[本批开工后的项目累计签约回笼]
-      ,[本批开工后的项目累计除地价外直投及费用]
-      ,[本批开工后的项目累计贡献现金流]
-      ,[本批开工后的一年内实现签约]
-      ,[本批开工后的一年内实现回笼]
-      ,[本批开工后的一年内除地价外直投及费用]
-      ,[本批开工后的一年内贡献现金流]
-      ,[未开工楼栋地价]
-      ,[本次开工可收回地价]
-      ,[回收股东占压资金]
-      ,[本批开工的销售均价]
-      ,[本批开工的可售单方成本]
-      ,[本批开工的税后净利润]
-      ,[本批开工的销净率]
       ,[本次新推量价承诺ID]
-      ,[新开类型]
-      ,[被动开工原因]
-      ,[开工后整盘销净率]
-      ,[新开焕新力数量]
-      ,[新开焕新力数量内容]
-      ,[最后导入人]
-      ,[最后导入时间]
-      ,[RowID]
+    --   ,[承诺时间]
+    --   ,[产品楼栋编码]
+    --   ,[产品楼栋名称]
+    --   ,[本批开工可售面积]
+    --   ,[本批开工货值]
+    --   ,[供货周期]
+    --   ,[去化周期]
+    --   ,[本批开工后的项目累计签约回笼]
+    --   ,[本批开工后的项目累计除地价外直投及费用]
+    --   ,[本批开工后的项目累计贡献现金流]
+    --   ,[本批开工后的一年内实现签约]
+    --   ,[本批开工后的一年内实现回笼]
+    --   ,[本批开工后的一年内除地价外直投及费用]
+    --   ,[本批开工后的一年内贡献现金流]
+    --   ,[未开工楼栋地价]
+    --   ,[本次开工可收回地价]
+    --   ,[回收股东占压资金]
+    --   ,[本批开工的销售均价]
+    --   ,[本批开工的可售单方成本]
+    --   ,[本批开工的税后净利润]
+    --   ,[本批开工的销净率]
+
+    --   ,[新开类型]
+    --   ,[被动开工原因]
+    --   ,[开工后整盘销净率]
+    --   ,[新开焕新力数量]
+    --   ,[新开焕新力数量内容]
+    --   ,[最后导入人]
+    --   ,[最后导入时间]
+    --   ,[RowID]
 	)
 	SELECT
 	   [本次新推价量承诺表GUID]
@@ -186,36 +188,37 @@ begin
       ,[项目名称]
       ,[项目GUID]
       ,[推广名称]
-      ,[承诺时间]
-      ,[产品楼栋编码]
-      ,[产品楼栋名称]
-      ,[本批开工可售面积]
-      ,[本批开工货值]
-      ,[供货周期]
-      ,[去化周期]
-      ,[本批开工后的项目累计签约回笼]
-      ,[本批开工后的项目累计除地价外直投及费用]
-      ,[本批开工后的项目累计贡献现金流]
-      ,[本批开工后的一年内实现签约]
-      ,[本批开工后的一年内实现回笼]
-      ,[本批开工后的一年内除地价外直投及费用]
-      ,[本批开工后的一年内贡献现金流]
-      ,[未开工楼栋地价]
-      ,[本次开工可收回地价]
-      ,[回收股东占压资金]
-      ,[本批开工的销售均价]
-      ,[本批开工的可售单方成本]
-      ,[本批开工的税后净利润]
-      ,[本批开工的销净率]
       ,[本次新推量价承诺ID]
-      ,[新开类型]
-      ,[被动开工原因]
-      ,[开工后整盘销净率]
-      ,[新开焕新力数量]
-      ,[新开焕新力数量内容]
-      ,[最后导入人]
-      ,[最后导入时间]
-      ,[RowID]
+    --   ,[承诺时间]
+    --   ,[产品楼栋编码]
+    --   ,[产品楼栋名称]
+    --   ,[本批开工可售面积]
+    --   ,[本批开工货值]
+    --   ,[供货周期]
+    --   ,[去化周期]
+    --   ,[本批开工后的项目累计签约回笼]
+    --   ,[本批开工后的项目累计除地价外直投及费用]
+    --   ,[本批开工后的项目累计贡献现金流]
+    --   ,[本批开工后的一年内实现签约]
+    --   ,[本批开工后的一年内实现回笼]
+    --   ,[本批开工后的一年内除地价外直投及费用]
+    --   ,[本批开工后的一年内贡献现金流]
+    --   ,[未开工楼栋地价]
+    --   ,[本次开工可收回地价]
+    --   ,[回收股东占压资金]
+    --   ,[本批开工的销售均价]
+    --   ,[本批开工的可售单方成本]
+    --   ,[本批开工的税后净利润]
+    --   ,[本批开工的销净率]
+
+    --   ,[新开类型]
+    --   ,[被动开工原因]
+    --   ,[开工后整盘销净率]
+    --   ,[新开焕新力数量]
+    --   ,[新开焕新力数量内容]
+    --   ,[最后导入人]
+    --   ,[最后导入时间]
+    --   ,[RowID]
 	FROM #TempData;
 
 

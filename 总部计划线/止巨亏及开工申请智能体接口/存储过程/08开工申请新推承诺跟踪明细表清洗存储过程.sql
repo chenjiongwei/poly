@@ -1,10 +1,13 @@
+USE [HighData_prod]
+GO
+
 -- 开工申请新推承诺量价明细表清洗存储过程
 -- ============================================
--- 存储过程名称：[usp_s_集团开工申请新推承诺量价明细表智能体数据提取]
+-- 存储过程名称：[usp_s_集团开工申请新推承诺量价明细表智能体数据提取ByTb]
 -- 创建人: chenjw 2025-09-09
--- 作用：清洗并提取集团开工申请新推量价承诺跟踪明细表数据，供智能体使用
+-- 作用：从填报表<nmap_F_本次新推价量承诺表> 并提取集团开工申请新推量价承诺跟踪明细表数据，供智能体使用
 -- ============================================
-CREATE OR ALTER PROC [dbo].[usp_s_集团开工申请新推承诺量价明细表智能体数据提取]
+create or   ALTER   PROC [dbo].[usp_s_集团开工申请新推承诺量价明细表智能体数据提取ByTb]
 AS
 BEGIN
     SET NOCOUNT ON;  -- 禁止显示受影响的行数信息
@@ -15,20 +18,41 @@ BEGIN
         - 关联项目表获取推广名称
         - 字段说明见注释
     ***********************************************************************/
-    SELECT  
-        xt.本次新推量价承诺ID         AS [本次新推量价承诺ID],      -- 唯一主键
-        xt.投管代码                  AS [投管代码],               -- 投管系统项目代码
-        xt.项目GUID                  AS [项目GUID],               -- 项目唯一标识
-        xt.项目名称                  AS [项目名称],               -- 项目名称
-        p.SpreadName                 AS [推广名称],               -- 推广名称
-        xt.承诺时间                  AS [承诺时间],               -- 承诺时间
-        xt.本批开工的产品楼栋GUID      as [本批开工的产品楼栋GUID],
-        xt.本批开工的产品楼栋编码        AS [本批开工的产品楼栋编码],     -- 楼栋编码（分号分隔）
-        xt.本批开工的产品楼栋名称        AS [本批开工的产品楼栋名称]      -- 楼栋名称
-    INTO #Commitment
-    FROM [172.16.4.141].[MyCost_Erp352].dbo.本次新推承诺表 xt
-    INNER JOIN data_wide_dws_mdm_Project p
-        ON xt.项目GUID = p.projguid
+    -- SELECT  
+    --     xt.本次新推量价承诺ID         AS [本次新推量价承诺ID],      -- 唯一主键
+    --     xt.投管代码                  AS [投管代码],               -- 投管系统项目代码
+    --     xt.项目GUID                  AS [项目GUID],               -- 项目唯一标识
+    --     xt.项目名称                  AS [项目名称],               -- 项目名称
+    --     p.SpreadName                 AS [推广名称],               -- 推广名称
+    --     xt.承诺时间                  AS [承诺时间],               -- 承诺时间
+    --     xt.本批开工的产品楼栋GUID      as [本批开工的产品楼栋GUID],
+    --     xt.本批开工的产品楼栋编码        AS [本批开工的产品楼栋编码],     -- 楼栋编码（分号分隔）
+    --     xt.本批开工的产品楼栋名称        AS [本批开工的产品楼栋名称]      -- 楼栋名称
+    -- INTO #Commitment
+    -- FROM [172.16.4.141].[MyCost_Erp352].dbo.本次新推承诺表 xt
+    -- INNER JOIN data_wide_dws_mdm_Project p
+    --     ON xt.项目GUID = p.projguid
+
+
+     SELECT 
+            a.本次新推量价承诺ID,
+            a.投管代码,
+            a.项目GUID,
+            a.项目名称,
+            a.推广名称,
+            a.承诺时间,
+            a.产品楼栋编码 as 本批开工的产品楼栋GUID,
+            a.产品楼栋编码 as 本批开工的产品楼栋编码,
+            a.产品楼栋名称 as 本批开工的产品楼栋名称
+        INTO #Commitment
+        FROM [172.16.4.141].dss.[dbo].[nmap_F_本次新推价量承诺表] a
+        INNER JOIN [172.16.4.141].dss.[dbo].[nmap_F_FillHistory] b  
+            ON a.[FillHistoryGUID] = b.[FillHistoryGUID]
+        WHERE a.[FillHistoryGUID] IN (
+            SELECT TOP 1 [FillHistoryGUID]
+            FROM [172.16.4.141].dss.[dbo].[nmap_F_本次新推价量承诺表]
+            ORDER BY [FillDate] DESC
+        )
 
 
     /***********************************************************************
@@ -51,6 +75,8 @@ BEGIN
     CROSS APPLY dbo.fn_Split1(a.本批开工的产品楼栋GUID, ';')
     WHERE ISNULL(a.本批开工的产品楼栋GUID, '') <> ''
 
+
+
     /***********************************************************************
     步骤2.1：生成承诺明细临时表#xtxmld
     说明：
@@ -67,9 +93,9 @@ BEGIN
         ld.产品楼栋GUID
     INTO #xtxmld
     FROM #ld ld
-    LEFT JOIN [172.16.4.141].[MyCost_Erp352].dbo.[本次新推承诺明细表] chdtl
-        ON ld.本次新推量价承诺ID = chdtl.本次新推量价承诺ID
-        AND ld.产品楼栋GUID = chdtl.产品楼栋GUID
+    -- LEFT JOIN [172.16.4.141].[MyCost_Erp352].dbo.[本次新推承诺明细表] chdtl
+    --     ON ld.本次新推量价承诺ID = chdtl.本次新推量价承诺ID
+    --     AND ld.产品楼栋GUID = chdtl.产品楼栋GUID
 
     -- 产品楼栋的产值信息
     SELECT 
@@ -281,23 +307,34 @@ BEGIN
             bd.BuildingGUID
     ) ld
 
-    -- -- M002表的成本单方数据
-    -- SELECT 
-    --     distinct
-    --     projguid, 
-    --     versionType,
-    --     产品类型,
-    --     产品名称,
-    --     商品类型,
-    --     装修标准,
-    --     盈利规划营业成本单方,
-    --     盈利规划股权溢价单方,
-    --     盈利规划营销费用单方,
-    --     盈利规划综合管理费单方协议口径,
-    --     盈利规划税金及附加单方
-    -- into  #M002
-    -- FROM data_wide_dws_qt_M002项目业态级毛利净利表 
-    -- WHERE versionType IN ('累计版', '本年版')
+    -- M002表的成本单方数据
+    SELECT 
+        distinct
+        projguid, 
+        versionType,
+        产品类型,
+        产品名称,
+        商品类型,
+        装修标准,
+        [业态组合键],
+        [明源匹配主键],
+        盈利规划营业成本单方,
+        盈利规划股权溢价单方,
+        盈利规划营销费用单方,
+        盈利规划综合管理费单方协议口径,
+        盈利规划税金及附加单方,
+        土地款_单方
+    into  #M002
+    FROM data_wide_dws_qt_M002项目业态级毛利净利表 
+    WHERE versionType IN ('累计版', '本年版')
+
+    /*取项目的可售楼面地价*/
+    select pj.projguid, f054.地上可售楼面地价 
+    into  #F054 
+    from  data_wide_dws_qt_F054 f054
+    inner join  data_wide_dws_mdm_Project pj on f054.项目代码 = pj.TgProjCode AND f054.项目代码 <> ''
+
+
 
     /***********************************************************************
     步骤3：删除当天已存在的数据，避免重复插入
@@ -340,7 +377,34 @@ BEGIN
         [含税签约金额],
         [已售面积],
         [不含税签约金额],
-        [清洗日期]
+        [清洗日期],
+        [项目获取日期],
+        [实际开工汇报完成日期], 
+        [实际达预售形象汇报完成日期],
+        [售罄日期],
+        [楼栋累计已完成产值],
+        [本年营销费用系统已发生费率],
+        [楼栋在建面积占比],
+        [楼栋累计管理费用],
+        [楼栋累计财务费用],
+        [楼栋累计营销费用],
+        [楼栋在建面积],
+        [业态组合键],
+        [明源匹配主键],
+        [盈利规划营业成本单方],
+        [盈利规划股权溢价单方],
+        [盈利规划营销费用单方],
+        [盈利规划综合管理费单方协议口径],
+        [盈利规划税金及附加单方],
+        [可售套数],
+        [已售套数],
+        [近六个月去化面积],
+        [剩余可售面积],
+        [地上可售楼面地价],
+        [本批开工的动态货值均价],
+        [可售面积占比],
+        [本批开工的可售单方成本],
+        [盈利规划土地款单方]
     )
     SELECT 
         xt.本次新推量价承诺ID,                        -- 唯一主键
@@ -354,6 +418,7 @@ BEGIN
             WHEN lddb.ProductType = '地下室/车库' THEN '车位'
             ELSE '商办'
         END AS [业态],
+
         xt.产品楼栋GUID,                             -- 楼栋GUID
         bd.Code AS [产品楼栋编码],                   -- 楼栋编码
         bd.BuildingName AS [产品楼栋名称],           -- 楼栋名称
@@ -371,10 +436,14 @@ BEGIN
         -- CASE WHEN    sk.售罄日期 IS NOT NULL 
         --     THEN DATEDIFF(MONTH, sk.首开日期, sk.售罄日期)
         -- END AS [去化周期],
-        case when datediff(day,getdate(),isnull(sk.售罄日期,'1900-01-01')) >= 0 then
-           datediff(day,sk.首开日期,isnull(sk.售罄日期,'1900-01-01')) / 30.0 
-          when datediff(day,getdate(),isnull(sk.售罄日期,'1900-01-01')) <0 then
-            datediff(day,sk.首开日期,getdate()) / 30.0 end  AS [去化周期],  
+        
+        CASE when  sk.售罄日期  is not null then datediff(day,xt.[承诺时间],sk.售罄日期) / 30.0 
+             when  sk.售罄日期  is  null and sf.近六个月去化面积  > 0  then -- 剩余货量面积
+                   DATEDIFF(DAY, xt.[承诺时间], GETDATE()) / 30.0 + (isnull(lddb.zksmj,0) - isnull(sf.已售面积,0) )  / (
+                      case when  datediff(month,sk.首开日期,getdate()) > 6 then
+                             (sf.近六个月去化面积 / 6)
+                      else (sf.近六个月去化面积 / (datediff(day,sk.首开日期,getdate())/30.0) )  end )
+        END AS [去化周期],  
 
         hk.累计回笼金额 / 100000000.0 AS [累计签约回笼], -- 累计签约回笼（单位：亿元）
         --- 取M002表楼栋对应业态组合键(产品类型+产品名称+商品类型+装修标准)的“盈利规划营业成本单方”+“”+“盈利规划股权溢价单方”+“盈利规划营销费用单方”+“盈利规划综合管理费单方协议口径”+“盈利规划税金及附加单方”*一年内楼栋的销售面积
@@ -455,8 +524,48 @@ BEGIN
         sf.含税签约金额 / 100000000.0 AS [含税签约金额], -- 含税签约金额（单位：亿元）
         sf.已售面积 / 10000.0 AS [已售面积],             -- 已售面积（单位：万㎡）
         sf.不含税签约金额 / 100000000.0 AS [不含税签约金额], -- 不含税签约金额（单位：亿元）
-        GETDATE() AS [清洗日期]                          -- 当前清洗日期
+        GETDATE() AS [清洗日期],                          -- 当前清洗日期
+        p.BeginDate as 项目获取日期,
+        isnull(lddb.SJzskgdate, lddb.YJzskgdate) as 实际开工汇报完成日期, 
+        isnull(lddb.SjDdysxxDate, lddb.YjDdysxxDate) as 实际达预售形象汇报完成日期,
+        sk.售罄日期,
+        cz.累计已完成产值 / 100000000.0 as 楼栋累计已完成产值,
+        fy.本年营销费用系统已发生费率,
+        jzmj.楼栋在建面积占比,
+        isnull(dss.YearManageAmount,0) *  jzmj.楼栋在建面积占比 /10000 as 楼栋累计管理费用,
+        isnull(dss.YearFinancial,0)  * jzmj.楼栋在建面积占比  / 10000 as  楼栋累计财务费用,
+        ( sf.一年内签约金额 / 100000000.0 ) * fy.本年营销费用系统已发生费率 as 楼栋累计营销费用,
+        jzmj.楼栋在建面积/ 10000.0 as 楼栋在建面积,
+        ljm002.业态组合键,
+        ljm002.明源匹配主键,
+        ljm002.盈利规划营业成本单方,
+        ljm002.盈利规划股权溢价单方,
+        ljm002.盈利规划营销费用单方,
+        ljm002.盈利规划综合管理费单方协议口径,
+        ljm002.盈利规划税金及附加单方,
+        lddb.zksts as 可售套数,
+        lddb.ysts as 已售套数,
+        sf.近六个月去化面积  / 10000.0 近六个月去化面积,
+        (isnull(lddb.zksmj,0) - isnull(sf.已售面积,0) ) / 10000.0 as 剩余可售面积,
+        f054.地上可售楼面地价,
+        case when  isnull(lddb.zksmj,0) =0 then  0  else  
+                CASE 
+                    WHEN lddb.SJzskgdate IS NOT NULL THEN lddb.zhz --lddb.syhz 
+                    ELSE 0  
+                END / isnull(lddb.zksmj,0) 
+        end AS [本批开工的动态货值均价],
+        case when  sum(lddb.zksmj) over(PARTITION BY xt.本次新推量价承诺ID, xt.项目GUID ) <> 0 then 
+          isnull(lddb.zksmj,0) / sum(lddb.zksmj) over(PARTITION BY xt.本次新推量价承诺ID, xt.项目GUID ) end  as [可售面积占比],
+         (ISNULL(ljm002.盈利规划营业成本单方,0) 
+                + ISNULL(ljm002.盈利规划股权溢价单方,0)
+                + ISNULL(ljm002.盈利规划营销费用单方,0)
+                + ISNULL(ljm002.盈利规划综合管理费单方协议口径,0)
+                + ISNULL(ljm002.盈利规划税金及附加单方,0)
+                - isnull(ljm002.土地款_单方,0)) AS [本批开工的可售单方成本],
+         ljm002.土地款_单方
     FROM #xtxmld xt
+    inner join  data_wide_dws_mdm_Project p on p.projguid = xt.项目GUID
+    left join  #F054   f054 on p.projguid =f054.projguid
     -- 关联楼栋主数据，获取编码、名称
     inner JOIN data_wide_dws_mdm_Building bd ON bd.BuildingGUID = xt.产品楼栋GUID  AND bd.BldType = '产品楼栋'
     -- 关联楼栋底表，获取业态、面积、开工等信息
@@ -468,7 +577,7 @@ BEGIN
         SELECT 
             本次新推量价承诺ID,
             产品楼栋GUID,
-            首开日期,
+            首开日期, 
             CASE 
                 WHEN ISNULL(sale.TotalRoomCount, 0) = ISNULL(sale.QyRoomCount, 0) 
                     THEN lastQyDate 
@@ -521,6 +630,12 @@ BEGIN
         SELECT 
             xt.本次新推量价承诺ID, 
             xt.产品楼栋GUID,
+            -- 近6个月去化面积
+            SUM( case when StatisticalDate between DATEADD(MONTH, -6, GETDATE()) and GETDATE() then 
+                     ISNULL(sf.CNetArea, 0) + ISNULL(sf.SpecialCNetArea, 0) 
+                     else 0 
+                 end
+            )  AS 近六个月去化面积,  
             SUM(CASE WHEN DATEDIFF(YEAR, sf.StatisticalDate, GETDATE()) = 0
                      THEN ISNULL(sf.CNetAmount, 0) + ISNULL(sf.SpecialCNetAmount, 0)
                      ELSE 0 END) AS 一年内签约金额, -- 一年内签约金额
@@ -540,11 +655,11 @@ BEGIN
         GROUP BY xt.本次新推量价承诺ID, xt.产品楼栋GUID
     ) sf ON sf.本次新推量价承诺ID = xt.本次新推量价承诺ID AND sf.产品楼栋GUID = xt.产品楼栋GUID
     -- -- 销净率 统计
-    -- left join #m002 ljm002 on xt.项目GUID =ljm002.projguid and ljm002.versionType ='累计版'  
-    --                           and bd.TopProductTypeName =ljm002.产品类型 
-    --                           and bd.ProductTypeName = ljm002.产品名称
-    --                           and bd.CommodityType = ljm002.商品类型
-    --                           and bd.ZxBz = ljm002.装修标准
+    left join #m002 ljm002 on xt.项目GUID =ljm002.projguid and ljm002.versionType ='累计版'  
+                              and bd.TopProductTypeName =ljm002.产品类型 
+                              and bd.ProductTypeName = ljm002.产品名称
+                              and bd.CommodityType = ljm002.商品类型
+                              and bd.ZxBz = ljm002.装修标准
     -- left join #m002 bnm002 on xt.项目GUID =bnm002.projguid and bnm002.versionType ='本年版'  
     --                           and bd.TopProductTypeName =bnm002.产品类型 
     --                           and bd.ProductTypeName = bnm002.产品名称

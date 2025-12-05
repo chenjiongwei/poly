@@ -1,12 +1,12 @@
 USE [HighData_prod]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_rpt_wqzydtBi]    Script Date: 2025/11/10 18:50:24 ******/
+/****** Object:  StoredProcedure [dbo].[usp_rpt_wqzydtBi]    Script Date: 2025/11/13 23:37:54 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
 
-alter proc [dbo].[usp_rpt_wqzydtBi] as 
+ALTER proc [dbo].[usp_rpt_wqzydtBi] as 
 /*
 [usp_rpt_wqzydtBi]
 为了看板性能，将数据集的结果也按天存储进来
@@ -1862,7 +1862,7 @@ SELECT
     -- 2025-11-11新增字段
     --反算总货量
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.反算总货量_总货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算总货量_总货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.反算总货量_总面积)
         WHEN base.二级科目 = '套数' THEN sum(res.反算总货量_套数)
         WHEN base.二级科目 = '均价' THEN
@@ -1874,7 +1874,7 @@ SELECT
     END AS 反算总货量,
     -- 反算已开工货量
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.反算已开工货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算已开工货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.反算已开工面积)
         WHEN base.二级科目 = '套数' THEN sum(res.反算已开工套数)
         WHEN base.二级科目 = '均价' THEN
@@ -1886,7 +1886,7 @@ SELECT
     END AS 反算已开工货量,
     -- 反算剩余货量
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.反算剩余货量_剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算剩余货量_剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.反算剩余货量_剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.反算剩余货量_剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -1898,7 +1898,7 @@ SELECT
     END AS 反算剩余货量, 
     -- 反算存货货量
      CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.反算存货货量_存货货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算存货货量_存货货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.反算存货货量_存货面积)
         WHEN base.二级科目 = '套数' THEN sum(res.反算存货货量_存货套数)
         WHEN base.二级科目 = '均价' THEN
@@ -1910,7 +1910,7 @@ SELECT
     END AS 反算存货货量, 
     -- 反算在途货量
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.反算在途货量_在途货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算在途货量_在途货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.反算在途货量_在途面积)
         WHEN base.二级科目 = '套数' THEN sum(res.反算在途货量_在途套数)
         WHEN base.二级科目 = '均价' THEN
@@ -1922,7 +1922,7 @@ SELECT
     END AS 反算在途货量, 
     -- 反算未开工货量
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.反算未开工货量_未开工货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算未开工货量_未开工货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.反算未开工货量_未开工面积)
         WHEN base.二级科目 = '套数' THEN sum(res.反算未开工货量_未开工套数)
         WHEN base.二级科目 = '均价' THEN
@@ -1934,7 +1934,7 @@ SELECT
     END AS 反算未开工货量,
     -- 当前处置临时冻结合计
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结货值合计)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结货值合计) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结面积合计)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结套数合计)
         WHEN base.二级科目 = '均价' THEN
@@ -1946,7 +1946,7 @@ SELECT
     END  as [当前处置临时冻结合计],
     -- 当前处置其中：合作受阻
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_合作受阻冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_合作受阻冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_合作受阻冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_合作受阻冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -1958,7 +1958,7 @@ SELECT
     END  as  [当前处置其中：合作受阻],
   -- 开发受限
    CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_开发受限冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_开发受限冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_开发受限冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_开发受限冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -1970,7 +1970,7 @@ SELECT
     END as  [当前处置其中：开发受限],
     -- 当前处置其中：停工缓建
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_停工缓建冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_停工缓建冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_停工缓建冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_停工缓建冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -1982,7 +1982,7 @@ SELECT
     END  as [当前处置其中：停工缓建],
     -- 当前处置其中：投资未落实
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_投资未落实冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_投资未落实冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_投资未落实冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_投资未落实冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -1994,7 +1994,7 @@ SELECT
     END  as [当前处置其中：投资未落实],
     -- 当前处置退换调转
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前退换调转剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前退换调转剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前退换调转剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前退换调转剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2006,7 +2006,7 @@ SELECT
     END  as [当前处置退换调转],
     -- 当前处置正常销售
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前正常销售剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前正常销售剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前正常销售剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前正常销售剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2018,7 +2018,7 @@ SELECT
     END  as [当前处置正常销售],
     -- 当前处置转经营 
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前转经营剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前转经营剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前转经营剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前转经营剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2030,7 +2030,7 @@ SELECT
     END  as [当前处置转经营],
     -- 处置前尾盘剩余面积
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前尾盘剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前尾盘剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前尾盘剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前尾盘剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2042,7 +2042,7 @@ SELECT
     END as  [尾盘],
     -- 处置后临时冻结合计
    CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结货值合计)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结货值合计) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结面积合计)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结套数合计)
         WHEN base.二级科目 = '均价' THEN
@@ -2053,8 +2053,8 @@ SELECT
         ELSE 0
     END  as  [处置后临时冻结合计],
     -- 处置后临时冻结_合作受阻冻结面积
-    CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_合作受阻冻结货值)
+    CASE 
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_合作受阻冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_合作受阻冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_合作受阻冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2066,7 +2066,7 @@ SELECT
     END as [处置后其中：合作受阻],
     -- 处置后临时冻结_开发受限冻结面积
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_开发受限冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_开发受限冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_开发受限冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_开发受限冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2078,7 +2078,7 @@ SELECT
     END  as [处置后其中：开发受限],
     -- 处置后临时冻结_停工缓建冻结面积
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_停工缓建冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_停工缓建冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_停工缓建冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_停工缓建冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2090,7 +2090,7 @@ SELECT
     END  as [处置后其中：停工缓建],
     -- 处置后临时冻结_投资未落实冻结面积
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_投资未落实冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_投资未落实冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_投资未落实冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_投资未落实冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2102,7 +2102,7 @@ SELECT
     END  as [处置后其中：投资未落实],
     -- 处置后退换调转剩余
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后退换调转剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后退换调转剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后退换调转剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后退换调转剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2114,7 +2114,7 @@ SELECT
     END  as [处置后退换调转],
     -- 处置后正常销售剩余
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后正常销售剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后正常销售剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后正常销售剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后正常销售剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2126,7 +2126,7 @@ SELECT
     END  as [处置后正常销售],
     -- 处置后转经营剩余货值
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后转经营剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后转经营剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后转经营剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后转经营剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2138,7 +2138,7 @@ SELECT
     END  as [处置后转经营],
     -- 处置后尾盘
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后尾盘剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后尾盘剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后尾盘剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后尾盘剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2150,7 +2150,7 @@ SELECT
     END  as  [处置后尾盘],
     -- 新增 销售状态分析字段
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_已推未售剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_已推未售剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_已推未售剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_已推未售剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2161,7 +2161,7 @@ SELECT
         ELSE 0
     END as [已开工剩余货量已推未售],
       CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_获证待推剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_获证待推剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_获证待推剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_获证待推剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2172,7 +2172,7 @@ SELECT
         ELSE 0
     END as [已开工剩余货量获证待推],
       CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_达形象未取证剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_达形象未取证剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_达形象未取证剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_达形象未取证剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2183,7 +2183,7 @@ SELECT
         ELSE 0
     END as [已开工剩余货量达形象未取证],
       CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_正常在途剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_正常在途剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_正常在途剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_正常在途剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2194,7 +2194,7 @@ SELECT
         ELSE 0
     END as [已开工剩余货量正常在途],
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_停工缓建在途剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_停工缓建在途剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_停工缓建在途剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_停工缓建在途剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2205,7 +2205,7 @@ SELECT
         ELSE 0
     END as [已开工剩余货量停工缓建在途],
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_停工缓建剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_停工缓建剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.未开工剩余货量_停工缓建剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.未开工剩余货量_停工缓建剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2216,7 +2216,7 @@ SELECT
         ELSE 0
     END as [未开工剩余货量停工缓建],
       CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_预计三年内开工剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_预计三年内开工剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.未开工剩余货量_预计三年内开工剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.未开工剩余货量_预计三年内开工剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2227,7 +2227,7 @@ SELECT
         ELSE 0
     END as [未开工剩余货量预计三年内开工],
       CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_预计三年后开工剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_预计三年后开工剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.未开工剩余货量_预计三年后开工剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.未开工剩余货量_预计三年后开工剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2239,7 +2239,7 @@ SELECT
     END as [未开工剩余货量预计三年后开工],
     --  建设状态新增字段
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已竣备剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已竣备剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_已竣备剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.建设状态_已竣备剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2250,7 +2250,7 @@ SELECT
         ELSE 0
     END 已竣备,
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已达形象未达竣备剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已达形象未达竣备剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_已达形象未达竣备剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.建设状态_已达形象未达竣备剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2261,7 +2261,7 @@ SELECT
         ELSE 0
     END 形象未达竣备,
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已开工未达形象剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已开工未达形象剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_已开工未达形象剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.建设状态_已开工未达形象剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2272,7 +2272,7 @@ SELECT
         ELSE 0
     END 开工未达形象,
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_停工缓建剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_停工缓建剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_停工缓建剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.建设状态_停工缓建剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2289,7 +2289,9 @@ FROM
     left join dw_s_WqBaseStatic_CompanyResource  res On base.组织架构id = res.组织架构id and  base.清洗时间 =res.清洗时间
 WHERE
     lxdw.立项货值 <> 0
-    OR lxdw.动态总资源 <> 0
+   --  OR lxdw.动态总资源 <> 0
+    or  res.反算总货量_总货值 <> 0
+    or  res.反算剩余货量_剩余货值 <> 0
     OR lxdw.累计签约货值 <> 0
 GROUP BY
     base.清洗时间,
@@ -2667,7 +2669,7 @@ select
     -- 2025-11-11新增字段
     --反算总货量
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.反算总货量_总货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算总货量_总货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.反算总货量_总面积)
         WHEN base.二级科目 = '套数' THEN sum(res.反算总货量_套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2679,7 +2681,7 @@ select
     END AS 反算总货量,
     -- 反算已开工货量
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.反算已开工货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算已开工货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.反算已开工面积)
         WHEN base.二级科目 = '套数' THEN sum(res.反算已开工套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2691,7 +2693,7 @@ select
     END AS 反算已开工货量,
     -- 反算剩余货量
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.反算剩余货量_剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算剩余货量_剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.反算剩余货量_剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.反算剩余货量_剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2703,7 +2705,7 @@ select
     END AS 反算剩余货量, 
     -- 反算存货货量
      CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.反算存货货量_存货货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算存货货量_存货货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.反算存货货量_存货面积)
         WHEN base.二级科目 = '套数' THEN sum(res.反算存货货量_存货套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2715,7 +2717,7 @@ select
     END AS 反算存货货量, 
     -- 反算在途货量
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.反算在途货量_在途货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算在途货量_在途货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.反算在途货量_在途面积)
         WHEN base.二级科目 = '套数' THEN sum(res.反算在途货量_在途套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2727,7 +2729,7 @@ select
     END AS 反算在途货量, 
     -- 反算未开工货量
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.反算未开工货量_未开工货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算未开工货量_未开工货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.反算未开工货量_未开工面积)
         WHEN base.二级科目 = '套数' THEN sum(res.反算未开工货量_未开工套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2739,7 +2741,7 @@ select
     END AS 反算未开工货量,
     -- 当前处置临时冻结合计
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结货值合计)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结货值合计) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结面积合计)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结套数合计)
         WHEN base.二级科目 = '均价' THEN
@@ -2751,7 +2753,7 @@ select
     END  as [当前处置临时冻结合计],
     -- 当前处置其中：合作受阻
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_合作受阻冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_合作受阻冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_合作受阻冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_合作受阻冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2763,7 +2765,7 @@ select
     END  as  [当前处置其中：合作受阻],
   -- 开发受限
    CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_开发受限冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_开发受限冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_开发受限冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_开发受限冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2775,7 +2777,7 @@ select
     END as  [当前处置其中：开发受限],
     -- 当前处置其中：停工缓建
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_停工缓建冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_停工缓建冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_停工缓建冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_停工缓建冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2787,7 +2789,7 @@ select
     END  as [当前处置其中：停工缓建],
     -- 当前处置其中：投资未落实
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_投资未落实冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_投资未落实冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_投资未落实冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_投资未落实冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2799,7 +2801,7 @@ select
     END  as [当前处置其中：投资未落实],
     -- 当前处置退换调转
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前退换调转剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前退换调转剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前退换调转剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前退换调转剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2811,7 +2813,7 @@ select
     END  as [当前处置退换调转],
     -- 当前处置正常销售
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前正常销售剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前正常销售剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前正常销售剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前正常销售剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2823,7 +2825,7 @@ select
     END  as [当前处置正常销售],
     -- 当前处置转经营 
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前转经营剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前转经营剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前转经营剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前转经营剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2835,7 +2837,7 @@ select
     END  as [当前处置转经营],
     -- 处置前尾盘剩余面积
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前尾盘剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前尾盘剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前尾盘剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前尾盘剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2847,7 +2849,7 @@ select
     END as  [尾盘],
     -- 处置后临时冻结合计
    CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结货值合计)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结货值合计) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结面积合计)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结套数合计)
         WHEN base.二级科目 = '均价' THEN
@@ -2859,7 +2861,7 @@ select
     END  as  [处置后临时冻结合计],
     -- 处置后临时冻结_合作受阻冻结面积
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_合作受阻冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_合作受阻冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_合作受阻冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_合作受阻冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2871,7 +2873,7 @@ select
     END as [处置后其中：合作受阻],
     -- 处置后临时冻结_开发受限冻结面积
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_开发受限冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_开发受限冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_开发受限冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_开发受限冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2883,7 +2885,7 @@ select
     END  as [处置后其中：开发受限],
     -- 处置后临时冻结_停工缓建冻结面积
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_停工缓建冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_停工缓建冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_停工缓建冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_停工缓建冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2895,7 +2897,7 @@ select
     END  as [处置后其中：停工缓建],
     -- 处置后临时冻结_投资未落实冻结面积
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_投资未落实冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_投资未落实冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_投资未落实冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_投资未落实冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2907,7 +2909,7 @@ select
     END  as [处置后其中：投资未落实],
     -- 处置后退换调转剩余
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后退换调转剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后退换调转剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后退换调转剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后退换调转剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2919,7 +2921,7 @@ select
     END  as [处置后退换调转],
     -- 处置后正常销售剩余
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后正常销售剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后正常销售剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后正常销售剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后正常销售剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2931,7 +2933,7 @@ select
     END  as [处置后正常销售],
     -- 处置后转经营剩余货值
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后转经营剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后转经营剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后转经营剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后转经营剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2943,7 +2945,7 @@ select
     END  as [处置后转经营],
     -- 处置后尾盘
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后尾盘剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后尾盘剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后尾盘剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后尾盘剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2956,7 +2958,7 @@ select
 
     -- 新增 销售状态分析字段
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_已推未售剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_已推未售剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_已推未售剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_已推未售剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2967,7 +2969,7 @@ select
         ELSE 0
     END as [已开工剩余货量已推未售],
       CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_获证待推剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_获证待推剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_获证待推剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_获证待推剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2978,7 +2980,7 @@ select
         ELSE 0
     END as [已开工剩余货量获证待推],
       CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_达形象未取证剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_达形象未取证剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_达形象未取证剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_达形象未取证剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -2989,7 +2991,7 @@ select
         ELSE 0
     END as [已开工剩余货量达形象未取证],
       CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_正常在途剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_正常在途剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_正常在途剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_正常在途剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3000,7 +3002,7 @@ select
         ELSE 0
     END as [已开工剩余货量正常在途],
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_停工缓建在途剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_停工缓建在途剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_停工缓建在途剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_停工缓建在途剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3011,7 +3013,7 @@ select
         ELSE 0
     END as [已开工剩余货量停工缓建在途],
       CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_停工缓建剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_停工缓建剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.未开工剩余货量_停工缓建剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.未开工剩余货量_停工缓建剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3022,7 +3024,7 @@ select
         ELSE 0
     END as [未开工剩余货量停工缓建],
       CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_预计三年内开工剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_预计三年内开工剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.未开工剩余货量_预计三年内开工剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.未开工剩余货量_预计三年内开工剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3033,7 +3035,7 @@ select
         ELSE 0
     END as [未开工剩余货量预计三年内开工],
       CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_预计三年后开工剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_预计三年后开工剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.未开工剩余货量_预计三年后开工剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.未开工剩余货量_预计三年后开工剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3043,8 +3045,8 @@ select
             END
         ELSE 0
     END as [未开工剩余货量预计三年后开工],
-    CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已竣备剩余货值)
+      CASE
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已竣备剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_已竣备剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.建设状态_已竣备剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3055,7 +3057,7 @@ select
         ELSE 0
     END 已竣备,
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已达形象未达竣备剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已达形象未达竣备剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_已达形象未达竣备剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.建设状态_已达形象未达竣备剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3066,7 +3068,7 @@ select
         ELSE 0
     END 形象未达竣备,
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已开工未达形象剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已开工未达形象剩余货值)/10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_已开工未达形象剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.建设状态_已开工未达形象剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3077,7 +3079,7 @@ select
         ELSE 0
     END 开工未达形象,
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_停工缓建剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_停工缓建剩余货值)/10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_停工缓建剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.建设状态_停工缓建剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3090,7 +3092,11 @@ select
 from #baseinfo03_1 base
 left join #lxdw03_1 lxdw on  base.组织架构id = lxdw.组织架构id and base.清洗时间 = lxdw.清洗时间
 left join dw_s_WqBaseStatic_CompanyResource  res On base.组织架构id = res.组织架构id and  base.清洗时间 =res.清洗时间
-where lxdw.立项货值 <> 0 or lxdw.动态总资源 <> 0
+where 
+    lxdw.立项货值 <> 0 or lxdw.动态总资源 <> 0
+    -- or  res.反算总货量_总货值 <> 0
+    -- or  res.反算剩余货量_剩余货值 <> 0
+    -- OR lxdw.累计签约货值 <> 0
 group by
     base.清洗时间,
     base.统计维度,
@@ -3299,7 +3305,7 @@ select
  -- 2025-11-11新增字段
     --反算总货量
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.反算总货量_总货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算总货量_总货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.反算总货量_总面积)
         WHEN base.二级科目 = '套数' THEN sum(res.反算总货量_套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3311,7 +3317,7 @@ select
     END AS 反算总货量,
     -- 反算已开工货量
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.反算已开工货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算已开工货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.反算已开工面积)
         WHEN base.二级科目 = '套数' THEN sum(res.反算已开工套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3323,7 +3329,7 @@ select
     END AS 反算已开工货量,
     -- 反算剩余货量
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.反算剩余货量_剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算剩余货量_剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.反算剩余货量_剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.反算剩余货量_剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3335,7 +3341,7 @@ select
     END AS 反算剩余货量, 
     -- 反算存货货量
      CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.反算存货货量_存货货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算存货货量_存货货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.反算存货货量_存货面积)
         WHEN base.二级科目 = '套数' THEN sum(res.反算存货货量_存货套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3347,7 +3353,7 @@ select
     END AS 反算存货货量, 
     -- 反算在途货量
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.反算在途货量_在途货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算在途货量_在途货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.反算在途货量_在途面积)
         WHEN base.二级科目 = '套数' THEN sum(res.反算在途货量_在途套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3359,7 +3365,7 @@ select
     END AS 反算在途货量, 
     -- 反算未开工货量
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.反算未开工货量_未开工货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.反算未开工货量_未开工货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.反算未开工货量_未开工面积)
         WHEN base.二级科目 = '套数' THEN sum(res.反算未开工货量_未开工套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3371,7 +3377,7 @@ select
     END AS 反算未开工货量,
     -- 当前处置临时冻结合计
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结货值合计)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结货值合计) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结面积合计)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结套数合计)
         WHEN base.二级科目 = '均价' THEN
@@ -3383,7 +3389,7 @@ select
     END  as [当前处置临时冻结合计],
     -- 当前处置其中：合作受阻
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_合作受阻冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_合作受阻冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_合作受阻冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_合作受阻冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3395,7 +3401,7 @@ select
     END  as  [当前处置其中：合作受阻],
   -- 开发受限
    CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_开发受限冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_开发受限冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_开发受限冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_开发受限冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3407,7 +3413,7 @@ select
     END as  [当前处置其中：开发受限],
     -- 当前处置其中：停工缓建
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_停工缓建冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_停工缓建冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_停工缓建冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_停工缓建冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3419,7 +3425,7 @@ select
     END  as [当前处置其中：停工缓建],
     -- 当前处置其中：投资未落实
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_投资未落实冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前临时冻结_投资未落实冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前临时冻结_投资未落实冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前临时冻结_投资未落实冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3431,7 +3437,7 @@ select
     END  as [当前处置其中：投资未落实],
     -- 当前处置退换调转
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前退换调转剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前退换调转剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前退换调转剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前退换调转剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3443,7 +3449,7 @@ select
     END  as [当前处置退换调转],
     -- 当前处置正常销售
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前正常销售剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前正常销售剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前正常销售剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前正常销售剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3455,7 +3461,7 @@ select
     END  as [当前处置正常销售],
     -- 当前处置转经营 
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前转经营剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前转经营剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前转经营剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前转经营剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3467,7 +3473,7 @@ select
     END  as [当前处置转经营],
     -- 处置前尾盘剩余面积
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置前尾盘剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置前尾盘剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置前尾盘剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置前尾盘剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3479,7 +3485,7 @@ select
     END as  [尾盘],
     -- 处置后临时冻结合计
    CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结货值合计)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结货值合计) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结面积合计)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结套数合计)
         WHEN base.二级科目 = '均价' THEN
@@ -3491,7 +3497,7 @@ select
     END  as  [处置后临时冻结合计],
     -- 处置后临时冻结_合作受阻冻结面积
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_合作受阻冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_合作受阻冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_合作受阻冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_合作受阻冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3503,7 +3509,7 @@ select
     END as [处置后其中：合作受阻],
     -- 处置后临时冻结_开发受限冻结面积
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_开发受限冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_开发受限冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_开发受限冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_开发受限冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3515,7 +3521,7 @@ select
     END  as [处置后其中：开发受限],
     -- 处置后临时冻结_停工缓建冻结面积
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_停工缓建冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_停工缓建冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_停工缓建冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_停工缓建冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3527,7 +3533,7 @@ select
     END  as [处置后其中：停工缓建],
     -- 处置后临时冻结_投资未落实冻结面积
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_投资未落实冻结货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后临时冻结_投资未落实冻结货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后临时冻结_投资未落实冻结面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后临时冻结_投资未落实冻结套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3539,7 +3545,7 @@ select
     END  as [处置后其中：投资未落实],
     -- 处置后退换调转剩余
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后退换调转剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后退换调转剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后退换调转剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后退换调转剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3551,7 +3557,7 @@ select
     END  as [处置后退换调转],
     -- 处置后正常销售剩余
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后正常销售剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后正常销售剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后正常销售剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后正常销售剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3563,7 +3569,7 @@ select
     END  as [处置后正常销售],
     -- 处置后转经营剩余货值
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后转经营剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后转经营剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后转经营剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后转经营剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3575,7 +3581,7 @@ select
     END  as [处置后转经营],
     -- 处置后尾盘
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.处置后尾盘剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.处置后尾盘剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.处置后尾盘剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.处置后尾盘剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3588,7 +3594,7 @@ select
 
     -- 新增 销售状态分析字段
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_已推未售剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_已推未售剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_已推未售剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_已推未售剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3599,7 +3605,7 @@ select
         ELSE 0
     END as [已开工剩余货量已推未售],
       CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_获证待推剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_获证待推剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_获证待推剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_获证待推剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3610,7 +3616,7 @@ select
         ELSE 0
     END as [已开工剩余货量获证待推],
       CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_达形象未取证剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_达形象未取证剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_达形象未取证剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_达形象未取证剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3621,7 +3627,7 @@ select
         ELSE 0
     END as [已开工剩余货量达形象未取证],
       CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_正常在途剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_正常在途剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_正常在途剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_正常在途剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3632,7 +3638,7 @@ select
         ELSE 0
     END as [已开工剩余货量正常在途],
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_停工缓建在途剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.已开工剩余货量_停工缓建在途剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.已开工剩余货量_停工缓建在途剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.已开工剩余货量_停工缓建在途剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3643,7 +3649,7 @@ select
         ELSE 0
     END as [已开工剩余货量停工缓建在途],
       CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_停工缓建剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_停工缓建剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.未开工剩余货量_停工缓建剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.未开工剩余货量_停工缓建剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3654,7 +3660,7 @@ select
         ELSE 0
     END as [未开工剩余货量停工缓建],
       CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_预计三年内开工剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_预计三年内开工剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.未开工剩余货量_预计三年内开工剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.未开工剩余货量_预计三年内开工剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3665,7 +3671,7 @@ select
         ELSE 0
     END as [未开工剩余货量预计三年内开工],
       CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_预计三年后开工剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.未开工剩余货量_预计三年后开工剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.未开工剩余货量_预计三年后开工剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.未开工剩余货量_预计三年后开工剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3677,7 +3683,7 @@ select
     END as [未开工剩余货量预计三年后开工],
     -- 建设状态信息字段
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已竣备剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已竣备剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_已竣备剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.建设状态_已竣备剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3688,7 +3694,7 @@ select
         ELSE 0
     END 已竣备,
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已达形象未达竣备剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已达形象未达竣备剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_已达形象未达竣备剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.建设状态_已达形象未达竣备剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3699,7 +3705,7 @@ select
         ELSE 0
     END 形象未达竣备,
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已开工未达形象剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_已开工未达形象剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_已开工未达形象剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.建设状态_已开工未达形象剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3710,7 +3716,7 @@ select
         ELSE 0
     END 开工未达形象,
     CASE
-        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_停工缓建剩余货值)
+        WHEN base.二级科目 = '货值' THEN SUM(res.建设状态_停工缓建剩余货值) /10000.0
         WHEN base.二级科目 = '面积' THEN SUM(res.建设状态_停工缓建剩余面积)
         WHEN base.二级科目 = '套数' THEN sum(res.建设状态_停工缓建剩余套数)
         WHEN base.二级科目 = '均价' THEN
@@ -3723,7 +3729,12 @@ select
 FROM  #baseinfo03_1 base
 left join #lxdw03_1 lxdw on base.组织架构id = lxdw.组织架构id and base.清洗时间 = lxdw.清洗时间
 left join dw_s_WqBaseStatic_CompanyResource  res On base.组织架构id = res.组织架构id and  base.清洗时间 =res.清洗时间
-where lxdw.立项货值 <> 0 or lxdw.动态总资源 <> 0
+where 
+    lxdw.立项货值 <> 0 
+    or lxdw.动态总资源 <> 0
+    -- or  res.反算总货量_总货值 <> 0
+    -- or  res.反算剩余货量_剩余货值 <> 0
+    -- OR lxdw.累计签约货值 <> 0
 group by
     base.清洗时间,
     base.统计维度,

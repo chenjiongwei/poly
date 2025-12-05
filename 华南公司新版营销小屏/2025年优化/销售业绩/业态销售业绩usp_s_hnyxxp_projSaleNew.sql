@@ -1,6 +1,6 @@
 USE [HighData_prod]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_s_hnyxxp_projSaleNew]    Script Date: 2025/8/25 16:19:33 ******/
+/****** Object:  StoredProcedure [dbo].[usp_s_hnyxxp_projSaleNew]    Script Date: 2025/11/12 18:44:54 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -2669,6 +2669,8 @@ AS
                 ISNULL(rw.准产成品年度任务, 0) AS 准产成品年度任务,
                 0 AS 大户型月度任务,
                 0 AS 大户型年度任务
+
+
         FROM    data_wide_dws_mdm_Project p
                 INNER JOIN #TopProduct pt ON pt.ParentProjGUID = p.ProjGUID
                 LEFT JOIN data_tb_hnyx_jdfxtb rw ON rw.projguid = p.ProjGUID AND   rw.业态 = pt.TopProductTypeName

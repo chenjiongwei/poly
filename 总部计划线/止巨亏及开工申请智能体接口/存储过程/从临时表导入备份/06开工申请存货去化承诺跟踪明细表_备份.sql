@@ -66,6 +66,27 @@ BEGIN
         ON ld.存货去化承诺ID = chdtl.存货去化承诺ID
         AND ld.产品楼栋GUID = chdtl.产品楼栋GUID
 
+    -- M002表的成本单方数据
+    SELECT 
+            distinct
+            projguid, 
+            versionType,
+            产品类型,
+            产品名称,
+            商品类型,
+            装修标准,
+            业态组合键,
+            明源匹配主键,
+            盈利规划营业成本单方,
+            盈利规划股权溢价单方,
+            盈利规划营销费用单方,
+            盈利规划综合管理费单方协议口径,
+            盈利规划税金及附加单方
+        into  #M002
+    FROM data_wide_dws_qt_M002项目业态级毛利净利表 
+    WHERE versionType IN ('累计版', '本年版')
+     
+
     /***********************************************************************
     步骤3：删除当天已存在的数据，避免重复插入
     说明：以清洗日期为准，删除当天数据
@@ -100,7 +121,19 @@ BEGIN
         [承诺后累计含税签约金额],
         [承诺日不含税签约金额],
         [承诺后累计不含税签约金额],
-        [清洗日期]
+        [清洗日期],
+        [项目获取日期],
+        [盈利规划营业成本单方],
+        [盈利规划股权溢价单方],
+        [盈利规划营销费用单方],
+        [盈利规划综合管理费单方协议口径],
+        [盈利规划税金及附加单方],
+        [营业成本单方含税费],
+        [承诺后营业成本含税费],
+        [业态组合键],
+        [明源匹配主键],
+        [首开日期],
+        [月均去化面积]
     )
     SELECT 
         ch.存货去化承诺ID    AS [存货去化承诺ID],         -- 唯一主键
@@ -124,8 +157,13 @@ BEGIN
         CASE 
             WHEN  qh.lastQyDate is null and  isnull(sf.近六个月去化面积,0) <>0
                 THEN DATEDIFF(DAY, ch.[承诺时间], GETDATE()) / 30.0 + 
-                   ( (ISNULL(zksmj, 0) - ISNULL(ysmj, 0) ) / ( sf.近六个月去化面积 / 6.0 ) )
-			when DATEDIFF(DAY, GETDATE(), qh.lastQyDate)<0 and  qh.lastQyDate is not null 
+                   ( (ISNULL(zksmj, 0) - ISNULL(ysmj, 0) ) / 
+                      case when datediff(month,qh.首开日期,getdate()) > 6 
+                             then ( sf.近六个月去化面积 / 6.0 ) 
+                        else (sf.近六个月去化面积/ (datediff(day,qh.首开日期,getdate()) /30.0) )   
+                      end       
+                   )
+			when DATEDIFF(DAY, GETDATE(), qh.lastQyDate) < 0 and  qh.lastQyDate is not null 
 			    then  DATEDIFF(DAY, ch.[承诺时间],qh.lastQyDate) / 30.0 
         END             AS [存货去化周期],         
         sf.近六个月去化面积,
@@ -139,8 +177,27 @@ BEGIN
         sf.承诺后累计含税签约金额               AS [承诺后累计含税签约金额], -- 承诺后累计含税签约金额，后续可补充
         ch.承诺日累计不含税签约金额              AS [承诺日不含税签约金额],  -- 承诺日不含税签约金额，后续可补充
         sf.承诺后累计不含税签约金额               AS [承诺后累计不含税签约金额], -- 承诺后累计不含税签约金额，后续可补充
-        GETDATE()          AS [清洗日期]               -- 当前清洗日期
+        GETDATE()   AS [清洗日期],               -- 当前清洗日期
+        mp.BeginDate as 项目获取日期,
+        ISNULL(cb.盈利规划营业成本单方, 0) as 盈利规划营业成本单方,
+        ISNULL(cb.盈利规划股权溢价单方, 0) as 盈利规划股权溢价单方,
+        ISNULL(cb.盈利规划营销费用单方, 0) as 盈利规划营销费用单方,
+        ISNULL(cb.盈利规划综合管理费单方协议口径, 0) as 盈利规划综合管理费单方协议口径,
+        ISNULL(cb.盈利规划税金及附加单方, 0) as 盈利规划税金及附加单方,
+        isnull(cb.营业成本单方含税费,0) as 营业成本单方含税费,
+        isnull(cb.营业成本单方含税费,0) * isnull(承诺后累计含税签约面积,0) /10000.0 as 承诺后营业成本含税费,
+        cb.业态组合键,
+        cb.明源匹配主键,
+        qh.首开日期,
+        case when isnull(sf.近六个月去化面积,0) <>0 then 
+                      case when datediff(month,qh.首开日期,getdate()) > 6 
+                             then ( sf.近六个月去化面积 / 6.0 ) 
+                        else (sf.近六个月去化面积/ datediff(month,qh.首开日期,getdate()) )   
+                      end 
+                          
+        end  as 月均去化面积
     FROM #cmtld ch
+    inner join data_wide_dws_mdm_Project mp on mp.projguid = ch.项目GUID and  mp.level =2
     LEFT JOIN data_wide_dws_s_p_lddbamj lddb   ON lddb.SaleBldGUID = ch.产品楼栋GUID
     LEFT JOIN data_wide_dws_mdm_Building bd   ON bd.BuildingGUID = ch.产品楼栋GUID AND bd.BldType = '产品楼栋' 
     -- 动态版
@@ -179,7 +236,7 @@ BEGIN
             SUM(
                      ISNULL(Sale.CNetArea, 0) + ISNULL(Sale.SpecialCNetArea, 0) 
             ) / 10000.0 AS 承诺后累计含税签约面积,
-            -- 月均去化面积
+            -- 近6个月去化面积
             SUM( case when StatisticalDate between DATEADD(MONTH, -6, GETDATE()) and GETDATE() then 
                      ISNULL(Sale.CNetArea, 0) + ISNULL(Sale.SpecialCNetArea, 0) 
                      else 0 
@@ -190,10 +247,38 @@ BEGIN
             ON Sale.bldguid = chld.产品楼栋GUID and sale.ParentProjGUID =chld.项目GUID
         GROUP BY sale.ParentProjGUID, sale.BldGUID
     ) sf On sf.bldguid =ch.产品楼栋GUID and  sf.ParentProjGUID = ch.项目GUID
+    left  join  (
+               SELECT DISTINCT
+                    bld.ParentProjGUID,
+                    bld.BuildingGUID,
+                    业态组合键,
+                    明源匹配主键,
+                    ISNULL(ljm002.盈利规划营业成本单方, 0) as 盈利规划营业成本单方,
+                    ISNULL(ljm002.盈利规划股权溢价单方, 0) as 盈利规划股权溢价单方,
+                    ISNULL(ljm002.盈利规划营销费用单方, 0) as 盈利规划营销费用单方,
+                    ISNULL(ljm002.盈利规划综合管理费单方协议口径, 0) as 盈利规划综合管理费单方协议口径,
+                    ISNULL(ljm002.盈利规划税金及附加单方, 0) as 盈利规划税金及附加单方,
+                    (
+                        ISNULL(ljm002.盈利规划营业成本单方, 0)
+                        + ISNULL(ljm002.盈利规划股权溢价单方, 0)
+                        + ISNULL(ljm002.盈利规划营销费用单方, 0)
+                        + ISNULL(ljm002.盈利规划综合管理费单方协议口径, 0)
+                        + ISNULL(ljm002.盈利规划税金及附加单方, 0)
+                    ) AS 营业成本单方含税费
+                FROM data_wide_dws_mdm_Building bld
+                LEFT JOIN #M002 ljm002
+                    ON ljm002.projguid = bld.ParentProjGUID
+                    AND bld.TopProductTypeName = ljm002.产品类型
+                    AND bld.ProductTypeName = ljm002.产品名称
+                    AND bld.CommodityType = ljm002.商品类型
+                    AND bld.ZxBz = ljm002.装修标准
+                WHERE bld.BldType = '产品楼栋'   
+    ) cb On cb.BuildingGUID =ch.产品楼栋GUID and  cb.ParentProjGUID =ch.项目GUID
     LEFT JOIN (
         SELECT 
             存货去化承诺ID, 
             产品楼栋GUID,
+            首开日期,
             CASE 
                 WHEN ISNULL(salebld.TotalRoomCount, 0) = ISNULL(salebld.QyRoomCount, 0) 
                     THEN lastQyDate 
@@ -204,6 +289,13 @@ BEGIN
             SELECT 
                 ld.存货去化承诺ID,
                 ld.产品楼栋GUID,
+                -- 首开日期：第一个认购/签约房间的认购/签约日期
+                MIN(
+                    CASE 
+                        WHEN Status IN ('认购', '签约') AND specialFlag <> '是' THEN ISNULL(RgQsDate, QSDate)
+                        WHEN Status IN ('认购', '签约') THEN ISNULL(TsRoomQSDate, ISNULL(RgQsDate, QSDate))
+                    END
+                ) AS 首开日期,
                 MAX(
                     CASE 
                         WHEN Status = '签约' AND specialFlag <> '是' THEN QSDate
@@ -213,16 +305,14 @@ BEGIN
                 COUNT(1) AS TotalRoomCount,
                 SUM(CASE WHEN Status = '签约' THEN 1 ELSE 0 END) AS QyRoomCount
             FROM data_wide_s_RoomoVerride room
-            INNER JOIN #cmtld ld 
-                ON ld.产品楼栋GUID = room.BldGUID
+            INNER JOIN #cmtld ld  ON ld.产品楼栋GUID = room.BldGUID
             INNER JOIN data_wide_dws_s_p_lddbamj lddb 
                 ON lddb.SaleBldGUID = ld.产品楼栋GUID
             WHERE lddb.SJzskgdate IS NOT NULL
             GROUP BY ld.存货去化承诺ID, ld.产品楼栋GUID
         ) salebld
         WHERE ISNULL(salebld.TotalRoomCount, 0) > 0  
-    ) qh 
-        ON qh.存货去化承诺ID = ch.存货去化承诺ID 
+    ) qh ON qh.存货去化承诺ID = ch.存货去化承诺ID 
         AND qh.产品楼栋GUID = ch.产品楼栋GUID
 
     /***********************************************************************

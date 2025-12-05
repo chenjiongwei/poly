@@ -7,15 +7,15 @@ SET QUOTED_IDENTIFIER ON
 GO
 -- 开工申请存货去化承诺清洗存储过程
 -- ============================================
--- 存储过程名称：usp_s_集团开工申请存货去化承诺表智能体数据提取
--- 创建人: chenjw 2025-09-02
+-- 存储过程名称：usp_s_集团开工申请存货去化承诺表智能体数据提取ByTb
+-- 创建人: chenjw 2025-11-23
 -- 作用：清洗并提取集团开工申请存货去化承诺表数据，供智能体使用
 -- ============================================
-ALTER   PROC [dbo].[usp_s_集团开工申请存货去化承诺表智能体数据提取]
+create or  ALTER   PROC [dbo].[usp_s_集团开工申请存货去化承诺表智能体数据提取ByTb]
 AS
 BEGIN
     -- 执行明细表存储过程
-    exec usp_s_集团开工申请存货去化承诺跟踪明细表智能体数据提取;
+     --exec [usp_s_集团开工申请存货去化承诺跟踪明细表智能体数据提取ByTb];
 
          -- M002表的成本单方数据
         SELECT 
@@ -39,23 +39,50 @@ BEGIN
     步骤1：查询承诺值数据，存入临时表#Commitment
     说明：从源表[存货去化承诺表]提取相关字段，类型统一标记为'承诺值'
     ***********************************************************************/
-    SELECT  
-        ch.存货去化承诺ID                              AS [存货去化承诺ID],              -- 唯一主键
-        ch.投管代码                                   AS [投管代码],                   -- 投管系统项目代码
-        ch.项目GUID                                   AS [项目GUID],                   -- 项目唯一标识
-        ch.项目名称                                   AS [项目名称],                   -- 项目名称
+    -- SELECT  
+    --     ch.存货去化承诺ID                              AS [存货去化承诺ID],              -- 唯一主键
+    --     ch.投管代码                                   AS [投管代码],                   -- 投管系统项目代码
+    --     ch.项目GUID                                   AS [项目GUID],                   -- 项目唯一标识
+    --     ch.项目名称                                   AS [项目名称],                   -- 项目名称
 
-        ch.承诺时间                                   AS [承诺时间],                   -- 承诺时间
-        '承诺值'                                      AS [类型],                       -- 数据类型标记
-        ch.已开工未售部分的的产品楼栋编码              AS [已开工未售部分的的产品楼栋编码], -- 楼栋编码
-        ch.已开工未售部分的的产品楼栋名称              AS [已开工未售部分的的产品楼栋名称], -- 楼栋名称
-        convert(varchar(7),ch.已开工未售部分的_售罄时间,121)  AS [已开工未售部分的售罄时间],     -- 售罄时间
-        ch.已开工未售部分的销售均价                   AS [已开工未售部分的销售均价],     -- 销售均价
-        ch.已开工未售部分的去化周期                   AS [已开工未售部分的去化周期],     -- 去化周期
-        ch.已开工未售部分的税后净利润                 AS [已开工未售部分的税后净利润],   -- 税后净利润
-        ch.已开工未售部分的销净率                     AS [已开工未售部分的销净率]        -- 销净率
-    INTO #Commitment
-    FROM [172.16.4.141].[MyCost_Erp352].dbo.存货去化承诺表 ch
+    --     ch.承诺时间                                   AS [承诺时间],                   -- 承诺时间
+    --     '承诺值'                                      AS [类型],                       -- 数据类型标记
+    --     ch.已开工未售部分的的产品楼栋编码              AS [已开工未售部分的的产品楼栋编码], -- 楼栋编码
+    --     ch.已开工未售部分的的产品楼栋名称              AS [已开工未售部分的的产品楼栋名称], -- 楼栋名称
+    --     convert(varchar(7),ch.已开工未售部分的_售罄时间,121)  AS [已开工未售部分的售罄时间],     -- 售罄时间
+    --     ch.已开工未售部分的销售均价                   AS [已开工未售部分的销售均价],     -- 销售均价
+    --     ch.已开工未售部分的去化周期                   AS [已开工未售部分的去化周期],     -- 去化周期
+    --     ch.已开工未售部分的税后净利润                 AS [已开工未售部分的税后净利润],   -- 税后净利润
+    --     ch.已开工未售部分的销净率                     AS [已开工未售部分的销净率]        -- 销净率
+    -- INTO #Commitment
+    -- FROM [172.16.4.141].[MyCost_Erp352].dbo.存货去化承诺表 ch
+
+        SELECT 
+            a.存货去化承诺ID,
+            a.投管代码,
+            a.项目GUID,
+            a.项目名称,
+            a.推广名称,
+            a.承诺时间,
+            '承诺值' AS [类型],
+            a.已开工未售部分的的产品楼栋编码,
+            a.已开工未售部分的的产品楼栋名称,
+            CONVERT(VARCHAR(7), a.已开工未售部分的售罄时间, 121) AS [已开工未售部分的售罄时间],
+            a.[已开工未售部分的销售均价（元）]      AS [已开工未售部分的销售均价],      -- 销售均价
+            a.[已开工未售部分的去化周期（月）]      AS [已开工未售部分的去化周期],      -- 去化周期
+            a.[已开工未售部分的税后净利润（亿元）]  AS [已开工未售部分的税后净利润],    -- 税后净利润
+            a.[已开工未售部分的销净率（百分比）]    AS [已开工未售部分的销净率]          -- 销净率
+        INTO #Commitment
+        FROM [172.16.4.141].dss.[dbo].nmap_F_存货去化承诺表 a
+        INNER JOIN [172.16.4.141].dss.[dbo].[nmap_F_FillHistory] b
+            ON a.[FillHistoryGUID] = b.[FillHistoryGUID]
+        WHERE a.[FillHistoryGUID] IN (
+                SELECT TOP 1 [FillHistoryGUID]
+                FROM [172.16.4.141].dss.[dbo].nmap_F_存货去化承诺表
+                ORDER BY [FillDate] DESC
+            )
+
+
 
     /***********************************************************************
     步骤2：查询结算动态值（预留，待实现）
@@ -74,10 +101,9 @@ BEGIN
     WHERE ISNULL(a.已开工未售部分的的产品楼栋编码, '') <> ''
 
     -- 已开工未售部分的售罄时间
-    -- 已开工未售部分的去化周期,
     SELECT 
         存货去化承诺ID, 
-        case when ISNULL(salebld.TotalRoomCount, 0) = ISNULL(salebld.QyRoomCount, 0) then lastQyDate end as lastQyDate , -- 已开工未售部分的售罄时间
+        case when ISNULL(salebld.TotalRoomCount, 0) = ISNULL(salebld.QyRoomCount, 0) then lastQyDate end as lastQyDate , -- 已开工未售部分的售罄时间 本批次下所有楼栋都已销售才算项目的售罄日期
         TotalRoomCount,
         QyRoomCount
     into #LastQyDate
@@ -115,6 +141,7 @@ BEGIN
     步骤4：插入最新清洗结果数据
     说明：将临时表#Commitment中的数据插入目标表，并补充清洗日期
     ***********************************************************************/
+
     INSERT INTO s_集团开工申请存货去化承诺智能体数据提取
     (
         [存货去化承诺ID],
@@ -131,7 +158,19 @@ BEGIN
         [已开工未售部分的去化周期],
         [已开工未售部分的税后净利润],
         [已开工未售部分的销净率],
-        [清洗日期]
+        [清洗日期],
+        [项目获取日期],
+        [近六个月去化面积],
+        [剩余可售面积],
+        [最后一套房间签约日期],
+        [承诺后累计含税签约金额],
+        [承诺日累计签约金额],
+        [承诺后累计含税签约面积],
+        [承诺日累计签约面积],
+        [承诺后累计不含税签约金额],
+        [承诺后营业成本含税费],
+        [本批次最早首开日期],
+        [月均去化面积]
     )
     SELECT 
         cmt.[存货去化承诺ID],
@@ -147,8 +186,22 @@ BEGIN
         cmt.[已开工未售部分的销售均价],
         cmt.[已开工未售部分的去化周期],
         cmt.[已开工未售部分的税后净利润],
-        cmt.[已开工未售部分的销净率] *100  as [已开工未售部分的销净率],
-        GETDATE() AS [清洗日期]
+        -- case when  cmt.[已开工未售部分的销净率] ='' then 0.0 else cmt.[已开工未售部分的销净率] end * 100.0  as [已开工未售部分的销净率],
+		0.0 as [已开工未售部分的销净率],
+        GETDATE() AS [清洗日期],
+        -- 新增辅助核对字段 
+        p.BeginDate as 项目获取日期,
+        NULL as 近六个月去化面积,
+        NULL as 剩余可售面积,
+        NULL as 最后一套房间签约日期,
+        null as 承诺后累计含税签约金额,
+        null as 承诺日累计签约金额,
+        null as 承诺后累计含税签约面积,
+        null as 承诺日累计签约面积,
+        null as 承诺后累计不含税签约金额,
+        null as 承诺后营业成本含税费,
+        null as 本批次最早首开日期,
+        null as 月均去化面积
     FROM #Commitment cmt 
     inner join  data_wide_dws_mdm_Project p on p.projguid = cmt.项目GUID
     UNION ALL
@@ -162,34 +215,67 @@ BEGIN
         '动态值' AS [类型],
         cmt.[已开工未售部分的的产品楼栋编码],
         cmt.[已开工未售部分的的产品楼栋名称],
+        -- 如果项目已经售罄则取项目实际的售罄时间，否则取项目承诺时间+计划售罄月份（=剩余已开工未售面积/近6个月的月均销售面积）
         CASE 
             WHEN dt.lastQyDate IS NOT NULL 
                 THEN CONVERT(VARCHAR(7), dt.lastQyDate, 121) 
-            END AS [已开工未售部分的售罄时间], -- 年月
+            WHEN ISNULL(sale.近六个月去化面积, 0) <> 0 
+                THEN CONVERT(VARCHAR(7), DATEADD(MONTH, 
+                    CEILING( ISNULL(sale.剩余可售面积, 0) / (sale.近六个月去化面积 / 6.0) ), cmt.[承诺时间]), 121) 
+            ELSE NULL
+        END  AS [已开工未售部分的售罄时间], -- 年月
         -- 动态值：取“存货去化承诺跟踪明细表的（N2列-N1列）/(M2列-M1列)
        case when (isnull(sale.承诺后累计含税签约面积,0)- isnull(sale.承诺日累计签约面积,0) ) =0  then  0  else 
         (isnull(sale.承诺后累计含税签约金额,0)- isnull(sale.承诺日累计签约金额,0) ) *10000.0 
         / (isnull(sale.承诺后累计含税签约面积,0)- isnull(sale.承诺日累计签约面积,0) ) end as 已开工未售部分的销售均价,
-        -- 取当期日期-承诺日，直至当前日期=售罄日（本承诺内所有组团）
+        -- 如果项目已售罄，则取承诺日期同售罄日的月份差，
+        -- 如果项目未售罄，当前日期-承诺日的月份差+当前剩余或预计去化周期月份（本次承诺批次内所有楼栋对应剩余货量面积/近半年月均去化面积）
         CASE 
             WHEN dt.lastQyDate is  null and  isnull(sale.近六个月去化面积,0) <>0
                 THEN DATEDIFF(DAY, cmt.[承诺时间], GETDATE()) / 30.0 + 
-                  (ISNULL(sale.剩余可售面积, 0)  / ( sale.近六个月去化面积 / 6.0 ) )
-			WHEN DATEDIFF(DAY, GETDATE(), isnull(dt.lastQyDate,'1900-01-01') )< 0 and  dt.lastQyDate is not null 
-			    THEN  DATEDIFF(DAY, cmt.[承诺时间],GETDATE()) / 30.0 
-         END    AS [已开工未售部分的去化周期],
+                  ( ISNULL(sale.剩余可售面积, 0)  / 
+                      case when   datediff(month,sale.首开日期,getdate()) > 6  then
+                        ( sale.近六个月去化面积 / 6.0 ) 
+                    else  ( sale.近六个月去化面积 / (datediff(day,sale.首开日期,getdate()) /30.0) )  end )
+			WHEN  dt.lastQyDate is not null 
+			    THEN  DATEDIFF(DAY, cmt.[承诺时间],dt.lastQyDate) / 30.0 
+        END    AS [已开工未售部分的去化周期],
         -- 动态值：取“存货去化承诺跟踪明细表的（本承诺内所有组团），X=P2列-单方（含税费）*M2列
-        sale.已开工未售部分的税后净利润 AS [已开工未售部分的税后净利润],
+        case when isnull(sale.已开工未售部分的税后净利润,0) >0 
+              then  sale.已开工未售部分的税后净利润 * 0.75 
+              else sale.已开工未售部分的税后净利润 end AS [已开工未售部分的税后净利润],
         -- 动态值：取”存货去化承诺跟踪明细表的 X列/ （本承诺内所有组团的不含税签约金额）
         case when  isnull(sale.承诺后累计不含税签约金额,0) = 0  then  0  else
-          isnull(sale.已开工未售部分的税后净利润,0) / isnull(sale.承诺后累计不含税签约金额,0) end *100 AS [已开工未售部分的销净率],
-        GETDATE() AS [清洗日期]
+          case when isnull(sale.已开工未售部分的税后净利润,0) >0 
+              then  sale.已开工未售部分的税后净利润 * 0.75 
+              else sale.已开工未售部分的税后净利润 end 
+         / isnull(sale.承诺后累计不含税签约金额,0) end *100 AS [已开工未售部分的销净率],
+        GETDATE() AS [清洗日期],
+        --  新增辅助核对字段 
+        p.BeginDate as 项目获取日期,
+        sale.近六个月去化面积/10000.0 as 近六个月去化面积,
+        sale.剩余可售面积/10000.0 as 剩余可售面积,
+        dt.lastQyDate 最后一套房间签约日期, -- 真实售罄日期
+        sale.承诺后累计含税签约金额 as 承诺后累计含税签约金额,
+        sale.承诺日累计签约金额 as 承诺日累计签约金额,
+        sale.承诺后累计含税签约面积 as 承诺后累计含税签约面积,
+        sale.承诺日累计签约面积 as 承诺日累计签约面积,
+        sale.承诺后累计不含税签约金额 as 承诺后累计不含税签约金额,
+        sale.承诺后营业成本含税费 as 承诺后营业成本含税费,
+        sale.首开日期 as 本批次最早首开日期,
+        case when isnull(sale.近六个月去化面积,0) <>0 then 
+                      case when datediff(month,sale.首开日期,getdate()) > 6 
+                             then ( sale.近六个月去化面积 / 6.0 ) 
+                        else (sale.近六个月去化面积/ datediff(month,sale.首开日期,getdate()) )   
+                      end                 
+        end /10000.0   月均去化面积
     FROM #Commitment cmt
     inner join  data_wide_dws_mdm_Project p on p.projguid = cmt.项目GUID
     left join (
           SELECT 
               项目GUID,
               存货去化承诺ID,
+              min(xm.首开日期) as 首开日期, -- 项目下最早的开盘日期
               sum(isnull(xm.近六个月去化面积,0)) as 近六个月去化面积,
               sum(isnull(xm.剩余可售面积,0)) as 剩余可售面积,
               SUM(ISNULL(承诺日累计签约面积, 0))        AS 承诺日累计签约面积,
@@ -197,6 +283,7 @@ BEGIN
               SUM(ISNULL(承诺后累计含税签约面积, 0))    AS 承诺后累计含税签约面积,
               SUM(ISNULL(承诺后累计含税签约金额, 0))    AS 承诺后累计含税签约金额,
               sum(isnull(xm.承诺后累计不含税签约金额,0)) as 承诺后累计不含税签约金额,
+              sum(ISNULL(df.营业成本单方含税费, 0) * isnull(xm.承诺后累计含税签约面积,0)) /10000.0 as 承诺后营业成本含税费,
               -- 需要成本单方
               (sum(isnull(xm.承诺后累计不含税签约金额,0)) *10000.0 - sum(ISNULL(df.营业成本单方含税费, 0) * isnull(xm.承诺后累计含税签约面积,0))) /10000.0   AS 已开工未售部分的税后净利润
           FROM s_集团开工申请存货去化承诺跟踪明细表智能体数据提取 xm
@@ -223,8 +310,7 @@ BEGIN
           WHERE DATEDIFF(DAY, 清洗日期, GETDATE()) = 0
           GROUP BY 项目GUID, 存货去化承诺ID
     ) sale on  sale.项目GUID = cmt.项目GUID and sale.存货去化承诺ID = cmt.存货去化承诺ID
-    LEFT JOIN #LastQyDate dt 
-        ON cmt.存货去化承诺ID = dt.存货去化承诺ID
+    LEFT JOIN #LastQyDate dt   ON cmt.存货去化承诺ID = dt.存货去化承诺ID
 
     /***********************************************************************
     步骤5：清理历史数据，仅保留必要快照

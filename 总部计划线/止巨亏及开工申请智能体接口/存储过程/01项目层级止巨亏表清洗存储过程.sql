@@ -1,15 +1,19 @@
 USE [HighData_prod]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_s_集团止巨亏智能数据提取]    Script Date: 2025/10/15 18:49:10 ******/
+
+/****** Object:  StoredProcedure [dbo].[usp_s_集团止巨亏智能数据提取]    Script Date: 2025/11/18 16:16:28 ******/
 SET ANSI_NULLS ON
 GO
+
 SET QUOTED_IDENTIFIER ON
 GO
+
+
 
 -- 修改: chenjw 2025-09-25 
 -- 1、将“整体销净率”和“住宅_已售部分销净率” 乘以100 转化成%
  --2、F054表的项目状态字段，枚举值：跟进待落实、清算退出、正常、正常(拟退出)
-ALTER proc [dbo].[usp_s_集团止巨亏智能数据提取]
+create     proc [dbo].[usp_s_集团止巨亏智能数据提取]
 as 
 begin 
 /*
@@ -705,7 +709,7 @@ begin
             group by ProjGUID
             
     )
-    select 
+    SELECT 
         p.平台公司, 
         p.项目代码,
         p.投管代码,
@@ -845,8 +849,8 @@ begin
         p.项目状态  as 项目状态,
         p.项目地址 as 项目地址,
         f05401.总建筑面积 as 整体建筑面积,
-        f056.已售净利润签约 as 整体税后利润,
-        null as 整体销净率,
+        f056.整体已售净利润签约 /10000 as 整体税后利润,
+        case when  isnull(f056.总货值不含税,0)  =0 then 0 else  isnull(f056.整体已售净利润签约,0) / isnull(f056.总货值不含税,0)  end  as 整体销净率, --F054 税后利润计划/总货值不含税
 
         f056.已开工建筑面积 as 住宅_已开工建筑面积,
         f056.已开工可售建筑面积 as 住宅_已开工可售建筑面积,
@@ -868,8 +872,8 @@ begin
         case when isnull(l6yjsqmj.近六个月已签约面积,0) =0  then  0 else  (f056.已达预售条件未售建筑面积 *10000.0) / (l6yjsqmj.近六个月已签约面积/6.0) end as 住宅_存销比,
         f056.历史供货周期 as 住宅_历史供货周期,
 
-        bndkhkjh.累计回笼 - bndkhkjh.累计除地价外直投 - bndkhkjh.累计财务费用 - bndkhkjh.累计管理费用 - bndkhkjh.累计营销费用 - bndkhkjh.累计税金 as 累计经营现金流,
-        bndkhkjh.累计回笼 + bndkhkjh.累计贷款余额 - bndkhkjh.累计除地价外直投 - bndkhkjh.累计财务费用 - bndkhkjh.累计管理费用 - bndkhkjh.累计营销费用 - bndkhkjh.累计税金 as 股东占压情况,
+        (isnull(bndkhkjh.累计回笼,0) - isnull(bndkhkjh.累计除地价外直投,0) - isnull(bndkhkjh.累计财务费用,0) - isnull(bndkhkjh.累计管理费用,0) - isnull(bndkhkjh.累计营销费用,0) - isnull(bndkhkjh.累计税金,0) ) /10000.0 as 累计经营现金流,
+        (isnull(bndkhkjh.累计回笼,0) + isnull(bndkhkjh.累计贷款余额,0) - isnull(bndkhkjh.累计除地价外直投,0) - isnull(bndkhkjh.累计财务费用,0) - isnull(bndkhkjh.累计管理费用,0) - isnull(bndkhkjh.累计营销费用,0) - isnull(bndkhkjh.累计税金,0) ) /10000.0 as 股东占压情况,
         f056.住宅已售部分销售均价 as 住宅_已售部分销售均价,
         null as 住宅_已售部分可售单方,
         f056.已售净利润签约/10000 as 住宅_已售部分税后净利润,
@@ -878,7 +882,7 @@ begin
         f056.本年商办成交均价 as 本年商办成交均价,
         f056.本年车位成交均价 as 本年车位成交均价
     into #res
-    from proj p 
+    FROM proj p 
     left join hz on p.projguid = hz.项目guid
     left join m002_qn mqn on mqn.projguid = p.projguid
     left join m002_bn jlv on jlv.projguid = p.projguid
@@ -907,7 +911,7 @@ begin
         select  
             ParentProjGUID as projguid,
             sum(isnull(CNetArea,0) + isnull(SpecialCNetArea,0))  as 近六个月已签约面积
-        from  
+        FROM  
             data_wide_dws_s_SalesPerf 
         where  
             -- 取近6个月（含当天），StatisticalDate为日期型
@@ -936,8 +940,14 @@ begin
             SUM(CASE WHEN t.业态 ='住宅' AND t.状态 IN ('已达预售未推') AND t.赛道标签 <>'C3-开发受限'  THEN t.待售货值 END) AS 已达预售条件未售货值,
             
             SUM(CASE WHEN t.业态 ='住宅' THEN t.已售货值不含税 END) AS 累计不含税签约金额,
-            SUM(CASE WHEN t.业态 ='住宅' THEN t.已售净利润签约 END) AS 已售净利润签约,
+            SUM(CASE WHEN t.业态 ='住宅' THEN t.已售净利润签约 END) AS 已售净利润签约, -- 住宅已售净利润签约
             SUM(CASE WHEN t.业态 ='住宅' THEN t.近六月签约面积 ELSE 0 END) AS 近六月签约面积,
+
+            SUM(isnull(t.已售净利润签约,0)) AS 整体已售净利润签约,
+            sum(isnull(未售货值不含税,0))  as 未售货值不含税,
+            sum(isnull(已售货值不含税,0))  as 已售货值不含税,
+            sum(isnull(总货值不含税,0))  as 总货值不含税,
+
             -- CASE WHEN SUM(CASE WHEN t.业态 ='住宅' THEN t.近六月签约面积 ELSE 0 END) = 0 THEN 0 
             --   ELSE SUM(CASE WHEN t.业态 ='住宅' AND t.状态 IN ('开工未达预售','已达预售未推','已推') AND t.赛道标签 <>'C3-开发受限' THEN t.待售面积 END)/
             --   SUM(CASE WHEN t.业态 ='住宅' THEN t.近六月签约面积 ELSE 0 END) END AS 住宅产销比,
@@ -975,6 +985,7 @@ begin
                 F056.总建面/10000 as 总建面,
                 F056.可售面积,                   
                 F056.动态总货值, 
+                isnull(F056.未售货值不含税,0) + isnull(已售货值不含税,0) as 总货值不含税,
                 F056.待售货值,
                 F056.待售面积,
                 F056.未售货值不含税,
@@ -1374,3 +1385,6 @@ begin
         #gyl;
 
 end
+GO
+
+

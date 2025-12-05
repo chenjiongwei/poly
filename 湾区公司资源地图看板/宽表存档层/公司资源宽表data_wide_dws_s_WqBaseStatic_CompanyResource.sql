@@ -233,7 +233,7 @@ BEGIN
            ld.ysts 已售套数,
            CASE WHEN ld.ysmj = 0 THEN 0 ELSE ld.ysje / ld.ysmj END 已售均价,
            ld.zksts - ld.ysts 待售套数,
-           ld.zksmj * 1.0 - ld.ysmj * 1.0 待售面积,
+           ld.zksmj * 1.0 - ld.ysmj * 1.0 as 待售面积,
            ld.syhz 待售货值,
            -- 待售货值不含税计算：优先使用系统设置的税率，否则使用默认9%税率
            CASE WHEN ISNULL(ldr.VATRate, ISNULL(pdr.VATRate, '')) <> '' 
@@ -251,7 +251,10 @@ BEGIN
            CASE WHEN ld.ThisMonthSaleMjQY = 0 THEN 0 ELSE ld.ThisMonthSaleJeQY / ld.ThisMonthSaleMjQY END 本月签约均价,
            case when  sum( ld.ysmj * 1.0) over( PARTITION BY ld.projguid, ld.ProductType )  =0  then 0
               else sum( ld.ysje) over( PARTITION BY ld.projguid, ld.ProductType )/
-             sum( ld.ysmj * 1.0 ) over( PARTITION BY ld.projguid, ld.ProductType ) end as 业态均价      -- 业态均价：同项目同产品类型的已售均价
+             sum( ld.ysmj * 1.0 ) over( PARTITION BY ld.projguid, ld.ProductType ) end as 业态均价,     -- 业态均价：同项目同产品类型的已售均价
+           case when  sum( ld.zksmj * 1.0 - ld.ysmj * 1.0 ) over( PARTITION BY ld.projguid, ld.ProductType )  =0  then 0
+              else sum( ld.syhz ) over( PARTITION BY ld.projguid, ld.ProductType )/
+             sum( ld.zksmj * 1.0 - ld.ysmj * 1.0) over( PARTITION BY ld.projguid, ld.ProductType ) end as   业态待售均价 ---- 业态均价：同项目同产品类型的已售均价
     INTO #hz
     FROM dbo.p_lddbamj ld WITH(NOLOCK)
     INNER JOIN #p p ON p.ProjGUID = ld.ProjGUID
@@ -1699,7 +1702,7 @@ BEGIN
            BA.近六月签约金额不含税,
            BA.近六月签约面积,
            ms.ztguid,
-           ms.是否停工,
+           case when isnull(ms.是否停工,'') ='' then  '正常' else  ms.是否停工 end 是否停工,
            ldst.st AS 项目首推时间,
            CASE WHEN ldlist.bldguid IS NULL THEN '否' ELSE '是' END AS 首开楼栋标签,
            ldst.首开30天签约套数,
@@ -1721,11 +1724,15 @@ BEGIN
            zs.持有面积,
            -- 同项目同业态的已售均价
            hz.业态均价 as 业态均价,
-           --持有货值:持有面积*平年签约均价或业态均价 
+           hz.业态待售均价 as 业态待售均价,
+           --持有货值:持有面积*平年签约均价
+           -- 若楼栋有本年签约均价取本年签约均价，若无则取预测价(不取业态均价了)
            case  when isnull(hz.本年签约均价,0) <>0 then  isnull(zs.持有面积,0) * isnull(hz.本年签约均价,0) 
-                 when isnull(hz.业态均价,0) <>0  then   isnull(zs.持有面积,0) * isnull(hz.业态均价,0) 
-                 else  case when ms.ProductType ='地下室/车库' then  isnull(zs.持有套数,0) * isnull(hz.预测单价,0) /10000.0   
+                --  when isnull(hz.业态均价,0) <>0  then   isnull(zs.持有面积,0) * isnull(hz.业态均价,0) 
+                 when isnull(hz.预测单价,0) <> 0 then  
+                 case when ms.ProductType ='地下室/车库' then  isnull(zs.持有套数,0) * isnull(hz.预测单价,0) /10000.0   
                  else  isnull(zs.持有面积,0) * isnull(hz.预测单价,0)  end  
+                 else  isnull(zs.持有面积,0) * isnull(hz.业态待售均价,0)          
            end as 持有货值,
 
            BA.土地款单方 * (mj.自持面积 + mj.可售面积) / 10000.0 AS 土地分摊金额,
@@ -1764,7 +1771,7 @@ BEGIN
            ISNULL(mj.地上自持面积, 0) AS 地上自持面积,
            ISNULL(mj.地上自持可售面积, 0) AS 地上可售面积地上自持面积,
 
-           -- 反算总货值 本年签约均价>业态均价>预测单价
+           -- 反算总货值 本年签约均价>预测单价>业态待售均价
            ISNULL(hz.动态总货值 / 10000.0, 0) +
            ISNULL(
                CASE
@@ -1775,14 +1782,8 @@ BEGIN
                    THEN
                        ISNULL(zs.持有面积, 0) * ISNULL(hz.本年签约均价, 0)
 
-                   WHEN ISNULL(hz.业态均价, 0) <> 0
+                   WHEN ISNULL(hz.预测单价, 0) <> 0
                         AND ms.ProductType NOT IN ('公建配套', '后勤区', '会所', '会展', '剧院', '其他', '学校', '养老', '酒店', '体育馆')
-                        AND ms.ProductName NOT IN ('人防车位', '人防车库')
-                        AND ms.BusinessType NOT IN ('还建房', '回迁房', '廉租房')
-                   THEN
-                       ISNULL(zs.持有面积, 0) * ISNULL(hz.业态均价, 0)
-
-                   WHEN ms.ProductType NOT IN ('公建配套', '后勤区', '会所', '会展', '剧院', '其他', '学校', '养老', '酒店', '体育馆')
                         AND ms.ProductName NOT IN ('人防车位', '人防车库')
                         AND ms.BusinessType NOT IN ('还建房', '回迁房', '廉租房')
                    THEN
@@ -1792,6 +1793,11 @@ BEGIN
                            ELSE
                                ISNULL(zs.持有面积, 0) * ISNULL(hz.预测单价, 0)
                        END
+                   WHEN ms.ProductType NOT IN ('公建配套', '后勤区', '会所', '会展', '剧院', '其他', '学校', '养老', '酒店', '体育馆')
+                        AND ms.ProductName NOT IN ('人防车位', '人防车库')
+                        AND ms.BusinessType NOT IN ('还建房', '回迁房', '廉租房')
+                   THEN
+                        ISNULL(zs.持有面积, 0) * ISNULL(hz.业态待售均价, 0)
                END,
                0
            ) AS 反算总货值_总货值, -- 动态总可售货值+持有货值
@@ -1826,14 +1832,8 @@ BEGIN
                    THEN
                        ISNULL(zs.持有面积, 0) * ISNULL(hz.本年签约均价, 0)
 
-                   WHEN ISNULL(hz.业态均价, 0) <> 0
+                   WHEN ISNULL(hz.预测单价, 0) <> 0
                         AND ms.ProductType NOT IN ('公建配套', '后勤区', '会所', '会展', '剧院', '其他', '学校', '养老', '酒店', '体育馆')
-                        AND ms.ProductName NOT IN ('人防车位', '人防车库')
-                        AND ms.BusinessType NOT IN ('还建房', '回迁房', '廉租房')
-                   THEN
-                       ISNULL(zs.持有面积, 0) * ISNULL(hz.业态均价, 0)
-
-                   WHEN ms.ProductType NOT IN ('公建配套', '后勤区', '会所', '会展', '剧院', '其他', '学校', '养老', '酒店', '体育馆')
                         AND ms.ProductName NOT IN ('人防车位', '人防车库')
                         AND ms.BusinessType NOT IN ('还建房', '回迁房', '廉租房')
                    THEN
@@ -1843,6 +1843,12 @@ BEGIN
                            ELSE
                                ISNULL(zs.持有面积, 0) * ISNULL(hz.预测单价, 0)
                        END
+
+                   WHEN ms.ProductType NOT IN ('公建配套', '后勤区', '会所', '会展', '剧院', '其他', '学校', '养老', '酒店', '体育馆')
+                        AND ms.ProductName NOT IN ('人防车位', '人防车库')
+                        AND ms.BusinessType NOT IN ('还建房', '回迁房', '廉租房')
+                   THEN
+                        ISNULL(zs.持有面积, 0) * ISNULL(hz.业态待售均价, 0)          
                END,
                0
            ) AS 反算总货值_剩余货值, -- 待售货值+持有货值
@@ -1983,9 +1989,9 @@ BEGIN
             CASE WHEN 实际开工完成日期 IS NOT NULL THEN 反算总货值_剩余套数 ELSE 0 END AS 已开工情况_已开工未售套数, -- 已开工的反算剩余面积
             -- 存货情况
             -- 计算已达到预售形象的存货情况
-            CASE WHEN 实际开工完成日期 IS NOT NULL AND 达到预售形象完成日期 IS NOT NULL THEN 反算总货值_剩余货值 ELSE 0 END AS 存货情况_存货货值, -- 达预售形象的反算剩余货值
-            CASE WHEN 实际开工完成日期 IS NOT NULL AND 达到预售形象完成日期 IS NOT NULL THEN 反算总货值_剩余面积 ELSE 0 END AS 存货情况_存货面积, -- 达预售形象的反算剩余面积
-            CASE WHEN 实际开工完成日期 IS NOT NULL AND 达到预售形象完成日期 IS NOT NULL THEN 反算总货值_剩余套数 ELSE 0 END AS 存货情况_存货套数, -- 达预售形象的反算剩余面积
+            CASE WHEN  实际开工完成日期 IS NOT NULL AND 达到预售形象完成日期 IS NOT NULL THEN 反算总货值_剩余货值 ELSE 0 END AS 存货情况_存货货值, -- 达预售形象的反算剩余货值
+            CASE WHEN  实际开工完成日期 IS NOT NULL AND 达到预售形象完成日期 IS NOT NULL THEN 反算总货值_剩余面积 ELSE 0 END AS 存货情况_存货面积, -- 达预售形象的反算剩余面积
+            CASE WHEN  实际开工完成日期 IS NOT NULL AND 达到预售形象完成日期 IS NOT NULL THEN 反算总货值_剩余套数 ELSE 0 END AS 存货情况_存货套数, -- 达预售形象的反算剩余面积
             -- 自持情况
             -- 计算自持资产的货值和面积
             CASE WHEN 赛道图标签 IN ('D1-已开业未融资','D2-已开业已融资','D3-未开业') THEN 反算总货值_剩余货值 ELSE 0 END 
@@ -2007,9 +2013,9 @@ BEGIN
             
             -- 未开工情况
             -- 计算尚未开工项目的情况
-            CASE WHEN 实际开工完成日期 IS NULL THEN 反算总货值_剩余货值 ELSE 0 END AS 未开工情况_未开工货值, -- 尚未开工的反算剩余货值
-            CASE WHEN 实际开工完成日期 IS NULL THEN 反算总货值_剩余面积 ELSE 0 END AS 未开工情况_未开工面积, -- 尚未开工的反算剩余面积
-            CASE WHEN 实际开工完成日期 IS NULL THEN 反算总货值_剩余套数 ELSE 0 END AS 未开工情况_未开工套数, -- 尚未开工的反算剩余面积   
+            CASE WHEN 实际开工完成日期 IS NULL and 是否开工 ='否' and  是否停工 not  in ('停工','缓建') THEN 反算总货值_剩余货值 ELSE 0 END AS 未开工情况_未开工货值, -- 尚未开工的反算剩余货值
+            CASE WHEN 实际开工完成日期 IS NULL and 是否开工 ='否' and  是否停工 not  in ('停工','缓建') THEN 反算总货值_剩余面积 ELSE 0 END AS 未开工情况_未开工面积, -- 尚未开工的反算剩余面积
+            CASE WHEN 实际开工完成日期 IS NULL and 是否开工 ='否' and  是否停工 not  in ('停工','缓建') THEN 反算总货值_剩余套数 ELSE 0 END AS 未开工情况_未开工套数, -- 尚未开工的反算剩余面积   
 
             -- 分货情况
             -- 计算处置后去向为分货的项目情况
@@ -2081,71 +2087,77 @@ BEGIN
             case when 处置后去向 ='退换调转' then 反算总货值_剩余货值 else 0  end as 处置后退换调转剩余货值,
             case when 处置后去向 ='退换调转' then 反算总货值_剩余套数 else 0  end as 处置后退换调转剩余套数,
 
-            case when 处置后去向 ='正常销售' then 反算总货值_剩余面积 else 0  end as 处置后正常销售剩余面积,
-            case when 处置后去向 ='正常销售' then 反算总货值_剩余货值 else 0  end as 处置后正常销售剩余货值,
-            case when 处置后去向 ='正常销售' then 反算总货值_剩余套数 else 0  end as 处置后正常销售剩余套数,
+            isnull(case when 处置后去向 = '正常销售' then 反算总货值_剩余面积 else 0  end,0) +
+               isnull(case when 处置后去向 ='分货' then 反算总货值_剩余面积 * (1 - 股权比例 / 100.0) end,0)  as 处置后正常销售剩余面积,
+            isnull(case when 处置后去向 = '正常销售' then 反算总货值_剩余货值 else 0  end,0)  + 
+               isnull(case when 处置后去向 ='分货' then 反算总货值_剩余货值 * (1 - 股权比例 / 100.0) end,0)  as 处置后正常销售剩余货值,
+            isnull(case when 处置后去向 = '正常销售' then 反算总货值_剩余套数 else 0  end,0) +
+               isnull(case when 处置后去向 ='分货' then 反算总货值_剩余套数 * (1 - 股权比例 / 100.0) end,0)  as 处置后正常销售剩余套数,
 
-            case when 处置后去向 ='转经营' then 反算总货值_剩余面积 else 0  end as 处置后转经营剩余面积,
-            case when 处置后去向 ='转经营' then 反算总货值_剩余货值 else 0  end as 处置后转经营剩余货值,
-            case when 处置后去向 ='转经营' then 反算总货值_剩余套数 else 0  end as 处置后转经营剩余套数,
+            isnull(case when 处置后去向 ='转经营' then 反算总货值_剩余面积 else 0  end,0) +
+               isnull(CASE WHEN 处置后去向 = '分货' THEN 反算总货值_剩余面积 * 股权比例 / 100.0 ELSE 0 END,0)   as 处置后转经营剩余面积,
+            isnull(case when 处置后去向 ='转经营' then 反算总货值_剩余货值 else 0  end,0) +
+               isnull(CASE WHEN 处置后去向 = '分货' THEN 反算总货值_剩余货值 * 股权比例 / 100.0 ELSE 0 END,0)    as 处置后转经营剩余货值,
+            isnull(case when 处置后去向 ='转经营' then 反算总货值_剩余套数 else 0  end,0) +
+               isnull(CASE WHEN 处置后去向 = '分货' THEN 反算总货值_剩余套数 * 股权比例 / 100.0 ELSE 0 END,0)  as 处置后转经营剩余套数,
 
             case when 处置后去向 ='尾盘' then 反算总货值_剩余面积 else 0  end as 处置后尾盘剩余面积,
             case when 处置后去向 ='尾盘' then 反算总货值_剩余货值 else 0  end as 处置后尾盘剩余货值,
             case when 处置后去向 ='尾盘' then 反算总货值_剩余套数 else 0  end as 处置后尾盘剩余套数,
             
 
-            case when 是否开工 ='是' and  是否停工 ='否' and 推售状态 ='是' then 反算总货值_剩余面积 else 0 end  as 已开工剩余货量_已推未售剩余面积, --已推未售的已开工反算剩余资源
-            case when 是否开工 ='是' and  是否停工 ='否' and 推售状态 ='是' then 反算总货值_剩余货值  else 0 end  as 已开工剩余货量_已推未售剩余货值,
-            case when 是否开工 ='是' and  是否停工 ='否' and 推售状态 ='是' then 反算总货值_剩余套数 else 0 end  as 已开工剩余货量_已推未售剩余套数,
+            case when 是否开工 ='是' and 推售状态 ='是' then 反算总货值_剩余面积 else 0 end  as 已开工剩余货量_已推未售剩余面积, --已推未售的已开工反算剩余资源
+            case when 是否开工 ='是' and 推售状态 ='是' then 反算总货值_剩余货值  else 0 end  as 已开工剩余货量_已推未售剩余货值,
+            case when 是否开工 ='是' and 推售状态 ='是' then 反算总货值_剩余套数 else 0 end  as 已开工剩余货量_已推未售剩余套数,
 
-            case when 是否开工 ='是' and  是否停工 ='否' and 推售状态 ='否' and  预售办理完成日期  is not null  then 反算总货值_剩余面积 else 0 end  已开工剩余货量_获证待推剩余面积, -- 获证待推的已开工反算剩余资源
-            case when 是否开工 ='是' and  是否停工 ='否' and 推售状态 ='否' and  预售办理完成日期  is not null  then 反算总货值_剩余货值 else 0 end 已开工剩余货量_获证待推剩余货值,
-            case when 是否开工 ='是' and  是否停工 ='否' and 推售状态 ='否' and  预售办理完成日期  is not null  then 反算总货值_剩余套数 else 0 end  已开工剩余货量_获证待推剩余套数,
+            case when 是否开工 ='是' and 推售状态 ='否' and  预售办理完成日期  is not null  then 反算总货值_剩余面积 else 0 end  已开工剩余货量_获证待推剩余面积, -- 获证待推的已开工反算剩余资源
+            case when 是否开工 ='是' and 推售状态 ='否' and  预售办理完成日期  is not null  then 反算总货值_剩余货值 else 0 end 已开工剩余货量_获证待推剩余货值,
+            case when 是否开工 ='是' and 推售状态 ='否' and  预售办理完成日期  is not null  then 反算总货值_剩余套数 else 0 end  已开工剩余货量_获证待推剩余套数,
 
-            case when 是否开工 ='是' and  是否停工 ='否' and  预售办理完成日期 is null and 达到预售形象完成日期 is not null  then  反算总货值_剩余面积 else  0  end 已开工剩余货量_达形象未取证剩余面积, --达形象未取证的已开工反算剩余资源
-            case when 是否开工 ='是' and  是否停工 ='否' and  预售办理完成日期 is null and 达到预售形象完成日期 is not null  then  反算总货值_剩余货值 else  0  end 已开工剩余货量_达形象未取证剩余货值,
-            case when 是否开工 ='是' and  是否停工 ='否' and  预售办理完成日期 is null and 达到预售形象完成日期 is not null  then  反算总货值_剩余套数 else  0  end 已开工剩余货量_达形象未取证剩余套数,
+            case when 是否开工 ='是' and  预售办理完成日期 is null and 达到预售形象完成日期 is not null  then  反算总货值_剩余面积 else  0  end 已开工剩余货量_达形象未取证剩余面积, --达形象未取证的已开工反算剩余资源
+            case when 是否开工 ='是' and  预售办理完成日期 is null and 达到预售形象完成日期 is not null  then  反算总货值_剩余货值 else  0  end 已开工剩余货量_达形象未取证剩余货值,
+            case when 是否开工 ='是' and  预售办理完成日期 is null and 达到预售形象完成日期 is not null  then  反算总货值_剩余套数 else  0  end 已开工剩余货量_达形象未取证剩余套数,
 
-            case when 是否开工 ='是' and  是否停工 ='否' and  达到预售形象完成日期 IS NULL  then  反算总货值_剩余面积 else  0  end 已开工剩余货量_正常在途剩余面积,
-            case when 是否开工 ='是' and  是否停工 ='否' and  达到预售形象完成日期 IS NULL  then  反算总货值_剩余货值 else  0  end 已开工剩余货量_正常在途剩余货值,
-            case when 是否开工 ='是' and  是否停工 ='否' and  达到预售形象完成日期 IS NULL  then  反算总货值_剩余套数 else  0  end 已开工剩余货量_正常在途剩余套数,
+            case when 是否开工 ='是' and  是否停工 not in ('停工','缓建') and  达到预售形象完成日期 IS NULL  then  反算总货值_剩余面积 else  0  end 已开工剩余货量_正常在途剩余面积,
+            case when 是否开工 ='是' and  是否停工 not in ('停工','缓建') and  达到预售形象完成日期 IS NULL  then  反算总货值_剩余货值 else  0  end 已开工剩余货量_正常在途剩余货值,
+            case when 是否开工 ='是' and  是否停工 not in ('停工','缓建') and  达到预售形象完成日期 IS NULL  then  反算总货值_剩余套数 else  0  end 已开工剩余货量_正常在途剩余套数,
 
-            case when 是否开工 ='是' and  是否停工 ='是' and  达到预售形象完成日期 IS NULL  then  反算总货值_剩余面积 else  0  end 已开工剩余货量_停工缓建在途剩余面积,
-            case when 是否开工 ='是' and  是否停工 ='是' and  达到预售形象完成日期 IS NULL  then  反算总货值_剩余货值 else  0  end 已开工剩余货量_停工缓建在途剩余货值,
-            case when 是否开工 ='是' and  是否停工 ='是' and  达到预售形象完成日期 IS NULL  then  反算总货值_剩余套数 else  0  end 已开工剩余货量_停工缓建在途剩余套数,
+            case when 是否开工 ='是' and  是否停工 in ('停工','缓建') and  达到预售形象完成日期 IS NULL  then  反算总货值_剩余面积 else  0  end 已开工剩余货量_停工缓建在途剩余面积,
+            case when 是否开工 ='是' and  是否停工 in ('停工','缓建') and  达到预售形象完成日期 IS NULL  then  反算总货值_剩余货值 else  0  end 已开工剩余货量_停工缓建在途剩余货值,
+            case when 是否开工 ='是' and  是否停工 in ('停工','缓建') and  达到预售形象完成日期 IS NULL  then  反算总货值_剩余套数 else  0  end 已开工剩余货量_停工缓建在途剩余套数,
 
-            case when 是否开工 ='否' and  是否停工 ='是' then  反算总货值_剩余面积 else  0  end 未开工剩余货量_停工缓建剩余面积,
-            case when 是否开工 ='否' and  是否停工 ='是' then  反算总货值_剩余货值 else  0  end 未开工剩余货量_停工缓建剩余货值,
-            case when 是否开工 ='否' and  是否停工 ='是' then  反算总货值_剩余套数 else  0  end 未开工剩余货量_停工缓建剩余套数,
+            case when 是否开工 ='否' and  是否停工 in ('停工','缓建') then  反算总货值_剩余面积 else  0  end 未开工剩余货量_停工缓建剩余面积,
+            case when 是否开工 ='否' and  是否停工 in ('停工','缓建') then  反算总货值_剩余货值 else  0  end 未开工剩余货量_停工缓建剩余货值,
+            case when 是否开工 ='否' and  是否停工 in ('停工','缓建') then  反算总货值_剩余套数 else  0  end 未开工剩余货量_停工缓建剩余套数,
 
             -- 预计三年内开工：实际开工完成日期在未来三年内，且未开工、未停工
-            case when 是否开工 ='否' and 是否停工 ='否'  and 实际开工计划日期 is not null  and datediff(year, getdate(), 实际开工计划日期) between 0 and 3 
+            case when 是否开工 ='否' and 是否停工  not in ('停工','缓建')  and 实际开工计划日期 is not null  and datediff(year, getdate(), 实际开工计划日期) between 0 and 3 
                 then 反算总货值_剩余面积 else 0 end 未开工剩余货量_预计三年内开工剩余面积,
-            case when 是否开工 ='否' and 是否停工 ='否' and 实际开工计划日期 is not null  and datediff(year, getdate(), 实际开工计划日期) between 0 and 3 
+            case when 是否开工 ='否' and 是否停工 not in ('停工','缓建') and 实际开工计划日期 is not null  and datediff(year, getdate(), 实际开工计划日期) between 0 and 3 
                 then 反算总货值_剩余货值 else 0 end 未开工剩余货量_预计三年内开工剩余货值,
-            case when 是否开工 ='否' and 是否停工 ='否'  and 实际开工计划日期 is not null and datediff(year, getdate(), 实际开工计划日期) between 0 and 3 
+            case when 是否开工 ='否' and 是否停工 not in ('停工','缓建')  and 实际开工计划日期 is not null and datediff(year, getdate(), 实际开工计划日期) between 0 and 3 
                 then 反算总货值_剩余套数 else 0 end 未开工剩余货量_预计三年内开工剩余套数,
 
-            case when 是否开工 ='否' and  是否停工 ='否' and 实际开工计划日期 is not null  and datediff(year, getdate(), 实际开工计划日期) >3 then  反算总货值_剩余面积 else  0  end 未开工剩余货量_预计三年后开工剩余面积,
-            case when 是否开工 ='否' and  是否停工 ='否' and 实际开工计划日期 is not null  and datediff(year, getdate(), 实际开工计划日期) >3 then  反算总货值_剩余货值 else  0  end 未开工剩余货量_预计三年后开工剩余货值,
-            case when 是否开工 ='否' and  是否停工 ='否' and 实际开工计划日期 is not null  and datediff(year, getdate(), 实际开工计划日期) >3 then  反算总货值_剩余套数 else  0  end 未开工剩余货量_预计三年后开工剩余套数,
+            case when 是否开工 ='否' and  是否停工 not in ('停工','缓建') and 实际开工计划日期 is not null  and datediff(year, getdate(), 实际开工计划日期) >3 then  反算总货值_剩余面积 else  0  end 未开工剩余货量_预计三年后开工剩余面积,
+            case when 是否开工 ='否' and  是否停工 not in ('停工','缓建') and 实际开工计划日期 is not null  and datediff(year, getdate(), 实际开工计划日期) >3 then  反算总货值_剩余货值 else  0  end 未开工剩余货量_预计三年后开工剩余货值,
+            case when 是否开工 ='否' and  是否停工 not in ('停工','缓建') and 实际开工计划日期 is not null  and datediff(year, getdate(), 实际开工计划日期) >3 then  反算总货值_剩余套数 else  0  end 未开工剩余货量_预计三年后开工剩余套数,
 
             -- 新增字段 建设状态
-            case when 是否开工 ='是' and  竣备情况 ='是' then  反算总货值_剩余面积 else  0  end 建设状态_已竣备剩余面积,
-            case when 是否开工 ='是' and  竣备情况 ='是' then  反算总货值_剩余货值 else  0  end 建设状态_已竣备剩余货值,
-            case when 是否开工 ='是' and  竣备情况 ='是' then  反算总货值_剩余套数 else  0  end 建设状态_已竣备剩余套数,
+            case when 是否开工 ='是' and  竣备情况 ='是' and  是否停工 not in ('停工','缓建')  then  反算总货值_剩余面积 else  0  end 建设状态_已竣备剩余面积,
+            case when 是否开工 ='是' and  竣备情况 ='是' and  是否停工 not in ('停工','缓建')  then  反算总货值_剩余货值 else  0  end 建设状态_已竣备剩余货值,
+            case when 是否开工 ='是' and  竣备情况 ='是' and  是否停工 not in ('停工','缓建')  then  反算总货值_剩余套数 else  0  end 建设状态_已竣备剩余套数,
 
-            case when 是否开工 ='是' and  竣备情况 ='否' and 达到预售形象完成日期 is not null   then  反算总货值_剩余面积 else  0  end 建设状态_已达形象未达竣备剩余面积, --已达预售形象尚未竣备的反算剩余资源
-            case when 是否开工 ='是' and  竣备情况 ='否' and 达到预售形象完成日期 is not null   then  反算总货值_剩余货值 else  0  end 建设状态_已达形象未达竣备剩余货值,
-            case when 是否开工 ='是' and  竣备情况 ='否' and 达到预售形象完成日期 is not null   then  反算总货值_剩余套数 else  0  end 建设状态_已达形象未达竣备剩余套数,      
+            case when 是否开工 ='是' and  竣备情况 ='否' and 达到预售形象完成日期 is not null and  是否停工 not in ('停工','缓建')   then  反算总货值_剩余面积 else  0  end 建设状态_已达形象未达竣备剩余面积, --已达预售形象尚未竣备的反算剩余资源
+            case when 是否开工 ='是' and  竣备情况 ='否' and 达到预售形象完成日期 is not null and  是否停工 not in ('停工','缓建')   then  反算总货值_剩余货值 else  0  end 建设状态_已达形象未达竣备剩余货值,
+            case when 是否开工 ='是' and  竣备情况 ='否' and 达到预售形象完成日期 is not null and  是否停工 not in ('停工','缓建')   then  反算总货值_剩余套数 else  0  end 建设状态_已达形象未达竣备剩余套数,      
 
-            case when 是否开工 ='是' and  达到预售形象完成日期 is null then  反算总货值_剩余面积 else  0  end 建设状态_已开工未达形象剩余面积,
-            case when 是否开工 ='是' and  达到预售形象完成日期 is null then  反算总货值_剩余货值 else  0  end 建设状态_已开工未达形象剩余货值,
-            case when 是否开工 ='是' and  达到预售形象完成日期 is null then  反算总货值_剩余套数 else  0  end 建设状态_已开工未达形象剩余套数,
+            case when 是否开工 ='是' and  达到预售形象完成日期 is null and  是否停工 not in ('停工','缓建')  then  反算总货值_剩余面积 else  0  end 建设状态_已开工未达形象剩余面积,
+            case when 是否开工 ='是' and  达到预售形象完成日期 is null and  是否停工 not in ('停工','缓建')  then  反算总货值_剩余货值 else  0  end 建设状态_已开工未达形象剩余货值,
+            case when 是否开工 ='是' and  达到预售形象完成日期 is null and  是否停工 not in ('停工','缓建')  then  反算总货值_剩余套数 else  0  end 建设状态_已开工未达形象剩余套数,
 
-            case when 是否停工 ='是' then  反算总货值_剩余面积 else  0  end 建设状态_停工缓建剩余面积,
-            case when 是否停工 ='是' then  反算总货值_剩余货值 else  0  end 建设状态_停工缓建剩余货值,
-            case when 是否停工 ='是' then  反算总货值_剩余套数 else  0  end 建设状态_停工缓建剩余套数       
+            case when 是否停工 in ('停工','缓建') then  反算总货值_剩余面积 else  0  end 建设状态_停工缓建剩余面积,
+            case when 是否停工 in ('停工','缓建') then  反算总货值_剩余货值 else  0  end 建设状态_停工缓建剩余货值,
+            case when 是否停工 in ('停工','缓建') then  反算总货值_剩余套数 else  0  end 建设状态_停工缓建剩余套数       
     into  #result
     FROM #rest
     where  管理方式 <>'代建'
@@ -2476,6 +2488,7 @@ BEGIN
         rst.[处置后去向],
         rst.[业态六分类],
         rst.[业态均价],
+        rst.[业态待售均价],
         rst.[管理方式]
     INTO #temp_result
     FROM [172.16.4.161].highdata_prod.dbo.data_wide_dws_s_WqBaseStatic_Organization org
@@ -2809,6 +2822,7 @@ BEGIN
         null as [处置后去向],
         null as [业态六分类],
         null as [业态均价],
+        NULL as [业态待售均价],
         null as [管理方式]
     from  [172.16.4.161].highdata_prod.dbo.data_wide_dws_s_WqBaseStatic_Organization org
     LEFT JOIN #result rst ON rst.项目GUID = org.组织架构id
@@ -3169,6 +3183,7 @@ BEGIN
         null as [处置后去向],
         null as [业态六分类],
         null as [业态均价],
+        NULL as [业态待售均价],
         null as [管理方式]
     FROM 
         [172.16.4.161].highdata_prod.dbo.data_wide_dws_s_WqBaseStatic_Organization o 
