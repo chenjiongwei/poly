@@ -1,6 +1,3 @@
--- 目标成本存储过程 usp_cb_GetFirstProjTargetStageCost_New  项目 
--- 目标成本分期存储过程 usp_cb_GetTargetStageCost_New 分期
-
 SELECT  dtDetails.RecollectDetailsGUID AS MonthlyReviewGUID , --月度回顾明细GUID 
 		dtDetails.RecollectDetailsGUID, --月度回顾明细GUID 
         dtDetails.RecollectGUID AS ReviewGUID , --RecollectGUID字段       
@@ -102,42 +99,73 @@ SELECT  dtDetails.RecollectDetailsGUID AS MonthlyReviewGUID , --月度回顾明�
         dtcr.CreateUserName,
         dtcr.ApproveState
 FROM    cb_DtCostRecollectDetails AS dtDetails
-        inner join cb_DtCostRecollect dtc on dtDetails.RecollectGUID = dtc.RecollectGUID
-        left JOIN cb_DtCostRecollectProduct AS dtcrProduct ON dtcrProduct.RecollectGUID = dtDetails.RecollectGUID   AND dtcrProduct.ProductGUID = dtDetails.YtGUID
-        INNER JOIN (		
-            	SELECT RecollectGUID,ProjectGUID,LastVersion,CurVersion,RecollectDate,convert(varchar(2000),Remarks) as Remarks,ApproveState,JcRemark,CreateUserName,
-				ROW_NUMBER() over(PARTITION BY ProjectGUID ORDER BY RecollectDate desc) AS num,'本年最新已审核拍照版本' as VersionType
-				FROM cb_DTCostRecollect 
-                WHERE 1=1 and  DATEDIFF(YEAR, RecollectDate, GETDATE()) = 0  and  ApproveState='已审核' -- or CreateUserName = '系统管理员'
-                union 
-                SELECT RecollectGUID,ProjectGUID,LastVersion,CurVersion,RecollectDate,convert(varchar(2000),Remarks) as Remarks,ApproveState,JcRemark,CreateUserName,
-				ROW_NUMBER() over(PARTITION BY ProjectGUID ORDER BY RecollectDate desc) AS num,'本年最新拍照版本' as VersionType
-				FROM cb_DTCostRecollect 
-                WHERE 1=1 and  DATEDIFF(YEAR, RecollectDate, GETDATE()) = 0  and  
-                not exists (
-                    select  1 from cb_DTCostRecollect dt where DATEDIFF(YEAR, dt.RecollectDate, GETDATE()) = 0  and  dt.ApproveState='已审核'
-                    and  dt.RecollectGUID = cb_DTCostRecollect.RecollectGUID
-                ) -- or CreateUserName = '系统管理员'
-                union 
-                SELECT RecollectGUID,ProjectGUID,LastVersion,CurVersion,RecollectDate,convert(varchar(2000),Remarks) as Remarks,ApproveState,JcRemark,CreateUserName,
-				ROW_NUMBER() over(PARTITION BY ProjectGUID ORDER BY RecollectDate ) AS num,'去年12月拍照版本' as VersionType
-				FROM cb_DTCostRecollect WHERE 1=1 AND DATEDIFF(YEAR, RecollectDate, GETDATE()) = 1 AND MONTH(RecollectDate) = 12   
-                union   
-                SELECT RecollectGUID,ProjectGUID,LastVersion,CurVersion,RecollectDate,convert(varchar(2000),Remarks) as Remarks,ApproveState,JcRemark,CreateUserName,
-				ROW_NUMBER() over(PARTITION BY ProjectGUID ORDER BY RecollectDate ) AS num,'历史拍照版本' as VersionType
-				FROM cb_DTCostRecollect WHERE 1=1 and  DATEDIFF(YEAR, RecollectDate, GETDATE()) >=1 AND MONTH(RecollectDate) <> 12
-		) AS dtcr  ON dtcr.ProjectGUID = dtc.ProjectGUID AND dtcr.RecollectGUID = dtc.RecollectGUID  AND dtcr.num =1
-        LEFT JOIN cb_ProductYt AS productYt ON productYt.ProductYtGUID = dtcrProduct.ProductGUID 
-        outer  apply (
-			SELECT top 1 ProjGUID,CbYtCode,ProductCode,ProductGUID,ProductName,BProductTypeName 
-			FROM cb_Product product
-			where  product.ProjGUID = productYt.ProjGUID AND product.CbYtCode = productYt.CbYtCode
-			ORDER BY OrderNo desc
-		) product 
-        LEFT JOIN myBizParamOption AS myOption ON myOption.ParamName = 'md_ProductType'
-                                                  AND myOption.ParamValue = product.BProductTypeName
-        LEFT JOIN md_ProductNameModule AS mdModule ON mdModule.ProductNameCode = product.ProductCode
-        LEFT JOIN p_Project AS p ON p.ProjGUID = dtc.ProjectGUID
-        LEFT JOIN cb_ProjYtSet AS projYtSet ON projYtSet.ProjGUID = productYt.ProjGUID
-                                               AND projYtSet.YtCode = productYt.CbYtCode
+inner join cb_DtCostRecollect dtc on dtDetails.RecollectGUID = dtc.RecollectGUID
+left JOIN cb_DtCostRecollectProduct AS dtcrProduct ON dtcrProduct.RecollectGUID = dtDetails.RecollectGUID   AND dtcrProduct.ProductGUID = dtDetails.YtGUID
+INNER JOIN (	
+        select t.*, row_number() over(partition by ProjectGUID, RecollectGUID order by versionPx) as rn from (	
+        SELECT RecollectGUID,ProjectGUID,LastVersion,CurVersion,RecollectDate,convert(varchar(2000),Remarks) as Remarks,ApproveState,JcRemark,CreateUserName,
+        ROW_NUMBER() over(PARTITION BY ProjectGUID ORDER BY RecollectDate desc) AS num,
+        '本年最新已审核拍照版本' as VersionType,
+        1 versionPx
+        FROM cb_DTCostRecollect 
+        WHERE 1=1 and  DATEDIFF(YEAR, RecollectDate, GETDATE()) = 0  and  ApproveState='已审核' -- or CreateUserName = '系统管理员'
+        UNION
+        --取上月已审核非系统管理员拍照版本
+        SELECT RecollectGUID,ProjectGUID,LastVersion,CurVersion,RecollectDate,convert(varchar(2000),Remarks) as Remarks,ApproveState,JcRemark,CreateUserName,
+        ROW_NUMBER() over(PARTITION BY ProjectGUID ORDER BY RecollectDate desc) AS num,
+        '上月已审核非系统管理员拍照版本' as VersionType,
+        2 versionPx
+        FROM cb_DTCostRecollect 
+        WHERE 1=1 and  DATEDIFF(mm, RecollectDate, GETDATE()) = 1  and  ApproveState='已审核' and CreateUserName <> '系统管理员'
+        and RecollectGUID not in (
+            SELECT RecollectGUID
+            FROM (
+                SELECT RecollectGUID,
+                    ROW_NUMBER() over(PARTITION BY ProjectGUID ORDER BY RecollectDate desc) AS num,
+                    '本年最新已审核拍照版本' as VersionType
+                FROM cb_DTCostRecollect 
+                WHERE 1=1 and  DATEDIFF(YEAR, RecollectDate, GETDATE()) = 0  and  ApproveState='已审核'
+            ) t where t.num = 1
+        ) -- or CreateUserName = '系统管理员'
+        union 
+        SELECT RecollectGUID,ProjectGUID,LastVersion,CurVersion,RecollectDate,convert(varchar(2000),Remarks) as Remarks,ApproveState,JcRemark,CreateUserName,
+        ROW_NUMBER() over(PARTITION BY ProjectGUID ORDER BY RecollectDate desc) AS num,
+        '本年最新拍照版本' as VersionType,
+        3 versionPx
+        FROM cb_DTCostRecollect 
+        WHERE 1=1 and  DATEDIFF(YEAR, RecollectDate, GETDATE()) = 0    
+        and not exists (
+            select  1 from cb_DTCostRecollect dt where DATEDIFF(YEAR, dt.RecollectDate, GETDATE()) = 0  and  dt.ApproveState='已审核'
+            and  dt.RecollectGUID = cb_DTCostRecollect.RecollectGUID
+        ) -- or CreateUserName = '系统管理员'
+        and not exists (
+            select  1 from cb_DTCostRecollect dt where DATEDIFF(mm, dt.RecollectDate, GETDATE()) = 1  and  dt.ApproveState='已审核' and CreateUserName <> '系统管理员'
+            and  dt.RecollectGUID = cb_DTCostRecollect.RecollectGUID
+        ) -- or CreateUserName = '系统管理员'
+        union 
+        SELECT RecollectGUID,ProjectGUID,LastVersion,CurVersion,RecollectDate,convert(varchar(2000),Remarks) as Remarks,ApproveState,JcRemark,CreateUserName,
+        ROW_NUMBER() over(PARTITION BY ProjectGUID ORDER BY RecollectDate ) AS num,
+        '去年12月拍照版本' as VersionType,
+        4 versionPx
+        FROM cb_DTCostRecollect WHERE 1=1 AND DATEDIFF(YEAR, RecollectDate, GETDATE()) = 1 AND MONTH(RecollectDate) = 12   
+        union   
+        SELECT RecollectGUID,ProjectGUID,LastVersion,CurVersion,RecollectDate,convert(varchar(2000),Remarks) as Remarks,ApproveState,JcRemark,CreateUserName,
+        ROW_NUMBER() over(PARTITION BY ProjectGUID ORDER BY RecollectDate desc) AS num,
+        '历史拍照版本' as VersionType,
+        5 versionPx
+        FROM cb_DTCostRecollect WHERE 1=1 and  DATEDIFF(YEAR, RecollectDate, GETDATE()) >=1 
+        AND MONTH(RecollectDate) <> 12) t 
+) AS dtcr  ON dtcr.ProjectGUID = dtc.ProjectGUID AND dtcr.RecollectGUID = dtc.RecollectGUID  AND dtcr.rn = 1 and dtcr.num <=2
+LEFT JOIN cb_ProductYt AS productYt ON productYt.ProductYtGUID = dtcrProduct.ProductGUID 
+outer  apply (
+    SELECT top 1 ProjGUID,CbYtCode,ProductCode,ProductGUID,ProductName,BProductTypeName 
+    FROM cb_Product product
+    where  product.ProjGUID = productYt.ProjGUID AND product.CbYtCode = productYt.CbYtCode
+    ORDER BY OrderNo desc
+) product 
+LEFT JOIN myBizParamOption AS myOption ON myOption.ParamName = 'md_ProductType' AND myOption.ParamValue = product.BProductTypeName
+LEFT JOIN md_ProductNameModule AS mdModule ON mdModule.ProductNameCode = product.ProductCode
+LEFT JOIN p_Project AS p ON p.ProjGUID = dtc.ProjectGUID
+LEFT JOIN cb_ProjYtSet AS projYtSet ON projYtSet.ProjGUID = productYt.ProjGUID AND projYtSet.YtCode = productYt.CbYtCode
+--inner join p_Project p1 on p1.ProjCode = p.ParentCode
 WHERE   dtDetails.Type = '科目'  and dtcrProduct.DtCostRecollectProductGUID is null 

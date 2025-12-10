@@ -1,9 +1,13 @@
 USE [HighData_prod]
 GO
-
+/****** Object:  StoredProcedure [dbo].[usp_zb_jyjhtjkb_TotalInvestment]    Script Date: 2025/12/9 14:52:52 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
 -- 2025-09-20 chenjw 用于总部计划经营看板的 总投资指标存储过程
 
-CREATE  or  ALTER   PROC [dbo].[usp_zb_jyjhtjkb_TotalInvestment]
+create or  ALTER   PROC [dbo].[usp_zb_jyjhtjkb_TotalInvestment]
 AS
 BEGIN
     ----------------------------------------------------------------------
@@ -191,18 +195,57 @@ BEGIN
         group by t.projguid,t.CurVersion,bb.rn
     )t 
     group by t.projguid,CurVersion,版本,rn
-	
-    -- 填报数据
-    SELECT 
-        jytb.项目GUID,
-        jytb.财务费用_复利_一盘一策版
-    INTO #JyjhtjkbTb
-    FROM data_wide_dws_qt_Jyjhtjkb jytb
-    WHERE jytb.FillHistoryGUID IN (
-        SELECT TOP 1 FillHistoryGUID
-        FROM data_wide_dws_qt_Jyjhtjkb
-        ORDER BY FillDate DESC
-    )
+	 
+
+	-- 填报数据
+	select jytb.项目GUID,
+        jytb.财务费用_复利_一盘一策版,
+        jytb.可开展联动直投金额,
+        jytb.未来6个月内预计支付工程款, 
+        jytb.未来6个月预计签约金额,
+        jytb.预计回笼率, 
+        jytb.我方超投金额,
+        jytb.土增税应缴税率,
+        null 土增税应缴金额,
+        jytb.土增税已预缴税率,
+        null 土增税已预缴金额,
+        jytb.所得税应缴金额,
+        jytb.所得税已缴金额,
+		jytb.普通住宅增值率 普通住宅应缴土增税率,
+		jytb.普通住宅应缴土增税,
+		jytb.普通住宅当前已预缴土增税率,
+		jytb.普通住宅当前已预缴土增税,
+		null 普通住宅跳档预警,
+		jytb.非普通住宅增值率 非普通住宅应缴土增税率,
+		jytb.非普通住宅应缴土增税,
+		jytb.非普通住宅当前已预缴土增税率,
+		jytb.非普通住宅当前已预缴土增税,
+		null 非普通住宅跳档预警,
+		jytb.车位及其他应缴土增税 车位及其他业态增值率 ,
+		jytb.立项直接投资_2024年以前,
+		jytb.立项直接投资_2025年,
+		jytb.立项直接投资_2026年,
+		jytb.立项直接投资_2027年,
+		jytb.立项直接投资_2027年以后,
+		jytb.立项营销费用_2024年以前,
+		jytb.立项营销费用_2025年,
+		jytb.立项营销费用_2026年,
+		jytb.立项营销费用_2027年,
+		jytb.立项营销费用_2027年以后,
+		jytb.立项管理费用_2024年以前,
+		jytb.立项管理费用_2025年,
+		jytb.立项管理费用_2026年,
+		jytb.立项管理费用_2027年,
+		jytb.立项管理费用_2027年以后,
+        jytb.财务费用_复利_截止本月,
+        jytb.财务费用_复利_截止上月,
+        jytb.[财务费用_复利_立项版] , 
+        null [财务费用_复利_可售单方_立项版] ,
+        null [财务费用_单利_可售单方_截止本月],
+        jytb.[已发生财务费用_单利]
+	INTO #JyjhtjkbTb  
+    FROM data_wide_dws_qt_Jyjhtjkb jytb 
+
 
 select 
     f076.项目GUID, 
@@ -253,6 +296,14 @@ WHERE versionguid IN (
         group by t.ProjectGUID,t.CurVersion,bb.rn
     ) t 
     group by t.projguid,t.CurVersion,t.rn,t.版本
+
+    --取联动房款应收实收情况
+    select ParentProjGUID,
+    sum(isnull(qyamount,rgamount))/100000000.0 已联动金额,
+    sum(isnull(t.ssAmount,0))/100000000.0 联动回款金额
+    into #ld
+    from data_wide_s_LdfSaleDtl t
+	group by ParentProjGUID 
 
     INSERT INTO zb_jyjhtjkb_TotalInvestment (
         [buguid],
@@ -306,7 +357,49 @@ WHERE versionguid IN (
         [增值税及附加-一盘一策版],
         [已发生土地费用],
         [已支付土地费用],
-        [待发生土地费用]
+        [待发生土地费用],
+
+        [可开展联动直投金额],
+        [未来6个月内预计支付工程款], 
+        [未来6个月预计签约金额],
+        [预计回笼率], 
+        [我方超投金额],
+        [土增税应缴税率],
+        [土增税应缴金额],
+        [土增税已预缴税率],
+        [土增税已预缴金额],
+        [所得税应缴金额],
+        [所得税已缴金额], 
+        已支付除地价外直投,
+        已联动金额,
+        联动回款金额,
+		普通住宅应缴土增税率,
+		普通住宅应缴土增税,
+		普通住宅当前已预缴土增税率,
+		普通住宅当前已预缴土增税,
+		普通住宅跳档预警,
+		非普通住宅应缴土增税率,
+		非普通住宅应缴土增税,
+		非普通住宅当前已预缴土增税率,
+		非普通住宅当前已预缴土增税,
+		非普通住宅跳档预警,
+		车位及其他业态增值率,
+
+		立项直接投资_2024年以前,
+		立项直接投资_2025年,
+		立项直接投资_2026年,
+		立项直接投资_2027年,
+		立项直接投资_2027年以后,
+		立项营销费用_2024年以前,
+		立项营销费用_2025年,
+		立项营销费用_2026年,
+		立项营销费用_2027年,
+		立项营销费用_2027年以后,
+		立项管理费用_2024年以前,
+		立项管理费用_2025年,
+		立项管理费用_2026年,
+		立项管理费用_2027年,
+		立项管理费用_2027年以后
     )
     SELECT
         p.buguid AS [buguid],                -- 事业部GUID
@@ -328,13 +421,13 @@ WHERE versionguid IN (
         lx.财务费用_立项版 AS [财务费用(单利)_立项版],
         -- [财务费用(单利)_立项版] --- 需要填报
         f076.财务费用计划口径 AS [财务费用(单利)截止本月],
-        jytb.财务费用_复利_可售单方_截止本月   AS [财务费用(复利)可售单方_截止本月],
-        jytb.财务费用_复利_截止本月 AS [财务费用(复利）_截止本月],
-        jytb.财务费用_复利_截止上月 AS [财务费用(复利）_截止上月],
+        isnull(jb.[财务费用_复利_截止本月],0)/NULLIF(f076.地上可售面积合计,0)   AS [财务费用(复利)可售单方_截止本月],
+        jb.财务费用_复利_截止本月 AS [财务费用(复利）_截止本月],
+        jb.财务费用_复利_截止上月 AS [财务费用(复利）_截止上月],
 
-        jytb.[财务费用_复利_立项版] ,
-        jytb.[财务费用_复利_可售单方_立项版] ,
-        jytb.[财务费用_单利_可售单方_截止本月], 
+        jb.[财务费用_复利_立项版] ,
+        isnull(jb.[财务费用_复利_立项版],0)/NULLIF(f076.立项地上可售面积,0) [财务费用_复利_可售单方_立项版] ,
+        jb.[财务费用_单利_可售单方_截止本月], 
 
         NULL AS [应付未付股东借款利息], -- 取数口径不清楚
         yxfy.预算金额 AS [营销费用_动态版],
@@ -343,7 +436,7 @@ WHERE versionguid IN (
         lx.管理费用_立项版 AS [管理费用_立项版],
         yfs.YfsZtzCost AS [已发生总投资_动态版],
         yfs.YfsCost AS [已发生除地价外直投],
-        jytb.[已发生财务费用_单利] AS [已发生财务费用（单利）],
+        jb.[已发生财务费用_单利] AS [已发生财务费用（单利）],
         cz.已发生产值_亿 AS [已发生产值],
         yxfy.已发生费用 AS [已发生营销费用],
         NULL AS [已发生管理费用], -- 取数口径有疑问
@@ -363,8 +456,50 @@ WHERE versionguid IN (
         ylgh.增值税下附加税/100000000 as [增值税及附加-一盘一策版],
         td.LandCostTotal as [已发生土地费用],
         td.LandCostTotal as [已支付土地费用],
-        isnull(f076.土地费用,0) - isnull(td.LandCostTotal,0) as [待发生土地费用]
+        isnull(f076.土地费用,0) - isnull(td.LandCostTotal,0) as [待发生土地费用],
+
+        jb.可开展联动直投金额,
+        jb.未来6个月内预计支付工程款, 
+        jb.未来6个月预计签约金额,
+        jb.预计回笼率, 
+        jb.我方超投金额,
+        jb.土增税应缴税率,
+        jb.土增税应缴金额,
+        jb.土增税已预缴税率,
+        jb.土增税已预缴金额,
+        jb.所得税应缴金额,
+        jb.所得税已缴金额, 
+        td.JaInvestmentAmount as [已支付除地价外直投],
+        ld.已联动金额,
+        ld.联动回款金额,
+		jb.普通住宅应缴土增税率,
+		jb.普通住宅应缴土增税,
+		jb.普通住宅当前已预缴土增税率,
+		jb.普通住宅当前已预缴土增税,
+		jb.普通住宅跳档预警,
+		jb.非普通住宅应缴土增税率,
+		jb.非普通住宅应缴土增税,
+		jb.非普通住宅当前已预缴土增税率,
+		jb.非普通住宅当前已预缴土增税,
+		jb.非普通住宅跳档预警,
+		jb.车位及其他业态增值率,
+		jb.立项直接投资_2024年以前,
+		jb.立项直接投资_2025年,
+		jb.立项直接投资_2026年,
+		jb.立项直接投资_2027年,
+		jb.立项直接投资_2027年以后,
+		jb.立项营销费用_2024年以前,
+		jb.立项营销费用_2025年,
+		jb.立项营销费用_2026年,
+		jb.立项营销费用_2027年,
+		jb.立项营销费用_2027年以后,
+		jb.立项管理费用_2024年以前,
+		jb.立项管理费用_2025年,
+		jb.立项管理费用_2026年,
+		jb.立项管理费用_2027年,
+		jb.立项管理费用_2027年以后
     FROM data_wide_dws_mdm_Project p
+    left join #ld ld on ld.ParentProjGUID = p.projguid
     LEFT JOIN (
         select p.ParentGUID,
                 sum(case when t.rn = 1 then t.总投资 end)/100000000 as 总投资,
@@ -388,7 +523,9 @@ WHERE versionguid IN (
               - isnull(f076.综合管理费协议口径,0) as 土地费用,
             f076.财务费用计划口径,
             f076.营销费用,
-            f076.综合管理费协议口径
+            f076.综合管理费协议口径,
+            f076.立项地上可售面积,
+            f076.地上可售面积合计
         FROM data_wide_dws_qt_nmap_s_F076项目运营情况跟进表 f076
         INNER JOIN data_wide_dws_mdm_Project p ON f076.项目GUID = p.projguid AND p.level = 2
         WHERE versionguid IN (
@@ -401,7 +538,8 @@ WHERE versionguid IN (
         SELECT 
         ProjGUID,
         projname,
-        LandCostTotal/10000 as LandCostTotal  
+        LandCostTotal/10000 as LandCostTotal,
+        JaInvestmentAmount/10000 as JaInvestmentAmount
     FROM data_wide_dws_ys_ys_DssCashFlowData
     WHERE isbase = 1
     ) td on td.ProjGUID = p.projguid
@@ -415,24 +553,7 @@ WHERE versionguid IN (
             t.UnderVATSurcharge/100000000 立项增值税及附加 
         FROM data_wide_dws_ys_SumOperatingProfitDataLXDWBfYt t
         WHERE EditonType = '立项版'
-    ) lx on lx.projguid = p.projguid
-    LEFT JOIN (
-        SELECT 
-            jytb.项目GUID,
-            jytb.财务费用_复利_截止本月,
-            jytb.财务费用_复利_截止上月,
-            jytb.[财务费用_复利_立项版] ,
-            jytb.[财务费用_复利_可售单方_截止本月], 
-            jytb.[财务费用_复利_可售单方_立项版] ,
-            jytb.[财务费用_单利_可售单方_截止本月],
-            jytb.[已发生财务费用_单利]
-        FROM data_wide_dws_qt_Jyjhtjkb jytb
-        WHERE jytb.FillHistoryGUID IN (
-            SELECT TOP 1 FillHistoryGUID
-            FROM data_wide_dws_qt_Jyjhtjkb
-            ORDER BY FillDate DESC
-        )
-    ) jytb  ON jytb.项目GUID = p.projguid
+    ) lx on lx.projguid = p.projguid 
     LEFT JOIN (
         select 
             a.BUGUID,
@@ -474,54 +595,7 @@ WHERE versionguid IN (
     ----------------------------------------------------------------------
     -- 4. 查询当天插入的最终数据，便于校验
     ----------------------------------------------------------------------
-    SELECT
-        [buguid],
-        [projguid],
-        [清洗日期],
-        除地价外直投本月拍照版,
-        除地价外直投上月拍照版,
-        除地价外直投_立项版,
-        [开发前期费用本月拍照版],
-        [建筑安装工程费本月拍照版],
-        [红线内配套费本月拍照版],
-        [政府收费及不可预见费本月拍照版],
-        [开发前期费用_立项版],
-        [建筑安装工程费_立项版],
-        [红线内配套费_立项版],
-        [政府收费及不可预见费_立项版],
-        [财务费用(单利)_立项版],
-        [财务费用(单利)截止本月],
-        [财务费用(复利)可售单方_截止本月],
-        [财务费用(复利）_截止本月],
-        [财务费用(复利）_截止上月],
-        [应付未付股东借款利息],
-        [营销费用_动态版],
-        [营销费用_立项版],
-        [管理费用_动态版],
-        [管理费用_立项版],
-        [已发生总投资_动态版],
-        [已发生除地价外直投],
-        [已发生财务费用（单利）],
-        [已发生产值],
-        [已发生营销费用],
-        [已发生管理费用],
-        [总投资_动态版],
-        [总投资_立项版],
-        [已发生增值税及附加-动态版],
-        [待发生增值税及附加-动态版],
-        [增值税及附加_立项版],
-        [增值税及附加_动态版],
-        [除地价外直投-一盘一策版],
-        [土地费用-一盘一策版],
-        [财务费用(单利)-一盘一策版],
-        [财务费用(复利)-一盘一策版],
-        [营销费用-一盘一策版],
-        [管理费用-一盘一策版],
-        [总投资-一盘一策版],
-        [增值税及附加-一盘一策版],
-        [已发生土地费用],
-        [已支付土地费用],
-        [待发生土地费用]
+    SELECT  *
     FROM zb_jyjhtjkb_TotalInvestment
     WHERE DATEDIFF(DAY, 清洗日期, GETDATE()) = 0;
 
@@ -583,4 +657,5 @@ END
 --     left join data_tb_ylss_lczy lczy on ti.projguid =lczy.项目GUID
 --     WHERE DATEDIFF(DAY, [清洗日期], ${qxDate} ) = 0
 
+ 
 

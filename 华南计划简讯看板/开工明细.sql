@@ -31,6 +31,8 @@ WHERE   p.developmentcompanyguid = 'AADC0FA7-9546-49C9-B64B-825056C828ED';
 --完工
 SELECT  DISTINCT buname ,
                  a.项目GUID,
+                 a.一级项目名称,
+                 a.计划组团名称,
                  投管项目名称 + '-' + 关联工程楼栋 楼栋 ,
                  实际开工计划完成时间 ,
                  实际开工实际完成时间 ,
@@ -53,5 +55,3 @@ FROM(SELECT ROW_NUMBER() OVER (ORDER BY 月 desc) AS 序号, * FROM   #wg) t;
 --删除临时表
 DROP TABLE #ms ,
            #wg;
-
-

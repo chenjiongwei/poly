@@ -109,28 +109,28 @@ BEGIN
             sf.BldGUID as 产品楼栋GUID,
             SUM(
                 CASE 
-                    WHEN DATEDIFF(DAY, chld.承诺时间, StatisticalDate) >= 0 
+                    WHEN DATEDIFF(DAY, StatisticalDate, chld.承诺时间) >= 0 
                         THEN ISNULL(sf.CNetAmount, 0) + ISNULL(sf.SpecialCNetAmount, 0) 
                     ELSE 0 
                 END
             ) / 100000000.0 AS 承诺日累计签约金额,
             SUM(
                 CASE 
-                    WHEN DATEDIFF(DAY, chld.承诺时间, StatisticalDate) >= 0 
+                    WHEN DATEDIFF(DAY, StatisticalDate, chld.承诺时间 ) >= 0 
                         THEN ISNULL(sf.CNetAmountNotTax, 0) + ISNULL(sf.SpecialCNetAmountNotTax, 0) 
                     ELSE 0 
                 END
             ) / 100000000.0 AS 承诺日累计不含税签约金额,
             SUM(
                 CASE 
-                    WHEN DATEDIFF(DAY, chld.承诺时间, StatisticalDate) >= 0 
+                    WHEN DATEDIFF(DAY, StatisticalDate, chld.承诺时间 ) >= 0 
                         THEN ISNULL(sf.CNetArea, 0) + ISNULL(sf.SpecialCNetArea, 0) 
                     ELSE 0 
                 END
             ) / 10000.0 AS 承诺日累计签约面积
         FROM data_wide_dws_s_SalesPerf sf 
         INNER JOIN #ld  chld  ON sf.bldguid = chld.产品楼栋GUID --and sf.ParentProjGUID =chld.项目GUID
-        WHERE  DATEDIFF(DAY, chld.承诺时间, StatisticalDate) >= 0 
+        WHERE  DATEDIFF(DAY, StatisticalDate,chld.承诺时间 ) >= 0 
         GROUP BY sf.ParentProjGUID , sf.BldGUID
     ) chdtl ON ld.项目GUID = chdtl.项目GUID
         AND ld.产品楼栋GUID = chdtl.产品楼栋GUID
@@ -277,21 +277,21 @@ BEGIN
             sale.BldGUID,
             SUM(
                 CASE 
-                    WHEN DATEDIFF(DAY, chld.承诺时间, StatisticalDate) >= 0 
+                    WHEN DATEDIFF(DAY, StatisticalDate, chld.承诺时间 ) >= 0 
                         THEN ISNULL(Sale.CNetAmount, 0) + ISNULL(Sale.SpecialCNetAmount, 0) 
                     ELSE 0 
                 END
             ) / 100000000.0 AS 承诺日累计签约金额_动态版,
             SUM(
                 CASE 
-                    WHEN DATEDIFF(DAY, chld.承诺时间, StatisticalDate) >= 0 
+                    WHEN DATEDIFF(DAY, StatisticalDate, chld.承诺时间 ) >= 0 
                         THEN ISNULL(Sale.CNetAmountNotTax, 0) + ISNULL(Sale.SpecialCNetAmountNotTax, 0) 
                     ELSE 0 
                 END
             ) / 100000000.0 AS 承诺日累计签约金额不含税_动态版,
             SUM(
                 CASE 
-                    WHEN DATEDIFF(DAY, chld.承诺时间, StatisticalDate) >= 0 
+                    WHEN DATEDIFF(DAY,  StatisticalDate, chld.承诺时间 ) >= 0 
                         THEN ISNULL(Sale.CNetArea, 0) + ISNULL(Sale.SpecialCNetArea, 0) 
                     ELSE 0 
                 END

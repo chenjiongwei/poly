@@ -1,10 +1,12 @@
 USE [ERP25]
 GO
-/****** Object:  StoredProcedure [dbo].[usp_s_F056各项目产品楼栋表系统取数原始表单_测试版]    Script Date: 2025/12/3 18:07:13 ******/
+/****** Object:  StoredProcedure [dbo].[usp_s_F056各项目产品楼栋表系统取数原始表单_测试版]    Script Date: 2025/12/9 11:13:00 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
+
+
 
 
 
@@ -2030,6 +2032,12 @@ BEGIN
                 ) t
 
         /*-----------------2025-12-01新增存货财务支付口径相关指标结束----------------------------------------*/
+
+		select SaleBldGUID,BuildTagValue,ROW_NUMBER() over(partition by SaleBldGUID order by createon desc) as rn
+		into #tag
+		from mdm_BuildTag 
+		where  buildtag = 'SDT';
+
         --  输出最终查询结果
         SELECT dv.DevelopmentCompanyGUID OrgGUID,
             @VersionGUID VersionGUID,
@@ -2249,7 +2257,7 @@ BEGIN
         left join #sftax sftax on sftax.projguid = ms.TopProjGuid
         left join #xsjz xsjz on xsjz.bldguid = ms.salebldguid
         left join #jzcb jzcb on jzcb.bldguid = ms.salebldguid
-        left join mdm_BuildTag tag on tag.SaleBldGUID = ms.salebldguid and buildtag = 'SDT' 
+        left join #tag tag on tag.SaleBldGUID = ms.salebldguid
 		left join #zy zy on zy.SaleBldGUID = ms.SaleBldGUID
         left join #ljhl hl on hl.BldGUID = ms.SaleBldGUID
         left join #cpbld_rate cp_rate on cp_rate.SaleBldGUID = ms.SaleBldGUID
@@ -2265,7 +2273,9 @@ BEGIN
                    #dfhz,#bld_lst,#bld_st,#con,#con2024,#feebck,#hz_st,#ld_rate,#ld_st_sale,
 				   #proj_rate,#proj_st,#qy_st,#rg_st,#t,#ts_st,#vrt,#gcbld_rate,#tj_Rate,#cpbld_rate,
                    #vor,#htnotfee,#fqcz,#ldcz,#htrate,#zy,#ljhl,#zs_area,#mj,#sftax,#xsjz,#jzcb,#CarryOverMbb,
-                   #Budget,#yfs,#yjl,#hy,#hygh,#hygh_new;
+                   #Budget,#yfs,#yjl,#hy,#hygh,#hygh_new,#tag;
     END;
 END;
+
+
 

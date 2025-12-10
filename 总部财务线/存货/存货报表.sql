@@ -403,6 +403,7 @@ BEGIN
     FROM [172.16.4.161].[HighData_prod].[dbo].[data_wide_dws_s_LHFloorBldHz] with (nolock)
 
    print '统计天地楼层的楼栋' + CONVERT(NVARCHAR(20), @@ROWCOUNT);
+ 
     -- 按楼栋统计近三个月销售情况
     SELECT 
         Sale.ParentProjGUID, 
@@ -1421,7 +1422,7 @@ BEGIN
         ch.导入方式,
 
         -- 存货结构-按支付口径
-        ch.TotalCost               AS 存货结构_存货余额,
+        ch.TotalCost   AS 存货结构_存货余额,
         case when isnull(ch.线下分摊_实际已付,0) <> 0  then ch.线下分摊_实际已付 
         else   -- 线上分摊实际已付
         (
